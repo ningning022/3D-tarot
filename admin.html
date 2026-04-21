@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Akashic Tarot - Chronicle Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="admin-page">
+    <main class="admin-shell">
+        <header class="admin-header">
+            <div>
+                <p class="admin-kicker">Akashic Tarot</p>
+                <h1>秘典数据库 / Chronicle Database</h1>
+                <p class="admin-subtitle">只读查看本地 SQLite 占卜记录 / Read-only local SQLite history</p>
+            </div>
+            <div class="admin-actions">
+                <button id="clear-readings" class="admin-link danger-button" type="button">
+                    清空数据库 / Clear Database
+                </button>
+                <a class="admin-link" href="Three.html">返回占卜 / Back to Tarot</a>
+            </div>
+        </header>
+
+        <section class="admin-grid">
+            <aside class="admin-list-panel">
+                <div class="admin-panel-title">最近记录 / Recent Readings</div>
+                <div id="admin-status" class="admin-status">连接数据库中… / Connecting…</div>
+                <div id="reading-list" class="reading-list"></div>
+            </aside>
+
+            <section class="admin-detail-panel">
+                <div id="reading-detail" class="reading-detail">
+                    <div class="empty-state">选择一条记录查看详情 / Select a reading</div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script src="js/api.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+
+</html>

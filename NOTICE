@@ -1,0 +1,12 @@
+Akashic Tarot Notice
+====================
+
+This repository includes source code for a local, gesture-controlled tarot
+reading application. The source code is licensed under the MIT License.
+
+The image files in `image2/` are included so the local demo can run out of the
+box. Those images may originate from public-domain or third-party tarot artwork
+collections, and their copyright status may differ from the code license. The
+MIT License in this repository applies to the project code and documentation,
+but it does not automatically grant rights to third-party artwork. If you reuse
+or redistribute the card images, verify the applicable image rights first.

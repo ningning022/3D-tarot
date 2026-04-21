@@ -1,0 +1,25 @@
+# Runtime data
+data/*.sqlite3
+data/*.sqlite3-shm
+data/*.sqlite3-wal
+data/*.sqlite3-journal
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Test/runtime scratch files
+tests/.tmp/
+.pytest_cache/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local environment files
+.env
+.env.*
