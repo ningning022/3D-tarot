@@ -28,6 +28,7 @@
             .map(card => ({
                 slot: numeric(card.slot),
                 cardId: card.cardId,
+                slotLabel: card.slotLabel || `Slot ${numeric(card.slot)}`,
                 zh: card.zh || '',
                 en: card.en || '',
                 imageFile: card.imageFile || '',

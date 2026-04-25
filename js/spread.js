@@ -4,7 +4,39 @@ const _spreadHomeScale = new THREE.Vector3();
 const _spreadWorldPos = new THREE.Vector3();
 const _spreadWorldQuat = new THREE.Quaternion();
 
-function spawnCard(slot, cardDef, isReversed) {
+function createRandomCardMarker() {
+    return { __randomCard: true };
+}
+
+function getCurrentSpreadTemplate() {
+    if (window.SpreadTemplates) return SpreadTemplates.getActiveTemplate();
+    return { key: 'free', name: '自由牌阵 / Free Spread', fixedCount: null, slots: [] };
+}
+
+function createPlanFromSelected(selectedCards) {
+    return SpreadTemplates.resolveSpreadPlan(
+        getCurrentSpreadTemplate(),
+        selectedCards,
+        () => createRandomCardMarker()
+    );
+}
+
+function removeCardIdFromDeckPool(cardId) {
+    deckPool = deckPool.filter(id => id !== cardId);
+}
+
+function spawnPlannedCard(planItem, slot, slotLabel) {
+    if (!planItem || planItem.__randomCard) {
+        spawnCard(slot, null, undefined, slotLabel);
+        return;
+    }
+    const cardDef = FULL_DECK[planItem.userData.cardIndex];
+    const isReversed = SpreadFlow.resolveSelectedOrientation(planItem);
+    removeCardIdFromDeckPool(planItem.userData.cardIndex);
+    spawnCard(slot, cardDef, isReversed, slotLabel);
+}
+
+function spawnCard(slot, cardDef, isReversed, slotLabel) {
     let cardId = cardDef ? FULL_DECK.indexOf(cardDef) : -1;
     if (!cardDef) {
         // 随机抽牌模式 / Random draw mode
@@ -27,6 +59,8 @@ function spawnCard(slot, cardDef, isReversed) {
     ];
 
     const card = new THREE.Mesh(geo, materials);
+    card.castShadow = true;
+    card.receiveShadow = true;
     // 居中排列：以 spreadCards 张平均分布，间距 2.8
     const layout = SpreadLayout.computeBrowserSpreadLayout(spreadCards);
     const target = layout[slot - 1] || { x: 0, y: 0, scale: 1 };
@@ -41,6 +75,7 @@ function spawnCard(slot, cardDef, isReversed) {
         isReversed: isReversed,
         state: 'DEALING',
         slot: slot,
+        slotLabel: slotLabel || `Slot ${slot}`,
         homeY: target.y,
         homeScale: target.scale,
         homeX: xCenter   // 记录原位X，供归位使用
@@ -88,6 +123,7 @@ function handleGestures() {
             idlePointedCard = null;
             isIdleRotating = true;
             document.getElementById('idle-title').style.opacity = '1';
+            document.getElementById('spread-template-ring').classList.remove('hidden');
             document.getElementById('guide-text').innerText =
                 '张手(OPEN): 开始占卜 / Open hand to begin';
             document.getElementById('status').innerText =
@@ -316,14 +352,21 @@ function confirmCard(card) {
 /** 发下一组牌（无 idle pinch，固定3张）/ Deal next spread */
 function dealNextSpread() {
     confirmedInSpread = 0;
-    spreadCards = 3;
     spreadState = 'ACTIVE';
-    resetReadingCapture();
-    if (deckPool.length < 3) {
+    const plan = createPlanFromSelected([]);
+    spreadCards = plan.totalCards;
+    resetReadingCapture({
+        kind: 'spread',
+        templateKey: plan.templateKey,
+        templateName: plan.templateName
+    });
+    if (deckPool.length < spreadCards) {
         deckPool = [...Array(78).keys()];
         prependHistoryNote('✦ 牌库已重置 / Deck Reshuffled ✦');
     }
-    for (let i = 0; i < 3; i++) spawnCard(i + 1);
+    plan.selectedCards.forEach((item, index) => {
+        spawnPlannedCard(item, index + 1, plan.slotLabels[index]);
+    });
 }
 
 function showSpreadPrompt() {
@@ -339,13 +382,14 @@ function hideSpreadPrompt() {
 /** OPEN 触发：轮播飞散，用已选牌（或随机3张）发牌 */
 function startSpread(selectedCards) {
     document.getElementById('idle-title').style.opacity = '0';
+    document.getElementById('spread-template-ring').classList.add('hidden');
     hideIdleLabel();
-    resetReadingCapture();
     if (Array.isArray(selectedCards)) {
         idlePinchedCards = SpreadFlow.createEnteringSnapshot(selectedCards);
     }
 
     const pinched = idlePinchedCards.slice(); // 已pinch的牌列表
+    const plan = createPlanFromSelected(pinched);
     idlePinchedCards = [];
     idleHeldCard = null;
     idlePointedCard = null;
@@ -355,22 +399,22 @@ function startSpread(selectedCards) {
     setTimeout(() => {
         spreadState = 'ACTIVE';
         confirmedInSpread = 0;
+        spreadCards = plan.totalCards;
+        resetReadingCapture({
+            kind: 'spread',
+            templateKey: plan.templateKey,
+            templateName: plan.templateName
+        });
         document.getElementById('guide-text').innerText =
             '捏合(PINCH): 翻牌/Flip | 握拳(FIST): 祭献/Confirm';
 
-        if (pinched.length > 0) {
-            // 用 idle 中已选牌作为本阵数据
-            spreadCards = pinched.length;
-            pinched.forEach((mesh, i) => {
-                // 从 mesh.userData 中读取轮盘时装载的牌定义（来自 FULL_DECK）
-                const cardDef = FULL_DECK[mesh.userData.cardIndex];
-                const isReversed = SpreadFlow.resolveSelectedOrientation(mesh);
-                spawnCard(i + 1, cardDef, isReversed);
-            });
-        } else {
-            // 无选牌：随机抽3张
-            spreadCards = 3;
-            for (let i = 0; i < 3; i++) spawnCard(i + 1);
+        if (deckPool.length < plan.selectedCards.filter(item => item && item.__randomCard).length) {
+            deckPool = [...Array(78).keys()];
+            prependHistoryNote('✦ 牌库已重置 / Deck Reshuffled ✦');
         }
+
+        plan.selectedCards.forEach((item, index) => {
+            spawnPlannedCard(item, index + 1, plan.slotLabels[index]);
+        });
     }, 700);
 }

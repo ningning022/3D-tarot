@@ -10,6 +10,8 @@ The app is designed for local use first: no account system, no cloud service, an
 - Webcam gesture controls for selecting, inspecting, confirming, and continuing readings.
 - Mouse fallback when the camera is unavailable.
 - Local SQLite storage for reading history.
+- Built-in spread templates for 3-card, 5-card, Celtic Cross, and free spreads.
+- Daily Draw creates one local card record per day without interpretation text.
 - Read-only database viewer at `admin.html` with visual spread replay.
 - Safe "clear database" action guarded by a `CLEAR` confirmation prompt.
 - Responsive multi-card spread layout for large readings.
@@ -41,7 +43,7 @@ Do not open `Three.html` by double-clicking it if you want persistent history. T
 
 | Gesture | State | Action |
 | --- | --- | --- |
-| OPEN | Idle | Start a spread. Previously selected cards are used first; otherwise 3 random cards are dealt. |
+| OPEN | Idle | Start the selected spread template. Previously selected cards are used first; fixed templates are filled or trimmed to their slot count. |
 | POINT | Idle | Pause the carousel and highlight the pointed card. |
 | PINCH | Idle | Pick up and inspect the pointed carousel card. |
 | TWO_FINGER | Idle | Swipe left or right to change carousel speed/direction. |
@@ -63,8 +65,8 @@ This file contains local reading history and is ignored by git. Do not commit re
 
 The database stores:
 
-- `readings`: one row per completed spread.
-- `reading_cards`: the cards in each spread, including slot, card id, Chinese and English names, image file name, and upright/reversed state.
+- `readings`: one row per completed spread or daily draw, including kind, template key/name, date, and created time.
+- `reading_cards`: the cards in each record, including slot, slot label, card id, Chinese and English names, image file name, and upright/reversed state.
 
 The admin page can view saved records, replay each saved spread visually, and clear all readings. Clearing the database is irreversible for the local SQLite file.
 
@@ -79,15 +81,22 @@ All API routes are served by `server.py`.
 | `GET` | `/api/readings?limit=20` | Lists recent readings, newest first. |
 | `GET` | `/api/readings/{id}` | Loads one reading and its cards. |
 | `DELETE` | `/api/readings` | Clears all local reading records and resets ids. |
+| `GET` | `/api/daily-draw?date=YYYY-MM-DD` | Loads the saved Daily Draw for a local date. |
+| `POST` | `/api/daily-draw` | Creates or returns the Daily Draw for a local date. |
 
 Example save request:
 
 ```json
 {
+  "kind": "spread",
+  "templateKey": "three_timeline",
+  "templateName": "三张牌 / Past Present Future",
+  "readingDate": "2026-04-25",
   "spreadNumber": 1,
   "cards": [
     {
       "slot": 1,
+      "slotLabel": "过去 / Past",
       "cardId": 0,
       "zh": "愚人",
       "en": "The Fool",
@@ -116,6 +125,7 @@ taluo/
 │   ├── api.js          # API wrapper with offline fallback
 │   ├── admin.js        # Admin page UI
 │   ├── carousel.js     # Idle carousel
+│   ├── daily_draw.js   # Daily Draw creation/rendering
 │   ├── deck.js         # Card definitions
 │   ├── gesture.js      # Gesture classification and stabilization
 │   ├── history.js      # Reading capture and history rendering
@@ -125,14 +135,17 @@ taluo/
 │   ├── spread.js       # Spread state machine and card interactions
 │   ├── spread_flow.js  # Small testable spread-flow helpers
 │   ├── spread_layout.js # Responsive spread layout helper
+│   ├── spread_templates.js # Spread template definitions
 │   ├── state.js        # Shared runtime state
 │   ├── ui.js           # Card label UI helpers
 │   └── utils.js        # Texture and cleanup helpers
 └── tests/
     ├── test_gesture.js
+    ├── test_daily_draw.js
     ├── test_reading_orientation.js
     ├── test_reading_replay.js
     ├── test_server.py
+    ├── test_spread_templates.js
     └── test_spread_layout.js
 ```
 
@@ -142,7 +155,9 @@ Run JavaScript behavior checks:
 
 ```bash
 node tests/test_gesture.js
+node tests/test_daily_draw.js
 node tests/test_spread_layout.js
+node tests/test_spread_templates.js
 node tests/test_reading_orientation.js
 node tests/test_reading_replay.js
 ```

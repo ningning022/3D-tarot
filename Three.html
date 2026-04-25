@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Akashic Tarot - 78张高清全集 / Full 78-Card Deck</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akashic Tarot - Full 78-Card Deck</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 
@@ -11,12 +12,13 @@
 
     <div class="ui-layer">
         <div class="status-panel">
-            <div id="status">连接星轨中… / Connecting to Akashic…</div>
-            <div id="gesture-active">等待指引 / Awaiting guidance
-            </div>
+            <div id="status">连接星轨中... / Connecting to Akashic...</div>
+            <div id="gesture-active">等待指引 / Awaiting guidance</div>
+            <div id="daily-draw" class="daily-draw"></div>
         </div>
-        <div id="history" class="panel">
-            <div class="history-title">▶ 秘典记录 / Chronicle ◀</div>
+        <div id="history" class="panel history-panel collapsed">
+            <button id="history-toggle" class="history-toggle" type="button">Chronicle</button>
+            <div class="history-title">秘典记录 / Chronicle</div>
             <a class="history-db-link" href="admin.html">查看数据库 / Database</a>
             <div id="history-list"></div>
         </div>
@@ -28,21 +30,25 @@
         <div class="card-orient" id="card-orient">-</div>
     </div>
 
-    <!-- 待机标题 / Idle title -->
     <div id="idle-title">
         <h2>AKASHIC TAROT</h2>
-        <p>张手唤起命运 / Open your hand to begin</p>
+        <p>张开手唤起命运 / Open your hand to begin</p>
     </div>
 
-    <!-- 牌阵完成后询问提示 / Post-spread confirmation prompt -->
+    <div id="spread-template-ring" class="template-ring" aria-label="Spread templates">
+        <button type="button" data-template="three_timeline" class="active">三张 / 3</button>
+        <button type="button" data-template="five_cross">五张 / 5</button>
+        <button type="button" data-template="celtic_cross">十字 / 10</button>
+        <button type="button" data-template="free">自由 / Free</button>
+    </div>
+
     <div id="spread-prompt">
         <div class="prompt-title">✦ 牌阵已完成 ✦</div>
         <div class="prompt-kicker">Spread Complete</div>
         <div class="prompt-sub">是否开启下一次牌阵？<br>Begin the next spread?</div>
-        <div class="prompt-hint">张手(OPEN) 是/Yes &nbsp;|&nbsp; 握拳(FIST) 否/No</div>
+        <div class="prompt-hint">张手(OPEN) 是 Yes &nbsp;|&nbsp; 握拳(FIST) 否 No</div>
     </div>
 
-    <!-- 待机状态悬浮牌名标签 / Floating card-name label in idle -->
     <div id="idle-card-label"></div>
 
     <div class="guide" id="guide-text">张手(OPEN): 开始占卜 / Open hand to begin</div>
@@ -50,12 +56,10 @@
     <video id="video-input" playsinline></video>
     <div id="canvas-container"></div>
 
-    <!-- 三方库 / Third-party libraries -->
     <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-    <!-- 本地模块（依赖顺序） / Local modules (dependency order) -->
     <script src="js/deck.js"></script>
     <script src="js/state.js"></script>
     <script src="js/utils.js"></script>
@@ -63,9 +67,11 @@
     <script src="js/ui.js"></script>
     <script src="js/carousel.js"></script>
     <script src="js/api.js"></script>
+    <script src="js/daily_draw.js"></script>
     <script src="js/history.js"></script>
     <script src="js/gesture.js"></script>
     <script src="js/spread_layout.js"></script>
+    <script src="js/spread_templates.js"></script>
     <script src="js/spread_flow.js"></script>
     <script src="js/spread.js"></script>
     <script src="js/mediapipe.js"></script>

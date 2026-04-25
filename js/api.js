@@ -31,11 +31,14 @@ const TarotAPI = (() => {
     }
 
     async function saveReading(spreadNumber, cards) {
-        if (!Array.isArray(cards) || cards.length === 0) return null;
+        const payload = Array.isArray(cards)
+            ? { spreadNumber, cards }
+            : { ...(cards || {}), spreadNumber: cards && cards.spreadNumber !== undefined ? cards.spreadNumber : spreadNumber };
+        if (!Array.isArray(payload.cards) || payload.cards.length === 0) return null;
         try {
             return await requestJson('/api/readings', {
                 method: 'POST',
-                body: JSON.stringify({ spreadNumber, cards })
+                body: JSON.stringify(payload)
             });
         } catch (error) {
             warnOffline(error);
@@ -70,12 +73,43 @@ const TarotAPI = (() => {
         }
     }
 
+    async function loadDailyDraw(date) {
+        try {
+            const response = await fetch(`/api/daily-draw?date=${encodeURIComponent(date)}`);
+            if (response.status === 404) return null;
+            if (!response.ok) {
+                throw new Error(`API ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        } catch (error) {
+            warnOffline(error);
+            return null;
+        }
+    }
+
+    async function saveDailyDraw(payload) {
+        try {
+            return await requestJson('/api/daily-draw', {
+                method: 'POST',
+                body: JSON.stringify({
+                    readingDate: payload.readingDate,
+                    card: payload.cards && payload.cards[0]
+                })
+            });
+        } catch (error) {
+            warnOffline(error);
+            return null;
+        }
+    }
+
     return {
         health,
         saveReading,
         loadReadings,
         loadReading,
-        clearReadings
+        clearReadings,
+        loadDailyDraw,
+        saveDailyDraw
     };
 })();
 

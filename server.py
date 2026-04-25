@@ -33,13 +33,18 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS readings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     spread_number INTEGER NOT NULL,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    kind TEXT NOT NULL DEFAULT 'spread',
+                    template_key TEXT NOT NULL DEFAULT 'free',
+                    template_name TEXT NOT NULL DEFAULT '自由牌阵 / Free Spread',
+                    reading_date TEXT
                 );
 
                 CREATE TABLE IF NOT EXISTS reading_cards (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     reading_id INTEGER NOT NULL,
                     slot INTEGER NOT NULL,
+                    slot_label TEXT NOT NULL DEFAULT '',
                     card_id INTEGER NOT NULL,
                     zh TEXT NOT NULL,
                     en TEXT NOT NULL,
@@ -56,6 +61,44 @@ def init_db():
                     ON reading_cards(card_id);
                 """
             )
+            ensure_column(
+                conn,
+                "readings",
+                "kind",
+                "TEXT NOT NULL DEFAULT 'spread'",
+            )
+            ensure_column(
+                conn,
+                "readings",
+                "template_key",
+                "TEXT NOT NULL DEFAULT 'free'",
+            )
+            ensure_column(
+                conn,
+                "readings",
+                "template_name",
+                "TEXT NOT NULL DEFAULT '自由牌阵 / Free Spread'",
+            )
+            ensure_column(conn, "readings", "reading_date", "TEXT")
+            ensure_column(
+                conn,
+                "reading_cards",
+                "slot_label",
+                "TEXT NOT NULL DEFAULT ''",
+            )
+            conn.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_draw_reading_date
+                    ON readings(reading_date)
+                    WHERE kind = 'daily' AND template_key = 'daily_draw'
+                """
+            )
+
+
+def ensure_column(conn, table, column, definition):
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 def json_response(status, data):
@@ -80,8 +123,10 @@ def normalize_card(raw_card):
     required = ("slot", "cardId", "zh", "en", "imageFile", "isReversed")
     if not isinstance(raw_card, dict) or any(key not in raw_card for key in required):
         raise ValueError("Each card must include slot, cardId, zh, en, imageFile, and isReversed")
+    slot = int(raw_card["slot"])
     return {
-        "slot": int(raw_card["slot"]),
+        "slot": slot,
+        "slot_label": str(raw_card.get("slotLabel") or f"Slot {slot}"),
         "card_id": int(raw_card["cardId"]),
         "zh": str(raw_card["zh"]),
         "en": str(raw_card["en"]),
@@ -97,6 +142,16 @@ def create_reading(payload):
     spread_number = int(payload.get("spreadNumber", 0))
     if spread_number < 0:
         raise ValueError("spreadNumber must be zero or greater")
+    kind = str(payload.get("kind") or "spread")
+    if kind not in {"spread", "daily"}:
+        raise ValueError("kind must be spread or daily")
+    template_key = str(payload.get("templateKey") or ("daily_draw" if kind == "daily" else "free"))
+    template_name = str(
+        payload.get("templateName")
+        or ("每日一牌 / Daily Draw" if kind == "daily" else "自由牌阵 / Free Spread")
+    )
+    reading_date = payload.get("readingDate")
+    reading_date = str(reading_date) if reading_date else None
 
     normalized_cards = [normalize_card(card) for card in cards]
     created_at = utc_now_iso()
@@ -104,21 +159,27 @@ def create_reading(payload):
     with closing(get_connection()) as conn:
         with conn:
             cursor = conn.execute(
-                "INSERT INTO readings (spread_number, created_at) VALUES (?, ?)",
-                (spread_number, created_at),
+                """
+                INSERT INTO readings
+                    (spread_number, created_at, kind, template_key, template_name, reading_date)
+                VALUES
+                    (?, ?, ?, ?, ?, ?)
+                """,
+                (spread_number, created_at, kind, template_key, template_name, reading_date),
             )
             reading_id = cursor.lastrowid
             conn.executemany(
                 """
                 INSERT INTO reading_cards
-                    (reading_id, slot, card_id, zh, en, image_file, is_reversed)
+                    (reading_id, slot, slot_label, card_id, zh, en, image_file, is_reversed)
                 VALUES
-                    (?, ?, ?, ?, ?, ?, ?)
+                    (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
                         reading_id,
                         card["slot"],
+                        card["slot_label"],
                         card["card_id"],
                         card["zh"],
                         card["en"],
@@ -135,6 +196,7 @@ def create_reading(payload):
 def row_to_card(row):
     return {
         "slot": row["slot"],
+        "slotLabel": row["slot_label"] or f"Slot {row['slot']}",
         "cardId": row["card_id"],
         "zh": row["zh"],
         "en": row["en"],
@@ -148,7 +210,7 @@ def fetch_readings(limit):
     with closing(get_connection()) as conn:
         reading_rows = conn.execute(
             """
-            SELECT id, spread_number, created_at
+            SELECT id, spread_number, created_at, kind, template_key, template_name, reading_date
             FROM readings
             ORDER BY created_at DESC, id DESC
             LIMIT ?
@@ -159,7 +221,7 @@ def fetch_readings(limit):
         for reading in reading_rows:
             card_rows = conn.execute(
                 """
-                SELECT slot, card_id, zh, en, image_file, is_reversed
+                SELECT slot, slot_label, card_id, zh, en, image_file, is_reversed
                 FROM reading_cards
                 WHERE reading_id = ?
                 ORDER BY slot ASC
@@ -171,6 +233,10 @@ def fetch_readings(limit):
                     "id": reading["id"],
                     "spreadNumber": reading["spread_number"],
                     "createdAt": reading["created_at"],
+                    "kind": reading["kind"],
+                    "templateKey": reading["template_key"],
+                    "templateName": reading["template_name"],
+                    "readingDate": reading["reading_date"],
                     "cards": [row_to_card(row) for row in card_rows],
                 }
             )
@@ -181,7 +247,7 @@ def fetch_reading(reading_id):
     with closing(get_connection()) as conn:
         reading = conn.execute(
             """
-            SELECT id, spread_number, created_at
+            SELECT id, spread_number, created_at, kind, template_key, template_name, reading_date
             FROM readings
             WHERE id = ?
             """,
@@ -191,7 +257,7 @@ def fetch_reading(reading_id):
             return None
         card_rows = conn.execute(
             """
-            SELECT slot, card_id, zh, en, image_file, is_reversed
+            SELECT slot, slot_label, card_id, zh, en, image_file, is_reversed
             FROM reading_cards
             WHERE reading_id = ?
             ORDER BY slot ASC
@@ -202,8 +268,61 @@ def fetch_reading(reading_id):
         "id": reading["id"],
         "spreadNumber": reading["spread_number"],
         "createdAt": reading["created_at"],
+        "kind": reading["kind"],
+        "templateKey": reading["template_key"],
+        "templateName": reading["template_name"],
+        "readingDate": reading["reading_date"],
         "cards": [row_to_card(row) for row in card_rows],
     }
+
+
+def fetch_daily_draw(reading_date):
+    if not reading_date:
+        raise ValueError("date is required")
+    with closing(get_connection()) as conn:
+        row = conn.execute(
+            """
+            SELECT id
+            FROM readings
+            WHERE kind = 'daily'
+              AND template_key = 'daily_draw'
+              AND reading_date = ?
+            LIMIT 1
+            """,
+            (reading_date,),
+        ).fetchone()
+    if row is None:
+        return None
+    return fetch_reading(row["id"])
+
+
+def create_daily_draw(payload):
+    reading_date = str(payload.get("readingDate") or payload.get("date") or "")
+    if not reading_date:
+        raise ValueError("readingDate is required")
+    existing = fetch_daily_draw(reading_date)
+    if existing is not None:
+        return 200, existing
+
+    raw_card = payload.get("card")
+    if not isinstance(raw_card, dict):
+        raise ValueError("card is required")
+    card = {
+        **raw_card,
+        "slot": raw_card.get("slot", 1),
+        "slotLabel": raw_card.get("slotLabel") or "今日牌 / Daily Card",
+    }
+    created = create_reading(
+        {
+            "kind": "daily",
+            "templateKey": "daily_draw",
+            "templateName": "每日一牌 / Daily Draw",
+            "readingDate": reading_date,
+            "spreadNumber": 0,
+            "cards": [card],
+        }
+    )
+    return 201, fetch_reading(created["id"])
 
 
 def clear_readings():
@@ -231,6 +350,18 @@ def handle_api_request(method, parsed_url, body=b""):
 
         if method == "DELETE" and path == "/api/readings":
             return json_response(200, clear_readings())
+
+        if method == "GET" and path == "/api/daily-draw":
+            query = parse_qs(parsed_url.query)
+            reading_date = query.get("date", [""])[0]
+            reading = fetch_daily_draw(reading_date)
+            if reading is None:
+                return error_response(404, "Daily draw not found")
+            return json_response(200, reading)
+
+        if method == "POST" and path == "/api/daily-draw":
+            status, reading = create_daily_draw(parse_json_body(body))
+            return json_response(status, reading)
 
         if method == "GET" and path == "/api/readings":
             query = parse_qs(parsed_url.query)
@@ -269,7 +400,7 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 

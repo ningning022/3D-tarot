@@ -59,7 +59,7 @@ const AdminChronicle = (() => {
             button.dataset.id = reading.id;
             button.innerHTML = `
                 <span class="reading-row-index">#${reading.id}</span>
-                <span class="reading-row-title">第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber}</span>
+                <span class="reading-row-title">${escapeHtml(reading.templateName || `第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber}`)}</span>
                 <span class="reading-row-meta">${formatTime(reading.createdAt)} · ${cardCount} cards</span>
             `;
             button.addEventListener('click', () => selectReading(reading.id));
@@ -76,7 +76,7 @@ const AdminChronicle = (() => {
             const alt = `${card.en || card.zh} ${card.orientationLabel}`;
             return `
                 <article class="replay-card ${card.orientationClass}" style="left:${card.leftPercent}%;top:${card.topPercent}%;width:${card.widthPercent}%;">
-                    <div class="replay-slot">Slot ${card.slot}</div>
+                    <div class="replay-slot">${escapeHtml(card.slotLabel || `Slot ${card.slot}`)}</div>
                     <img class="${cardImageClass(card)}" src="${imageSrc(card.imageFile)}" alt="${escapeHtml(alt)}">
                 </article>
             `;
@@ -92,7 +92,7 @@ const AdminChronicle = (() => {
             <article class="admin-card">
                 <img class="${cardImageClass(card)}" src="${imageSrc(card.imageFile)}" alt="${escapeHtml(card.en)}">
                 <div>
-                    <div class="admin-card-slot">Slot ${card.slot}</div>
+                    <div class="admin-card-slot">${escapeHtml(card.slotLabel || `Slot ${card.slot}`)}</div>
                     <h3>${formatZhName(card.zh)}</h3>
                     <p>${escapeHtml(card.en)}</p>
                     <span class="orientation-pill ${card.orientationClass}">${card.orientationLabel}</span>
@@ -116,7 +116,7 @@ const AdminChronicle = (() => {
             <div class="reading-detail-head">
                 <div>
                     <p>Reading #${reading.id}</p>
-                    <h2>第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber}</h2>
+                    <h2>${escapeHtml(reading.templateName || `第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber}`)}</h2>
                     <span>${formatTime(reading.createdAt)}</span>
                 </div>
                 <strong>${replayCards.length} ${cardWord}</strong>

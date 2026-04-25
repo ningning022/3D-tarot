@@ -182,6 +182,115 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(second_status, 201)
         self.assertEqual(second["id"], 1)
 
+    def test_template_metadata_and_slot_label_roundtrip(self):
+        payload = {
+            "kind": "spread",
+            "templateKey": "three_timeline",
+            "templateName": "三张牌 / Past Present Future",
+            "readingDate": "2026-04-25",
+            "spreadNumber": 3,
+            "cards": [
+                {
+                    "slot": 1,
+                    "slotLabel": "过去 / Past",
+                    "cardId": 0,
+                    "zh": "愚人",
+                    "en": "The Fool",
+                    "imageFile": "RWS_Tarot_00_Fool.jpg",
+                    "isReversed": False,
+                }
+            ],
+        }
+
+        post_status, _, post_body = self.request_json("POST", "/api/readings", payload)
+        created = json.loads(post_body)
+        self.assertEqual(post_status, 201)
+
+        detail_status, _, detail_body = self.request_json("GET", f"/api/readings/{created['id']}")
+        detail = json.loads(detail_body)
+
+        self.assertEqual(detail_status, 200)
+        self.assertEqual(detail["kind"], "spread")
+        self.assertEqual(detail["templateKey"], "three_timeline")
+        self.assertEqual(detail["templateName"], "三张牌 / Past Present Future")
+        self.assertEqual(detail["readingDate"], "2026-04-25")
+        self.assertEqual(detail["cards"][0]["slotLabel"], "过去 / Past")
+
+    def test_init_db_migrates_old_database_shape(self):
+        self.db_path.unlink()
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.executescript(
+                """
+                CREATE TABLE readings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    spread_number INTEGER NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE reading_cards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    reading_id INTEGER NOT NULL,
+                    slot INTEGER NOT NULL,
+                    card_id INTEGER NOT NULL,
+                    zh TEXT NOT NULL,
+                    en TEXT NOT NULL,
+                    image_file TEXT NOT NULL,
+                    is_reversed INTEGER NOT NULL CHECK (is_reversed IN (0, 1))
+                );
+                """
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        server.init_db()
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            reading_cols = {row[1] for row in conn.execute("PRAGMA table_info(readings)")}
+            card_cols = {row[1] for row in conn.execute("PRAGMA table_info(reading_cards)")}
+        finally:
+            conn.close()
+
+        self.assertIn("kind", reading_cols)
+        self.assertIn("template_key", reading_cols)
+        self.assertIn("template_name", reading_cols)
+        self.assertIn("reading_date", reading_cols)
+        self.assertIn("slot_label", card_cols)
+
+    def test_daily_draw_is_unique_per_date(self):
+        payload = {
+            "readingDate": "2026-04-25",
+            "card": {
+                "slot": 1,
+                "slotLabel": "今日牌 / Daily Card",
+                "cardId": 0,
+                "zh": "愚人",
+                "en": "The Fool",
+                "imageFile": "RWS_Tarot_00_Fool.jpg",
+                "isReversed": True,
+            },
+        }
+
+        first_status, _, first_body = self.request_json("POST", "/api/daily-draw", payload)
+        second_status, _, second_body = self.request_json("POST", "/api/daily-draw", payload)
+
+        first = json.loads(first_body)
+        second = json.loads(second_body)
+
+        self.assertEqual(first_status, 201)
+        self.assertEqual(second_status, 200)
+        self.assertEqual(first["id"], second["id"])
+        self.assertEqual(first["cards"][0]["slotLabel"], "今日牌 / Daily Card")
+
+        get_status, _, get_body = self.request_json("GET", "/api/daily-draw?date=2026-04-25")
+        daily = json.loads(get_body)
+
+        self.assertEqual(get_status, 200)
+        self.assertEqual(daily["id"], first["id"])
+        self.assertEqual(daily["kind"], "daily")
+        self.assertEqual(daily["templateKey"], "daily_draw")
+
 
 if __name__ == "__main__":
     unittest.main()

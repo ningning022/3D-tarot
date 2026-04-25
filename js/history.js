@@ -1,12 +1,20 @@
 let currentReadingCards = [];
+let currentReadingMeta = {};
 
-function resetReadingCapture() {
+function resetReadingCapture(meta = {}) {
     currentReadingCards = [];
+    currentReadingMeta = {
+        kind: meta.kind || 'spread',
+        templateKey: meta.templateKey || 'free',
+        templateName: meta.templateName || '自由牌阵 / Free Spread',
+        readingDate: meta.readingDate || null
+    };
 }
 
 function cardToHistoryEntry(card) {
     return {
         slot: card.userData.slot,
+        slotLabel: card.userData.slotLabel || `Slot ${card.userData.slot}`,
         cardId: card.userData.cardId,
         zh: card.userData.zh,
         en: card.userData.en,
@@ -15,13 +23,17 @@ function cardToHistoryEntry(card) {
     };
 }
 
+function renderHistoryCardHtml(entry) {
+    const orient = entry.isReversed ? '逆位 / Reversed' : '正位 / Upright';
+    return `<span style="color:var(--gold)">✓</span> <strong>${entry.slotLabel || `Slot ${entry.slot}`}</strong> · ${zhWithRoman(entry.zh)} <em style="opacity:.7">${entry.en}</em> · ${orient}`;
+}
+
 function prependHistoryCard(entry) {
     const list = document.getElementById('history-list');
     if (!list) return;
     const item = document.createElement('div');
     item.className = 'history-item';
-    const orient = entry.isReversed ? '逆位 / Reversed' : '正位 / Upright';
-    item.innerHTML = `<span style="color:var(--gold)">✦</span> ${zhWithRoman(entry.zh)} <em style="opacity:.7">${entry.en}</em> · ${orient}`;
+    item.innerHTML = renderHistoryCardHtml(entry);
     list.prepend(item);
 }
 
@@ -30,8 +42,7 @@ function appendHistoryCard(entry, targetList) {
     if (!list) return;
     const item = document.createElement('div');
     item.className = 'history-item';
-    const orient = entry.isReversed ? '逆位 / Reversed' : '正位 / Upright';
-    item.innerHTML = `<span style="color:var(--gold)">✦</span> ${zhWithRoman(entry.zh)} <em style="opacity:.7">${entry.en}</em> · ${orient}`;
+    item.innerHTML = renderHistoryCardHtml(entry);
     list.appendChild(item);
 }
 
@@ -74,9 +85,14 @@ async function completeReadingHistory(spreadNumber) {
     const cards = currentReadingCards
         .slice()
         .sort((left, right) => left.slot - right.slot);
+    const meta = { ...currentReadingMeta };
     resetReadingCapture();
     if (window.TarotAPI && cards.length > 0) {
-        await window.TarotAPI.saveReading(spreadNumber, cards);
+        await window.TarotAPI.saveReading(spreadNumber, {
+            ...meta,
+            spreadNumber,
+            cards
+        });
     }
 }
 
@@ -88,7 +104,7 @@ function renderSavedReadingSummary(reading) {
     const when = reading.createdAt ? new Date(reading.createdAt).toLocaleString() : 'Unknown time';
     const title = document.createElement('div');
     title.className = 'saved-reading-title';
-    title.innerText = `第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber} · ${when}`;
+    title.innerText = `${reading.templateName || `Spread ${reading.spreadNumber}`} · ${when}`;
     wrap.appendChild(title);
     (reading.cards || []).forEach(card => appendHistoryCard(card, wrap));
     list.appendChild(wrap);
@@ -105,6 +121,13 @@ async function loadSavedHistory(limit = 10) {
 
 window.addEventListener('DOMContentLoaded', () => {
     loadSavedHistory(10);
+    const toggle = document.getElementById('history-toggle');
+    const historyPanel = document.getElementById('history');
+    if (toggle && historyPanel) {
+        toggle.addEventListener('click', () => {
+            historyPanel.classList.toggle('collapsed');
+        });
+    }
 });
 
 window.TarotAPI = window.TarotAPI || TarotAPI;

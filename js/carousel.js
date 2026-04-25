@@ -26,6 +26,8 @@ function createIdleFan() {
             new THREE.MeshStandardMaterial({ color: 0x060606 }),
         ];
         const mesh = new THREE.Mesh(geo, mats);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
         mesh.position.set(
             CAROUSEL_R * Math.sin(angle),
             0,
