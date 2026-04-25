@@ -10,7 +10,7 @@ The app is designed for local use first: no account system, no cloud service, an
 - Webcam gesture controls for selecting, inspecting, confirming, and continuing readings.
 - Mouse fallback when the camera is unavailable.
 - Local SQLite storage for reading history.
-- Read-only database viewer at `admin.html`.
+- Read-only database viewer at `admin.html` with visual spread replay.
 - Safe "clear database" action guarded by a `CLEAR` confirmation prompt.
 - Responsive multi-card spread layout for large readings.
 
@@ -66,7 +66,7 @@ The database stores:
 - `readings`: one row per completed spread.
 - `reading_cards`: the cards in each spread, including slot, card id, Chinese and English names, image file name, and upright/reversed state.
 
-The admin page can view saved records and clear all readings. Clearing the database is irreversible for the local SQLite file.
+The admin page can view saved records, replay each saved spread visually, and clear all readings. Clearing the database is irreversible for the local SQLite file.
 
 ## API
 
@@ -121,6 +121,7 @@ taluo/
 │   ├── history.js      # Reading capture and history rendering
 │   ├── main.js         # Three.js setup and animation loop
 │   ├── mediapipe.js    # MediaPipe camera integration
+│   ├── reading_replay.js # Admin spread replay helper
 │   ├── spread.js       # Spread state machine and card interactions
 │   ├── spread_flow.js  # Small testable spread-flow helpers
 │   ├── spread_layout.js # Responsive spread layout helper
@@ -130,6 +131,7 @@ taluo/
 └── tests/
     ├── test_gesture.js
     ├── test_reading_orientation.js
+    ├── test_reading_replay.js
     ├── test_server.py
     └── test_spread_layout.js
 ```
@@ -142,6 +144,7 @@ Run JavaScript behavior checks:
 node tests/test_gesture.js
 node tests/test_spread_layout.js
 node tests/test_reading_orientation.js
+node tests/test_reading_replay.js
 ```
 
 Check JavaScript syntax:
