@@ -125,7 +125,7 @@ function handleGestures() {
             document.getElementById('idle-title').style.opacity = '1';
             document.getElementById('spread-template-ring').classList.remove('hidden');
             document.getElementById('guide-text').innerText =
-                '张手(OPEN): 开始占卜 / Open hand to begin';
+                '张手 OPEN：开始占卜 / Open hand to begin';
             document.getElementById('status').innerText =
                 `第${spreadCount}阵已完成 / Spread ${spreadCount} done`;
             createIdleFan();
@@ -406,7 +406,7 @@ function startSpread(selectedCards) {
             templateName: plan.templateName
         });
         document.getElementById('guide-text').innerText =
-            '捏合(PINCH): 翻牌/Flip | 握拳(FIST): 祭献/Confirm';
+            '捏合 PINCH：翻牌 / Flip | 握拳 FIST：确认 / Confirm';
 
         if (deckPool.length < plan.selectedCards.filter(item => item && item.__randomCard).length) {
             deckPool = [...Array(78).keys()];

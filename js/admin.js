@@ -32,6 +32,14 @@ const AdminChronicle = (() => {
         return `image2/${encodeURIComponent(imageFile || '')}`;
     }
 
+    function readingTitle(reading) {
+        return reading.templateName || `第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber}`;
+    }
+
+    function readingKind(reading) {
+        return reading.kind === 'daily' ? 'Daily' : 'Spread';
+    }
+
     function cardImageClass(card) {
         return card.isReversed ? 'admin-card-image reversed' : 'admin-card-image upright';
     }
@@ -59,8 +67,13 @@ const AdminChronicle = (() => {
             button.dataset.id = reading.id;
             button.innerHTML = `
                 <span class="reading-row-index">#${reading.id}</span>
-                <span class="reading-row-title">${escapeHtml(reading.templateName || `第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber}`)}</span>
-                <span class="reading-row-meta">${formatTime(reading.createdAt)} · ${cardCount} cards</span>
+                <span class="reading-row-content">
+                    <span class="reading-row-topline">
+                        <span class="reading-row-title">${escapeHtml(readingTitle(reading))}</span>
+                        <span class="reading-row-kind">${readingKind(reading)}</span>
+                    </span>
+                    <span class="reading-row-meta">${formatTime(reading.createdAt)} · ${cardCount} cards</span>
+                </span>
             `;
             button.addEventListener('click', () => selectReading(reading.id));
             list.appendChild(button);
@@ -115,8 +128,8 @@ const AdminChronicle = (() => {
         detail.innerHTML = `
             <div class="reading-detail-head">
                 <div>
-                    <p>Reading #${reading.id}</p>
-                    <h2>${escapeHtml(reading.templateName || `第${reading.spreadNumber}阵 / Spread ${reading.spreadNumber}`)}</h2>
+                    <p>${readingKind(reading)} #${reading.id}</p>
+                    <h2>${escapeHtml(readingTitle(reading))}</h2>
                     <span>${formatTime(reading.createdAt)}</span>
                 </div>
                 <strong>${replayCards.length} ${cardWord}</strong>

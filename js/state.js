@@ -10,6 +10,7 @@ let particles = [];
 let currentGesture = "NONE";
 let handScreenPos = new THREE.Vector2();
 let isGestureReady = false;
+let activeInputMode = null;
 
 // ── 牌阵状态机 / Spread state machine ──
 // 'IDLE'    : 待机——展示层叠扇御圆

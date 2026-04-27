@@ -7,14 +7,25 @@ The app is designed for local use first: no account system, no cloud service, an
 ## Features
 
 - 78-card tarot deck with an animated 3D carousel.
+- Idle carousel order is shuffled on each page load to avoid fixed first-card bias.
 - Webcam gesture controls for selecting, inspecting, confirming, and continuing readings.
-- Mouse fallback when the camera is unavailable.
+- Explicit mouse + keyboard control mode for users who do not want to enable a camera.
 - Local SQLite storage for reading history.
 - Built-in spread templates for 3-card, 5-card, Celtic Cross, and free spreads.
 - Daily Draw creates one local card record per day without interpretation text.
 - Read-only database viewer at `admin.html` with visual spread replay.
 - Safe "clear database" action guarded by a `CLEAR` confirmation prompt.
 - Responsive multi-card spread layout for large readings.
+
+## Visual Design
+
+The main page is styled as a local 3D reading table: dark velvet texture, subtle gold linework, soft card shadows, and lightweight translucent panels. The admin page acts as a chronicle archive with a timeline list and visual spread replay.
+
+Suggested screenshots for an open-source gallery:
+
+- Main reading table in mouse mode.
+- Main reading table in camera mode with the gesture preview visible.
+- Admin chronicle page showing a saved spread replay.
 
 ## Quick Start
 
@@ -34,10 +45,22 @@ python server.py
 Then open:
 
 - Main app: `http://localhost:8080/Three.html`
+- Main app in mouse mode: `http://localhost:8080/Three.html?control=mouse`
 - Database viewer: `http://localhost:8080/admin.html`
 - Health check: `http://localhost:8080/api/health`
 
 Do not open `Three.html` by double-clicking it if you want persistent history. The page can still run as a static file, but SQLite saving requires `python server.py`.
+
+## Control Modes
+
+The main page asks you to choose a control mode before it starts camera input.
+
+| Mode | How to Use |
+| --- | --- |
+| Camera | Use OPEN, POINT, PINCH, FIST, and TWO_FINGER webcam gestures. |
+| Mouse | Move the mouse to point, hold the left mouse button to pick/inspect, release to open/start, press Space to confirm, and use A/D or left/right arrows to nudge carousel rotation. |
+
+The choice is remembered in `localStorage`. You can also force a mode with `?control=mouse` or `?control=camera`.
 
 ## Gestures
 
@@ -127,8 +150,10 @@ taluo/
 │   ├── carousel.js     # Idle carousel
 │   ├── daily_draw.js   # Daily Draw creation/rendering
 │   ├── deck.js         # Card definitions
+│   ├── deck_order.js   # Idle carousel shuffle helper
 │   ├── gesture.js      # Gesture classification and stabilization
 │   ├── history.js      # Reading capture and history rendering
+│   ├── input_mode.js   # Camera/mouse control mode selection
 │   ├── main.js         # Three.js setup and animation loop
 │   ├── mediapipe.js    # MediaPipe camera integration
 │   ├── reading_replay.js # Admin spread replay helper
@@ -142,6 +167,8 @@ taluo/
 └── tests/
     ├── test_gesture.js
     ├── test_daily_draw.js
+    ├── test_deck_order.js
+    ├── test_input_mode.js
     ├── test_reading_orientation.js
     ├── test_reading_replay.js
     ├── test_server.py
@@ -156,6 +183,8 @@ Run JavaScript behavior checks:
 ```bash
 node tests/test_gesture.js
 node tests/test_daily_draw.js
+node tests/test_deck_order.js
+node tests/test_input_mode.js
 node tests/test_spread_layout.js
 node tests/test_spread_templates.js
 node tests/test_reading_orientation.js

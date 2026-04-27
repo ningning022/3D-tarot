@@ -13,8 +13,15 @@ function createIdleFan() {
     group.position.z = CAROUSEL_CZ; // 圆心在屏幕前方
     scene.add(group);
 
-    for (let i = 0; i < 78; i++) {
-        const angle = (i / 78) * Math.PI * 2;
+    const deckCount = FULL_DECK.length;
+    const displayOrder = window.DeckOrder
+        ? DeckOrder.createShuffledDeckOrder(deckCount)
+        : Array.from({ length: deckCount }, (_, index) => index);
+
+    for (let i = 0; i < displayOrder.length; i++) {
+        const cardIndex = displayOrder[i];
+        const cardDef = FULL_DECK[cardIndex];
+        const angle = (i / displayOrder.length) * Math.PI * 2;
         const geo = new THREE.BoxGeometry(0.6, 1.0, 0.04);
         const mats = [
             new THREE.MeshStandardMaterial({ color: 0x0d0d0d }),
@@ -37,9 +44,9 @@ function createIdleFan() {
         mesh.rotation.y = angle + Math.PI;
         // 保存初始角度，方便回位 / Store base angle for return
         mesh.userData.baseAngle = angle;
-        mesh.userData.cardIndex = i;
-        mesh.userData.zh = FULL_DECK[i].zh;    // 供标签使用 / For label
-        mesh.userData.en = FULL_DECK[i].en;
+        mesh.userData.cardIndex = cardIndex;
+        mesh.userData.zh = cardDef.zh;    // 供标签使用 / For label
+        mesh.userData.en = cardDef.en;
         mesh.userData.isPinched = false; // 是否已被查看过 / Has been inspected
         group.add(mesh);
         idleCards.push({ mesh, group });

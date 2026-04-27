@@ -4,7 +4,10 @@ function showUI(data) {
     el.style.transform = 'translate(-50%, 0)';
     document.getElementById('card-name').innerHTML = zhWithRoman(data.zh);
     document.getElementById('card-name-en').innerText = data.en;
-    document.getElementById('card-orient').innerText = data.isReversed ? "逆位 / REVERSED" : "正位 / UPRIGHT";
+    const orient = data.isReversed ? '逆位 / REVERSED' : '正位 / UPRIGHT';
+    document.getElementById('card-orient').innerText = data.slotLabel
+        ? `${data.slotLabel} · ${orient}`
+        : orient;
 }
 
 function hideUI() {
