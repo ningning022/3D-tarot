@@ -19,9 +19,14 @@ The app is designed for local use first: no account system, no cloud service, an
 
 ## Visual Design
 
-The main page is styled as a local 3D reading table: dark velvet texture, subtle gold linework, soft card shadows, and lightweight translucent panels. The admin page acts as a chronicle archive with a timeline list and visual spread replay.
+The main page is styled as a local 3D reading table: brighter dark-burgundy velvet texture, subtle gold linework, warm candlelit card shadows, and lightweight translucent panels. The admin page acts as a chronicle archive with a timeline list and visual spread replay.
 
-Suggested screenshots for an open-source gallery:
+Visual reference images live in `docs/visuals/`:
+
+- `akashic-main-concept.png`: pure tabletop reference layer for the main reading table.
+- `akashic-admin-concept.png`: pure tabletop reference layer for the chronicle archive.
+
+Suggested screenshots for an open-source gallery after running the app:
 
 - Main reading table in mouse mode.
 - Main reading table in camera mode with the gesture preview visible.
@@ -139,8 +144,12 @@ taluo/
 ├── server.py           # Static server + SQLite API
 ├── css/
 │   └── style.css
+├── assets/
+│   └── textures/      # Local velvet table/archive texture
 ├── data/
 │   └── .gitkeep        # Runtime SQLite files are created here and ignored
+├── docs/
+│   └── visuals/        # Website-ratio UI concept references
 ├── image2/
 │   ├── 00.jpg          # Card back
 │   └── *.jpg           # Tarot card images
