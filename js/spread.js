@@ -641,10 +641,9 @@ function startSpread(selectedCards) {
             templateName: plan.templateName
         });
         document.getElementById('guide-text').innerText =
-            '捏合 PINCH：翻牌 / Flip | 握拳 FIST：确认 / Confirm';
-
-        document.getElementById('guide-text').innerText =
-            '点击一次翻看 / First click previews. 再点确认 / Click again confirms.';
+            (typeof activeInputMode !== 'undefined' && activeInputMode === 'mouse')
+                ? '点击一次翻看 / First click previews. 再点确认 / Click again confirms.'
+                : '捏合 PINCH：翻牌 / Flip | 握拳 FIST：确认 / Confirm';
 
         if (deckPool.length < plan.selectedCards.filter(item => item && item.__randomCard).length) {
             deckPool = [...Array(78).keys()];

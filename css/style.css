@@ -2222,6 +2222,12 @@ body.figma-stage {
     z-index: 10;
 }
 
+/* Topbar must sit above admin-shell's padding area to receive clicks */
+.app-topbar,
+.admin-topbar {
+    z-index: 50;
+}
+
 .app-topbar {
     position: fixed;
     top: 18px;
@@ -2493,11 +2499,6 @@ body.figma-stage {
     text-align: left;
     opacity: 0;
     pointer-events: none;
-}
-
-#idle-title h2,
-#idle-title p {
-    display: none;
 }
 
 .template-ring {
@@ -3364,6 +3365,8 @@ textarea {
     border: 1px solid rgba(240, 198, 118, 0.58);
     border-radius: 5px;
     background: rgba(94, 31, 23, 0.72);
+    cursor: pointer;
+    font: inherit;
 }
 
 .admin-shell {
@@ -3486,7 +3489,7 @@ textarea {
     }
 
     .tarot-panels.ui-layer {
-        inset: 138px 8px 132px;
+        inset: 92px 8px 132px;
     }
 
     .left-rail {

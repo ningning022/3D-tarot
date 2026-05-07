@@ -1,4 +1,4 @@
-﻿const AdminChronicle = (() => {
+const AdminChronicle = (() => {
     const REPLAY_VIEWPORT = { viewportWidth: 16, viewportHeight: 9 };
     const helpers = window.AdminHelpers;
     const state = {
@@ -216,23 +216,43 @@
         const detail = el('reading-detail');
         if (!detail) return;
         const stats = helpers.getDashboardStats(state.readings);
+        const apiAvail = state.systemHealth && state.systemHealth.ok;
+        const recent5 = state.readings.slice(0, 5);
         detail.innerHTML = `
             <div class="reading-detail-head">
                 <div>
-                    <p>Dashboard</p>
+                    <p>总览 / Dashboard</p>
                     <h2>Chronicle Overview</h2>
-                    <span>${stats.latestCreatedAt ? `Latest: ${formatTime(stats.latestCreatedAt)}` : 'No readings yet'}</span>
+                    <span>${stats.latestCreatedAt ? `最近记录 / Latest: ${formatTime(stats.latestCreatedAt)}` : '暂无记录 / No readings yet'}</span>
                 </div>
+                <button class="detail-action" data-detail-action="refresh-system" type="button">刷新 / Refresh</button>
             </div>
             <div class="admin-summary-grid">
-                <article><strong>${stats.totalReadings}</strong><span>Total readings</span></article>
-                <article><strong>${stats.totalCards}</strong><span>Cards saved</span></article>
-                <article><strong>${stats.spreadReadings}</strong><span>Spread readings</span></article>
-                <article><strong>${stats.dailyReadings}</strong><span>Daily draws</span></article>
+                <article><strong>${stats.totalReadings}</strong><span>总记录 / Readings</span></article>
+                <article><strong>${stats.totalCards}</strong><span>总牌数 / Cards</span></article>
+                <article><strong>${stats.spreadReadings}</strong><span>牌阵 / Spreads</span></article>
+                <article><strong>${stats.dailyReadings}</strong><span>每日一牌 / Daily</span></article>
             </div>
-            <section class="admin-mini-panel">
-                <h3>Latest Records</h3>
-                ${state.readings.slice(0, 5).map(reading => `<p>${escapeHtml(readingTitle(reading))} - ${formatTime(reading.createdAt)}</p>`).join('') || '<p>No local readings saved.</p>'}
+            <div class="admin-info-grid">
+                <article class="admin-mini-panel">
+                    <h3>API 状态 / Backend</h3>
+                    <strong style="color:${apiAvail ? '#6fdf7a' : '#ff9090'}">${apiAvail ? '在线 / Online' : '离线 / Offline'}</strong>
+                    <span>${apiAvail ? '本地服务运行中 / Local server running' : '请运行 server.py / Run server.py'}</span>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>牌库 / Deck</h3>
+                    <strong>The Gilded Reverie</strong>
+                    <span>Rider-Waite · 78 张 / cards</span>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>数据源 / Storage</h3>
+                    <strong>SQLite</strong>
+                    <span>本地优先 / Local-first · 不联网 / Offline</span>
+                </article>
+            </div>
+            <section class="admin-mini-panel" style="margin-top:14px">
+                <h3>最近5条 / Latest 5</h3>
+                ${recent5.length ? recent5.map(r => `<p style="margin:4px 0"><span style="color:var(--stage-gold-bright)">#${r.id}</span> ${escapeHtml(readingTitle(r))} <span style="opacity:.6;font-size:.8em">— ${formatTime(r.createdAt)}</span></p>`).join('') : '<p style="opacity:.6">暂无本地记录 / No local readings saved.</p>'}
             </section>
         `;
     }
@@ -240,37 +260,79 @@
     function renderDecks() {
         const detail = el('reading-detail');
         if (!detail) return;
-        const cardFiles = new Set(state.readings.flatMap(reading => (reading.cards || []).map(card => card.imageFile).filter(Boolean)));
+        const cardFiles = new Set(state.readings.flatMap(r => (r.cards || []).map(c => c.imageFile).filter(Boolean)));
+        const majors = 22, minors = 56;
+        const suits = ['权杖 / Wands', '圣杯 / Cups', '宝剑 / Swords', '星币 / Pentacles'];
         detail.innerHTML = `
             <div class="reading-detail-head">
                 <div>
-                    <p>Decks</p>
-                    <h2>Local Tarot Deck</h2>
-                    <span>Rider-Waite imagery from image2/</span>
+                    <p>牌库 / Decks</p>
+                    <h2>The Gilded Reverie</h2>
+                    <span>Rider-Waite · 本地图库 image2/ / Local image2/ folder</span>
                 </div>
             </div>
             <div class="admin-summary-grid">
-                <article><strong>78</strong><span>Cards available</span></article>
-                <article><strong>${cardFiles.size}</strong><span>Seen in records</span></article>
-                <article><strong>Local</strong><span>Asset mode</span></article>
+                <article><strong>78</strong><span>全部牌 / Total cards</span></article>
+                <article><strong>${majors}</strong><span>大阿卡纳 / Major Arcana</span></article>
+                <article><strong>${minors}</strong><span>小阿卡纳 / Minor Arcana</span></article>
+                <article><strong>${cardFiles.size}</strong><span>记录中出现 / Seen in records</span></article>
             </div>
+            <div class="admin-info-grid">
+                ${suits.map(s => `<article class="admin-mini-panel"><h3>${s}</h3><span>14 张 / cards（Ace–King）</span></article>`).join('')}
+                <article class="admin-mini-panel">
+                    <h3>图片格式 / Format</h3>
+                    <span>JPG · 本地路径 / Local path · 兼容 file:// 协议</span>
+                </article>
+            </div>
+            <section class="admin-mini-panel" style="margin-top:14px">
+                <h3>使用说明 / Notes</h3>
+                <p style="margin:4px 0;opacity:.8">所有牌面图片存放在 <code style="color:var(--stage-gold-bright)">image2/</code> 目录下，格式为 <code style="color:var(--stage-gold-bright)">00.jpg</code>（背面）、<code style="color:var(--stage-gold-bright)">01.jpg</code>~<code style="color:var(--stage-gold-bright)">78.jpg</code>（牌面）。</p>
+                <p style="margin:4px 0;opacity:.8">牌库可通过替换图片文件更换主题，文件名需保持一致。</p>
+            </section>
         `;
     }
 
     function renderSettings() {
         const detail = el('reading-detail');
         if (!detail) return;
+        const savedMode = (() => { try { return localStorage.getItem('akashic-tarot-control-mode') || '未设置 / Not set'; } catch(e) { return 'N/A'; } })();
+        const noteCount = (() => { try { let n=0; for(let i=0;i<localStorage.length;i++){if(localStorage.key(i).startsWith('akashic-admin-note-'))n++;} return n; } catch(e){return 0;} })();
         detail.innerHTML = `
             <div class="reading-detail-head">
                 <div>
-                    <p>Settings</p>
-                    <h2>Local Controls</h2>
-                    <span>Data is stored in the local SQLite database.</span>
+                    <p>设置 / Settings</p>
+                    <h2>本地控制台 / Local Controls</h2>
+                    <span>数据存储在本地 SQLite 数据库 / Data stored in local SQLite database</span>
                 </div>
             </div>
-            <div class="admin-settings-actions">
-                <button class="admin-link danger-button" data-detail-action="clear" type="button">Clear Database</button>
-                <a class="admin-link" href="Three.html">Back to Tarot</a>
+            <div class="admin-info-grid">
+                <article class="admin-mini-panel">
+                    <h3>控制模式 / Control Mode</h3>
+                    <strong>${escapeHtml(savedMode)}</strong>
+                    <span>存储在 localStorage / Stored in localStorage</span>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>本地笔记 / Local Notes</h3>
+                    <strong>${noteCount} 条 / notes</strong>
+                    <span>仅存于此浏览器 / This browser only</span>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>数据库 / Database</h3>
+                    <strong>SQLite</strong>
+                    <span>需运行 server.py / Requires server.py</span>
+                </article>
+            </div>
+            <div class="admin-settings-actions" style="margin-top:18px">
+                <button class="admin-link danger-button" data-detail-action="clear" type="button">🗑 清空数据库 / Clear Database</button>
+                <button class="admin-link" data-detail-action="clear-notes" type="button">清空笔记 / Clear Notes</button>
+                <a class="admin-link" href="Three.html">← 返回占卜 / Back to Tarot</a>
+            </div>
+            <div id="settings-confirm" style="display:none;margin-top:14px;padding:14px;border:1px solid rgba(255,100,90,0.6);border-radius:6px;background:rgba(80,10,10,0.6)">
+                <p style="margin:0 0 10px;color:#ffb0a8">⚠ 此操作不可撤销！将删除所有占卜记录。<br>This action cannot be undone! All reading records will be deleted.</p>
+                <div style="display:flex;gap:8px">
+                    <button class="admin-link danger-button" data-detail-action="confirm-clear" type="button">确认删除 / Confirm Delete</button>
+                    <button class="admin-link" data-detail-action="cancel-clear" type="button">取消 / Cancel</button>
+                </div>
             </div>
         `;
     }
@@ -279,19 +341,41 @@
         const detail = el('reading-detail');
         if (!detail) return;
         const health = state.systemHealth;
-        const status = health ? `${health.ok ? 'Ready' : 'Unavailable'} - database ${health.database || 'unknown'}` : 'Checking...';
+        const isOnline = health && health.ok;
+        const status = health
+            ? `${isOnline ? '✅ 在线 / Online' : '❌ 离线 / Offline'} — database: ${health.database || 'unknown'}`
+            : '⏳ 检测中 / Checking...';
         detail.innerHTML = `
             <div class="reading-detail-head">
                 <div>
-                    <p>System</p>
-                    <h2>Runtime Health</h2>
+                    <p>系统 / System</p>
+                    <h2>运行状态 / Runtime Health</h2>
                     <span>${escapeHtml(status)}</span>
                 </div>
-                <button class="detail-action" data-detail-action="refresh-system" type="button">Refresh</button>
+                <button class="detail-action" data-detail-action="refresh-system" type="button">刷新 / Refresh</button>
             </div>
-            <section class="admin-mini-panel">
-                <h3>Backend</h3>
-                <p>${escapeHtml(status)}</p>
+            <div class="admin-info-grid">
+                <article class="admin-mini-panel">
+                    <h3>后端服务 / Backend</h3>
+                    <strong style="color:${isOnline ? '#6fdf7a' : '#ff9090'}">${isOnline ? '运行中 / Running' : '未启动 / Stopped'}</strong>
+                    <span>${isOnline ? `server.py 正在监听 / Listening on port ${health.port || 5000}` : '请在项目目录运行 python server.py / Run python server.py in project dir'}</span>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>数据库 / Database</h3>
+                    <strong>${health ? escapeHtml(health.database || 'N/A') : '未知 / Unknown'}</strong>
+                    <span>SQLite · 本地文件 / Local file</span>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>前端模式 / Frontend</h3>
+                    <strong>Local-First</strong>
+                    <span>Three.js · MediaPipe · 离线可用 / Works offline</span>
+                </article>
+            </div>
+            <section class="admin-mini-panel" style="margin-top:14px">
+                <h3>如何启动 / How to start server</h3>
+                <p style="margin:4px 0;opacity:.8">在项目根目录打开终端，运行：</p>
+                <code style="display:block;margin:6px 0;padding:8px 12px;background:rgba(0,0,0,0.4);border-radius:4px;color:var(--stage-gold-bright)">python server.py</code>
+                <p style="margin:4px 0;opacity:.8">默认端口 5000。启动后刷新此页即可看到记录。</p>
             </section>
         `;
     }
@@ -314,24 +398,21 @@
     }
 
     async function clearAllReadings() {
-        const typed = window.prompt('Type CLEAR to clear database');
-        if (typed !== 'CLEAR') {
-            setStatus('Clear canceled');
-            return;
-        }
+        setStatus('Clear canceled — use Settings page confirm button');
+    }
 
+    async function clearAllReadingsConfirmed() {
         const result = await TarotAPI.clearReadings();
         if (!result || result.ok !== true) {
-            setStatus('Clear failed');
+            setStatus('清空失败 / Clear failed — API may be offline');
             return;
         }
-
         state.readings = [];
         state.selectedId = null;
         state.selectedReading = null;
         renderList();
         renderCurrentView();
-        setStatus('Database cleared');
+        setStatus('数据库已清空 / Database cleared');
         await init();
     }
 
@@ -406,7 +487,14 @@
 
     function bindEvents() {
         const clearButton = el('clear-readings');
-        if (clearButton) clearButton.addEventListener('click', clearAllReadings);
+        if (clearButton) clearButton.addEventListener('click', () => {
+            setView('settings');
+            // Render settings first, then reveal the confirm panel
+            setTimeout(() => {
+                const confirmPanel = el('settings-confirm');
+                if (confirmPanel) confirmPanel.style.display = 'block';
+            }, 50);
+        });
 
         const search = el('reading-search');
         if (search) {
@@ -432,7 +520,27 @@
                 }
                 if (action === 'save-note') saveCurrentNote();
                 if (action === 'export') exportCurrentReading();
-                if (action === 'clear') clearAllReadings();
+                if (action === 'clear') {
+                    // Show inline confirm panel instead of window.prompt
+                    const confirmPanel = el('settings-confirm');
+                    if (confirmPanel) confirmPanel.style.display = 'block';
+                }
+                if (action === 'confirm-clear') clearAllReadingsConfirmed();
+                if (action === 'cancel-clear') {
+                    const confirmPanel = el('settings-confirm');
+                    if (confirmPanel) confirmPanel.style.display = 'none';
+                }
+                if (action === 'clear-notes') {
+                    try {
+                        const keys = [];
+                        for (let i = 0; i < localStorage.length; i++) {
+                            if (localStorage.key(i).startsWith('akashic-admin-note-')) keys.push(localStorage.key(i));
+                        }
+                        keys.forEach(k => localStorage.removeItem(k));
+                        setStatus(`已清空 ${keys.length} 条笔记 / Cleared ${keys.length} notes`);
+                        renderSettings();
+                    } catch(e) { setStatus('清空笔记失败 / Failed to clear notes'); }
+                }
                 if (action === 'refresh-system') refreshSystemHealth();
             });
         }

@@ -131,4 +131,3 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-window.TarotAPI = window.TarotAPI || TarotAPI;

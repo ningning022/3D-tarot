@@ -31,8 +31,13 @@ function showIdleLabel(data, screenX, screenY) {
     el.innerHTML = `<span class="idle-label-zh">${zhWithRoman(data.zh)}</span>`
         + `<span class="idle-label-en">${data.en}</span>`
         + orientText;
-    el.style.left = screenX + 'px';
-    el.style.top = screenY + 'px';
+    // Clamp position so label stays inside viewport
+    const elW = el.offsetWidth || 200;
+    const elH = el.offsetHeight || 90;
+    const clampedX = Math.max(elW / 2, Math.min(window.innerWidth - elW / 2, screenX));
+    const clampedY = Math.max(0, Math.min(window.innerHeight - elH - 8, screenY));
+    el.style.left = clampedX + 'px';
+    el.style.top = clampedY + 'px';
     el.style.opacity = '1';
     el.style.display = 'block';
 }

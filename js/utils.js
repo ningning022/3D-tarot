@@ -3,6 +3,7 @@ const roundedTextureCache = new Map();
 /** 用原生 Image 加载本地贴图（兼容 file:// 协议）
  *  Load local texture via native Image (works under file:// protocol) */
 function makeTexture(src) {
+    if (typeof THREE === 'undefined') return null;
     const tex = new THREE.Texture();
     const img = new Image();
     img.onload = () => { tex.image = img; tex.needsUpdate = true; };
@@ -13,6 +14,7 @@ function makeTexture(src) {
 
 /** Canvas 圆角剪切路径生成圆角贴图 / Rounded-corner card texture via canvas clip */
 function makeRoundedTexture(src, cardW, cardH, cornerR) {
+    if (typeof THREE === 'undefined') return null;
     const cacheKey = `${src}|${cardW}|${cardH}|${cornerR}`;
     if (roundedTextureCache.has(cacheKey)) {
         return roundedTextureCache.get(cacheKey);
@@ -41,48 +43,7 @@ function makeRoundedTexture(src, cardW, cardH, cornerR) {
     return tex;
 }
 
-function loadCardTexture(cardDef) {
-    return makeTexture(IMG_BASE + cardDef.file);
-}
 
-function createCardMaterials(frontSrc, backSrc, cardW, cardH, cornerR) {
-    const edgeMaterial = new THREE.MeshStandardMaterial({
-        color: 0x17100a,
-        roughness: 0.72,
-        metalness: 0.08,
-        emissive: 0x130804,
-        emissiveIntensity: 0.18
-    });
-    const topBottomMaterial = new THREE.MeshStandardMaterial({
-        color: 0xb78635,
-        roughness: 0.5,
-        metalness: 0.34,
-        emissive: 0x2d1605,
-        emissiveIntensity: 0.16
-    });
-    const backMaterial = new THREE.MeshStandardMaterial({
-        map: makeRoundedTexture(backSrc, cardW, cardH, cornerR),
-        roughness: 0.64,
-        metalness: 0.04,
-        emissive: 0x171006,
-        emissiveIntensity: 0.1
-    });
-    const frontMaterial = new THREE.MeshStandardMaterial({
-        map: makeRoundedTexture(frontSrc, cardW, cardH, cornerR),
-        roughness: 0.58,
-        metalness: 0.03,
-        emissive: 0x120806,
-        emissiveIntensity: 0.08
-    });
-    return [
-        edgeMaterial.clone(),
-        edgeMaterial.clone(),
-        topBottomMaterial.clone(),
-        topBottomMaterial.clone(),
-        backMaterial,
-        frontMaterial
-    ];
-}
 
 // ── 罗马数字转换 / Chinese numeral → Roman numeral ──
 const ZH_ROMAN = {
