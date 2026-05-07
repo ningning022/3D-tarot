@@ -8,32 +8,43 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body class="admin-page">
-    <main class="admin-shell">
-        <header class="admin-header">
-            <div>
-                <p class="admin-kicker">Akashic Tarot</p>
-                <h1>秘典数据库 / Chronicle Database</h1>
-                <p class="admin-subtitle">只读查看本地 SQLite 占卜记录 / Read-only local SQLite history</p>
-            </div>
-            <div class="admin-actions">
-                <button id="clear-readings" class="admin-link danger-button" type="button">
-                    清空数据库 / Clear Database
-                </button>
-                <a class="admin-link" href="Three.html">返回占卜 / Back to Tarot</a>
-            </div>
-        </header>
+<body class="admin-page figma-stage">
+    <header class="app-topbar admin-topbar">
+        <a class="brand-lockup" href="Three.html" aria-label="Back to Akashic Tarot">
+            <span class="brand-sigil" aria-hidden="true"></span>
+            <span>
+                <strong>Akashic Tarot</strong>
+                <small>Admin Chronicle Archive</small>
+            </span>
+        </a>
+        <nav class="admin-nav" aria-label="Admin sections">
+            <button type="button" data-admin-view="dashboard">总览 / Dashboard</button>
+            <button type="button" data-admin-view="readings" class="active">记录 / Readings</button>
+            <button type="button" data-admin-view="decks">牌库 / Decks</button>
+            <button type="button" data-admin-view="settings">设置 / Settings</button>
+            <button type="button" data-admin-view="system">系统 / System</button>
+        </nav>
+        <div class="admin-actions">
+            <button id="clear-readings" class="admin-link danger-button" type="button">删除 / Delete</button>
+            <a class="admin-link" href="Three.html">返回 / Back</a>
+        </div>
+    </header>
 
+    <main class="admin-shell">
         <section class="admin-grid">
             <aside class="admin-list-panel">
-                <div class="admin-panel-title">最近记录 / Recent Readings</div>
-                <div id="admin-status" class="admin-status">连接数据库中... / Connecting...</div>
+                <div class="admin-panel-title">已存记录 / Saved Readings</div>
+                <label class="admin-search">
+                    <span>搜索记录 / Search</span>
+                    <input id="reading-search" type="search" aria-label="Search readings" placeholder="搜索 / Search...">
+                </label>
+                <div id="admin-status" class="admin-status">Connecting...</div>
                 <div id="reading-list" class="reading-list"></div>
             </aside>
 
             <section class="admin-detail-panel">
                 <div id="reading-detail" class="reading-detail">
-                    <div class="empty-state">选择一条记录查看详情 / Select a reading</div>
+                    <div class="empty-state">Select a reading</div>
                 </div>
             </section>
         </section>
@@ -43,6 +54,7 @@
     <script src="js/utils.js"></script>
     <script src="js/spread_layout.js"></script>
     <script src="js/reading_replay.js"></script>
+    <script src="js/admin_helpers.js"></script>
     <script src="js/admin.js"></script>
 </body>
 

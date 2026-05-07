@@ -4,6 +4,7 @@ const {
   setPreferredMode,
   createMemoryStorage,
   mapMouseEventToGesture,
+  mapMouseEventToAction,
   mapKeyEventToAction,
   applyKeyboardAction
 } = require('../js/input_mode.js');
@@ -25,7 +26,12 @@ assert.strictEqual(mapMouseEventToGesture('mouseup'), 'OPEN');
 assert.strictEqual(mapMouseEventToGesture('mouseleave'), 'NONE');
 assert.strictEqual(mapMouseEventToGesture('click'), null);
 
+assert.strictEqual(mapMouseEventToAction('click'), 'SELECT_CARD');
+assert.strictEqual(mapMouseEventToAction('mousedown'), null);
+assert.strictEqual(mapMouseEventToAction('mouseup'), null);
+
 assert.strictEqual(mapKeyEventToAction({ code: 'Space', type: 'keydown' }), 'CONFIRM');
+assert.strictEqual(mapKeyEventToAction({ code: 'Escape', type: 'keydown' }), 'CANCEL');
 assert.strictEqual(mapKeyEventToAction({ code: 'ArrowLeft', type: 'keydown' }), 'ROTATE_LEFT');
 assert.strictEqual(mapKeyEventToAction({ code: 'KeyA', type: 'keydown' }), 'ROTATE_LEFT');
 assert.strictEqual(mapKeyEventToAction({ code: 'ArrowRight', type: 'keydown' }), 'ROTATE_RIGHT');

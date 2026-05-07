@@ -3,6 +3,7 @@ const _spreadHome = new THREE.Vector3();
 const _spreadHomeScale = new THREE.Vector3();
 const _spreadWorldPos = new THREE.Vector3();
 const _spreadWorldQuat = new THREE.Quaternion();
+let mousePreviewCard = null;
 
 function createRandomCardMarker() {
     return { __randomCard: true };
@@ -23,6 +24,18 @@ function createPlanFromSelected(selectedCards) {
 
 function removeCardIdFromDeckPool(cardId) {
     deckPool = deckPool.filter(id => id !== cardId);
+}
+
+function getStageCardRotation(slot, totalCards) {
+    if (totalCards === 3) return [-0.08, 0, 0.08][slot - 1] || 0;
+    if (totalCards <= 5) return (slot - (totalCards + 1) / 2) * 0.035;
+    return 0;
+}
+
+function getStageCardY(targetY, totalCards) {
+    if (totalCards === 3) return targetY - 0.42;
+    if (totalCards <= 5) return targetY - 0.18;
+    return targetY;
 }
 
 function spawnPlannedCard(planItem, slot, slotLabel) {
@@ -47,13 +60,15 @@ function spawnCard(slot, cardDef, isReversed, slotLabel) {
         cardDef = FULL_DECK[cardId];
     }
 
-    const geo = new THREE.BoxGeometry(2.1, 3.7, 0.08);
+    const cardW = 2.0;
+    const cardH = 3.5;
+    const geo = new THREE.BoxGeometry(cardW, cardH, 0.14);
 
     const materials = [
-        new THREE.MeshStandardMaterial({ color: 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: 0x111111 }),
-        new THREE.MeshStandardMaterial({ color: 0x111111 }),
+        new THREE.MeshStandardMaterial({ color: 0x17100a, roughness: 0.72, metalness: 0.08, emissive: 0x130804, emissiveIntensity: 0.18 }),
+        new THREE.MeshStandardMaterial({ color: 0x17100a, roughness: 0.72, metalness: 0.08, emissive: 0x130804, emissiveIntensity: 0.18 }),
+        new THREE.MeshStandardMaterial({ color: 0xb78635, roughness: 0.5, metalness: 0.34, emissive: 0x2d1605, emissiveIntensity: 0.16 }),
+        new THREE.MeshStandardMaterial({ color: 0xb78635, roughness: 0.5, metalness: 0.34, emissive: 0x2d1605, emissiveIntensity: 0.16 }),
         new THREE.MeshStandardMaterial({ map: makeRoundedTexture(CARD_BACK, 2.1, 3.7, 0.06) }),       // 卡背圆角
         new THREE.MeshStandardMaterial({ map: makeRoundedTexture(IMG_BASE + cardDef.file, 2.1, 3.7, 0.06) })  // 卡面圆角
     ];
@@ -65,7 +80,9 @@ function spawnCard(slot, cardDef, isReversed, slotLabel) {
     const layout = SpreadLayout.computeBrowserSpreadLayout(spreadCards);
     const target = layout[slot - 1] || { x: 0, y: 0, scale: 1 };
     const xCenter = target.x;
-    card.position.set(target.x, -6, 0);
+    const homeY = getStageCardY(target.y, spreadCards);
+    const homeRotationZ = getStageCardRotation(slot, spreadCards);
+    card.position.set(target.x, -6, 0.14);
     card.scale.setScalar(target.scale);
     card.userData = {
         zh: cardDef.zh,
@@ -76,13 +93,198 @@ function spawnCard(slot, cardDef, isReversed, slotLabel) {
         state: 'DEALING',
         slot: slot,
         slotLabel: slotLabel || `Slot ${slot}`,
-        homeY: target.y,
+        homeY: homeY,
         homeScale: target.scale,
+        homeRotationZ: homeRotationZ,
         homeX: xCenter   // 记录原位X，供归位使用
     };
 
+    card.rotation.z = homeRotationZ;
     scene.add(card);
     activeCards.push(card);
+}
+
+function ensureIdleCardFaceLoaded(card) {
+    if (!card || card.userData.faceLoaded) return;
+    card.userData.faceLoaded = true;
+    const cardDef = FULL_DECK[card.userData.cardIndex];
+    disposeMaterial(card.material[5]);
+    card.material[5] = new THREE.MeshStandardMaterial({
+        map: makeRoundedTexture(IMG_BASE + cardDef.file, 0.68, 1.08, 0.08),
+        roughness: 0.58,
+        metalness: 0.03,
+        emissive: 0x120806,
+        emissiveIntensity: 0.08
+    });
+}
+
+function getMouseCardId(card) {
+    if (!card) return null;
+    if (!card.userData.mouseId) {
+        card.userData.mouseId = card.uuid || `card-${card.userData.cardId ?? card.userData.cardIndex}`;
+    }
+    return card.userData.mouseId;
+}
+
+function detachIdleCardToScene(card) {
+    const entry = idleCards.find(c => c.mesh === card);
+    if (!entry || !entry.group || card.parent === scene) return;
+    card.getWorldPosition(_spreadWorldPos);
+    card.getWorldQuaternion(_spreadWorldQuat);
+    entry.group.remove(card);
+    card.position.copy(_spreadWorldPos);
+    card.quaternion.copy(_spreadWorldQuat);
+    scene.add(card);
+}
+
+function returnIdleCardToRing(card) {
+    const entry = idleCards.find(c => c.mesh === card);
+    if (!entry || !entry.group || card.parent === entry.group) return;
+    const angle = card.userData.baseAngle;
+    scene.remove(card);
+    entry.group.add(card);
+    card.position.set(
+        CAROUSEL_R * Math.sin(angle),
+        0,
+        CAROUSEL_R * Math.cos(angle)
+    );
+    card.rotation.set(0, angle + Math.PI, 0);
+    card.scale.setScalar(1);
+}
+
+function markIdleCardSelected(card) {
+    if (!card) return false;
+    if (idleHeldCard && idleHeldCard !== card) {
+        returnIdleCardToRing(idleHeldCard);
+    }
+    if (!card.userData.hasOwnProperty('isReversed')) {
+        card.userData.isReversed = Math.random() < 0.5;
+    }
+    ensureIdleCardFaceLoaded(card);
+    detachIdleCardToScene(card);
+    idleHeldCard = card;
+    card.userData.isPinched = true;
+    if (!idlePinchedCards.includes(card)) {
+        idlePinchedCards.push(card);
+    }
+    idlePointedCard = card;
+    isIdleRotating = false;
+    if (typeof projectToScreen === 'function') {
+        const point = projectToScreen(card);
+        showIdleLabel(card.userData, point.x, point.y + 20);
+    }
+    if (typeof showGuideMessage === 'function') {
+        showGuideMessage(`${card.userData.en} 已选 / Selected. 再点取消，或点新占卜 / New.`);
+    }
+    return true;
+}
+
+function unselectIdleCardFromMouse(card) {
+    if (!card) return false;
+    if (idleHeldCard === card) idleHeldCard = null;
+    returnIdleCardToRing(card);
+    card.userData.isPinched = false;
+    idlePinchedCards = idlePinchedCards.filter(item => item !== card);
+    idlePointedCard = null;
+    hideIdleLabel();
+    isIdleRotating = true;
+    if (typeof showGuideMessage === 'function') {
+        showGuideMessage(`${card.userData.en} 已取消 / Unselected.`);
+    }
+    return true;
+}
+
+function returnMousePreviewToSlot(card) {
+    if (!card || card.userData.state !== 'MOUSE_PREVIEW') return false;
+    card.userData.state = 'IDLE';
+    _spreadHome.set(card.userData.homeX, card.userData.homeY || 0, 0);
+    card.position.copy(_spreadHome);
+    card.scale.setScalar(card.userData.homeScale || 1);
+    card.rotation.y = 0;
+    card.rotation.z = card.userData.homeRotationZ || 0;
+    if (mousePreviewCard === card) mousePreviewCard = null;
+    hideUI();
+    hideIdleLabel();
+    return true;
+}
+
+function previewCardFromMouse(card) {
+    if (!card || card.userData.state === 'DEALING' || card.userData.state === 'MOUSE_CONFIRMING') return false;
+    if (mousePreviewCard && mousePreviewCard !== card) {
+        returnMousePreviewToSlot(mousePreviewCard);
+    }
+    mousePreviewCard = card;
+    card.userData.state = 'MOUSE_PREVIEW';
+    card.rotation.y = Math.PI;
+    card.rotation.z = card.userData.isReversed ? Math.PI : (card.userData.homeRotationZ || 0);
+    card.scale.setScalar(Math.max(card.userData.homeScale || 1, 1.02));
+    showUI(card.userData);
+    if (typeof showGuideMessage === 'function') {
+        showGuideMessage('再次点击同一张确认 / Click the same card again to confirm.');
+    }
+    return true;
+}
+
+function confirmCardFromMouse(card) {
+    if (!card || card.userData.state === 'DEALING' || card.userData.state === 'MOUSE_CONFIRMING') return false;
+    card.userData.state = 'MOUSE_CONFIRMING';
+    card.rotation.y = Math.PI;
+    card.rotation.z = card.userData.isReversed ? Math.PI : (card.userData.homeRotationZ || 0);
+    card.scale.setScalar(Math.max(card.userData.homeScale || 1, 0.96));
+    showUI(card.userData);
+    if (mousePreviewCard === card) mousePreviewCard = null;
+    window.setTimeout(() => {
+        if (activeCards.includes(card) && card.userData.state === 'MOUSE_CONFIRMING') {
+            confirmCard(card);
+        }
+    }, 220);
+    return true;
+}
+
+function handleMouseCardSelection() {
+    raycaster.setFromCamera(handScreenPos, camera);
+
+    if (spreadState === 'IDLE') {
+        const hit = raycaster.intersectObjects(idleCards.map(entry => entry.mesh))[0];
+        if (!hit) return false;
+        const clickedId = getMouseCardId(hit.object);
+        const selectedIdleIds = idlePinchedCards.map(getMouseCardId);
+        const action = MouseInteraction.resolveMouseCardAction({ phase: 'idle', selectedIdleIds }, clickedId);
+        if (action === 'SELECT_IDLE_CARD') return markIdleCardSelected(hit.object);
+        if (action === 'UNSELECT_IDLE_CARD') return unselectIdleCardFromMouse(hit.object);
+        return false;
+    }
+
+    if (spreadState === 'ACTIVE') {
+        updateDealingCards();
+        const hit = raycaster.intersectObjects(activeCards)[0];
+        if (!hit) return false;
+        const clickedId = getMouseCardId(hit.object);
+        const previewCardId = getMouseCardId(mousePreviewCard);
+        const action = MouseInteraction.resolveMouseCardAction({ phase: 'active', previewCardId }, clickedId);
+        if (action === 'PREVIEW_CARD') return previewCardFromMouse(hit.object);
+        if (action === 'CONFIRM_CARD') return confirmCardFromMouse(hit.object);
+        return false;
+    }
+
+    if (spreadState === 'AWAITING') {
+        if (typeof showGuideMessage === 'function') {
+            showGuideMessage('请选择下一阵或返回 / Use Next or Return.');
+        }
+        return false;
+    }
+
+    return false;
+}
+
+function handleMouseSpreadKeyboardAction(action) {
+    if (action === 'CONFIRM' && mousePreviewCard) {
+        return confirmCardFromMouse(mousePreviewCard);
+    }
+    if (action === 'CANCEL' && mousePreviewCard) {
+        return returnMousePreviewToSlot(mousePreviewCard);
+    }
+    return false;
 }
 
 function handleGestures() {
@@ -173,7 +375,7 @@ function handleGestures() {
             _spreadHomeScale.setScalar(card.userData.homeScale || 1);
             card.scale.lerp(_spreadHomeScale, 0.1);
             card.rotation.y = THREE.MathUtils.lerp(card.rotation.y, 0, 0.1);
-            card.rotation.z = THREE.MathUtils.lerp(card.rotation.z, 0, 0.1);
+            card.rotation.z = THREE.MathUtils.lerp(card.rotation.z, card.userData.homeRotationZ || 0, 0.1);
             card.userData.state = 'IDLE';
             hideUI();
             hideIdleLabel();
@@ -190,7 +392,7 @@ function updateDealingCards() {
         card.position.lerp(_spreadHome, 0.12);
         card.scale.lerp(_spreadHomeScale, 0.12);
         card.rotation.y = THREE.MathUtils.lerp(card.rotation.y, 0, 0.1);
-        card.rotation.z = THREE.MathUtils.lerp(card.rotation.z, 0, 0.1);
+        card.rotation.z = THREE.MathUtils.lerp(card.rotation.z, card.userData.homeRotationZ || 0, 0.1);
         if (card.position.distanceTo(_spreadHome) < 0.04) {
             card.position.copy(_spreadHome);
             card.scale.copy(_spreadHomeScale);
@@ -347,12 +549,14 @@ function confirmCard(card) {
 
         setTimeout(() => showSpreadPrompt(), 800);
     }
+    if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
 }
 
 /** 发下一组牌（无 idle pinch，固定3张）/ Deal next spread */
 function dealNextSpread() {
     confirmedInSpread = 0;
     spreadState = 'ACTIVE';
+    mousePreviewCard = null;
     const plan = createPlanFromSelected([]);
     spreadCards = plan.totalCards;
     resetReadingCapture({
@@ -367,11 +571,13 @@ function dealNextSpread() {
     plan.selectedCards.forEach((item, index) => {
         spawnPlannedCard(item, index + 1, plan.slotLabels[index]);
     });
+    if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
 }
 
 function showSpreadPrompt() {
     spreadState = 'AWAITING';
     document.getElementById('spread-prompt').style.display = 'block';
+    if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
     gestureDebounce = Date.now() + 1000; // 1s 延迟防止立即误触
 }
 
@@ -379,10 +585,38 @@ function hideSpreadPrompt() {
     document.getElementById('spread-prompt').style.display = 'none';
 }
 
+function returnToIdleFromSpread() {
+    hideSpreadPrompt();
+    activeCards.forEach(c => {
+        disposeObject(c);
+        scene.remove(c);
+    });
+    activeCards = [];
+    mousePreviewCard = null;
+    hideUI();
+    hideIdleLabel();
+    fanAngle = 0;
+    idlePinchedCards = [];
+    idleHeldCard = null;
+    idlePointedCard = null;
+    isIdleRotating = true;
+    document.getElementById('idle-title').style.opacity = '1';
+    document.getElementById('spread-template-ring').classList.remove('hidden');
+    document.getElementById('guide-text').innerText =
+        '点击选牌 / Click cards, then 新占卜 / New.';
+    const status = document.getElementById('status');
+    if (status) status.innerText = `第 ${spreadCount} 阵完成 / Spread ${spreadCount} done`;
+    createIdleFan();
+    spreadState = 'IDLE';
+    if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
+}
+
 /** OPEN 触发：轮播飞散，用已选牌（或随机3张）发牌 */
 function startSpread(selectedCards) {
     document.getElementById('idle-title').style.opacity = '0';
     document.getElementById('spread-template-ring').classList.add('hidden');
+    spreadState = 'ENTERING';
+    if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
     hideIdleLabel();
     if (Array.isArray(selectedCards)) {
         idlePinchedCards = SpreadFlow.createEnteringSnapshot(selectedCards);
@@ -398,6 +632,7 @@ function startSpread(selectedCards) {
 
     setTimeout(() => {
         spreadState = 'ACTIVE';
+        mousePreviewCard = null;
         confirmedInSpread = 0;
         spreadCards = plan.totalCards;
         resetReadingCapture({
@@ -408,6 +643,9 @@ function startSpread(selectedCards) {
         document.getElementById('guide-text').innerText =
             '捏合 PINCH：翻牌 / Flip | 握拳 FIST：确认 / Confirm';
 
+        document.getElementById('guide-text').innerText =
+            '点击一次翻看 / First click previews. 再点确认 / Click again confirms.';
+
         if (deckPool.length < plan.selectedCards.filter(item => item && item.__randomCard).length) {
             deckPool = [...Array(78).keys()];
             prependHistoryNote('✦ 牌库已重置 / Deck Reshuffled ✦');
@@ -416,5 +654,6 @@ function startSpread(selectedCards) {
         plan.selectedCards.forEach((item, index) => {
             spawnPlannedCard(item, index + 1, plan.slotLabels[index]);
         });
+        if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
     }, 700);
 }

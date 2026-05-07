@@ -8,22 +8,56 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-<body class="tarot-page">
+<body class="tarot-page figma-stage">
+    <header class="app-topbar tarot-topbar">
+        <a class="brand-lockup" href="Three.html" aria-label="Akashic Tarot home">
+            <span class="brand-sigil" aria-hidden="true"></span>
+            <span>
+                <strong>Akashic Tarot</strong>
+                <small>3D Tarot | Local-First</small>
+            </span>
+        </a>
+        <nav class="topbar-actions" aria-label="Tarot actions">
+            <button id="menu-toggle" class="icon-button" type="button" aria-label="Toggle controls" aria-expanded="true">菜单 / Menu</button>
+            <button id="new-reading-button" class="new-reading-button" type="button">新占卜 / New</button>
+            <button id="control-switch" class="icon-button control-switch" type="button" aria-label="Switch controls">模式 / Mode</button>
+        </nav>
+    </header>
 
-    <div class="ui-layer">
-        <div class="status-panel">
-            <div class="status-kicker">Akashic Console</div>
-            <div id="status">连接星轨中... / Connecting to Akashic...</div>
-            <div id="gesture-active">等待指引 / Awaiting guidance</div>
-            <button id="control-switch" class="control-switch" type="button">切换控制 / Switch Controls</button>
-            <div id="daily-draw" class="daily-draw"></div>
-        </div>
-        <div id="history" class="panel history-panel">
-            <button id="history-toggle" class="history-toggle" type="button">Chronicle</button>
-            <div class="history-title">秘典记录 / Chronicle</div>
-            <a class="history-db-link" href="admin.html">查看数据库 / Database</a>
+    <div class="ui-layer tarot-panels">
+        <aside class="left-rail">
+            <section class="status-panel stage-panel current-spread-panel">
+                <div class="status-kicker">Current Spread</div>
+                <div id="current-spread-title" class="spread-panel-title">Three Card Insight</div>
+                <div id="current-spread-sub" class="spread-panel-sub">Past - Present - Future</div>
+                <button id="change-spread-button" class="control-switch secondary-switch" type="button">牌阵 / Spread</button>
+            </section>
+
+            <section class="stage-panel deck-panel">
+                <div class="status-kicker">Deck</div>
+                <div class="deck-row">
+                    <img src="image2/00.jpg" alt="Card back">
+                    <div>
+                        <strong>The Gilded Reverie</strong>
+                        <span>Rider-Waite deck</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="status-panel stage-panel runtime-panel">
+                <div class="status-kicker">Akashic Console</div>
+                <div id="status">Connecting to Akashic...</div>
+                <div id="gesture-active">Awaiting guidance</div>
+                <div id="daily-draw" class="daily-draw"></div>
+            </section>
+        </aside>
+
+        <aside id="history" class="stage-panel history-panel recent-panel">
+            <button id="history-toggle" class="history-toggle" type="button" aria-expanded="true">最近 / Recent</button>
+            <div class="history-title">最近记录 / Recent Readings</div>
+            <a class="history-db-link" href="admin.html">查看全部 / View All</a>
             <div id="history-list"></div>
-        </div>
+        </aside>
     </div>
 
     <div id="result-display">
@@ -35,13 +69,13 @@
     <div id="idle-title">
         <p class="idle-kicker">Local 3D Tarot Tool</p>
         <h2>AKASHIC TAROT</h2>
-        <p>张开手唤起命运 / Open your hand to begin</p>
+        <p>Open your hand to begin</p>
     </div>
 
     <div id="control-chooser" class="control-chooser">
         <div class="control-chooser-kicker">Choose your ritual</div>
-        <div class="control-chooser-title">选择控制方式 / Choose Controls</div>
-        <div class="control-chooser-sub">鼠标模式不会请求摄像头权限 / Mouse mode does not request camera access</div>
+        <div class="control-chooser-title">Choose Controls</div>
+        <div class="control-chooser-sub">Mouse mode does not request camera access</div>
         <div class="control-chooser-actions">
             <button type="button" data-control-mode="mouse">鼠标 / Mouse</button>
             <button type="button" data-control-mode="camera">摄像头 / Camera</button>
@@ -49,22 +83,38 @@
     </div>
 
     <div id="spread-template-ring" class="template-ring" aria-label="Spread templates">
-        <button type="button" data-template="three_timeline" class="active">三张 / 3</button>
-        <button type="button" data-template="five_cross">五张 / 5</button>
-        <button type="button" data-template="celtic_cross">十字 / 10</button>
-        <button type="button" data-template="free">自由 / Free</button>
+        <button type="button" data-template="three_timeline" class="active">
+            <span>Three Card</span>
+            <small>Insight</small>
+        </button>
+        <button type="button" data-template="five_cross">
+            <span>Celtic</span>
+            <small>Cross</small>
+        </button>
+        <button type="button" data-template="celtic_cross">
+            <span>Ten Card</span>
+            <small>Cross</small>
+        </button>
+        <button type="button" data-template="free">
+            <span>Free</span>
+            <small>Spread</small>
+        </button>
     </div>
 
     <div id="spread-prompt">
-        <div class="prompt-title">牌阵已完成</div>
-        <div class="prompt-kicker">Spread Complete</div>
-        <div class="prompt-sub">是否开启下一次牌阵？<br>Begin the next spread?</div>
-        <div class="prompt-hint">张手 OPEN = Yes &nbsp;|&nbsp; 握拳 FIST = No</div>
+        <div class="prompt-title">Spread Complete</div>
+        <div class="prompt-kicker">Akashic Tarot</div>
+        <div class="prompt-sub">Begin the next spread?</div>
+        <div class="prompt-hint">OPEN = Yes &nbsp;|&nbsp; FIST = No</div>
+        <div class="prompt-actions">
+            <button id="prompt-next" type="button">下一阵 / Next</button>
+            <button id="prompt-return" type="button">返回牌库 / Return</button>
+        </div>
     </div>
 
     <div id="idle-card-label"></div>
 
-    <div class="guide" id="guide-text">张手 OPEN：开始占卜 / Open hand to begin</div>
+    <div class="guide" id="guide-text">Open hand to begin</div>
 
     <video id="video-input" playsinline></video>
     <div id="canvas-container"></div>
@@ -87,11 +137,12 @@
     <script src="js/spread_layout.js"></script>
     <script src="js/spread_templates.js"></script>
     <script src="js/spread_flow.js"></script>
+    <script src="js/mouse_interaction.js"></script>
+    <script src="js/main_ui_state.js"></script>
     <script src="js/spread.js"></script>
     <script src="js/mediapipe.js"></script>
     <script src="js/input_mode.js"></script>
     <script src="js/main.js"></script>
-
 </body>
 
 </html>

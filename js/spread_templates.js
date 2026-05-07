@@ -41,7 +41,7 @@
                 { slot: 6, label: '未来 / Near Future' },
                 { slot: 7, label: '自己 / Self' },
                 { slot: 8, label: '环境 / Environment' },
-                { slot: 9, label: '希望与恐惧 / Hopes and Fears' },
+                { slot: 9, label: '希望恐惧 / Hopes and Fears' },
                 { slot: 10, label: '结果 / Outcome' }
             ]
         },

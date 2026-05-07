@@ -25,7 +25,7 @@ function cardToHistoryEntry(card) {
 
 function renderHistoryCardHtml(entry) {
     const orient = entry.isReversed ? '逆位 / Reversed' : '正位 / Upright';
-    return `<span style="color:var(--gold)">✓</span> <strong>${entry.slotLabel || `Slot ${entry.slot}`}</strong> · ${zhWithRoman(entry.zh)} <em style="opacity:.7">${entry.en}</em> · ${orient}`;
+    return `<span class="history-mark">✓</span> <strong>${entry.slotLabel || `Slot ${entry.slot}`}</strong> - ${zhWithRoman(entry.zh)} <em>${entry.en}</em> - ${orient}`;
 }
 
 function prependHistoryCard(entry) {
@@ -51,7 +51,7 @@ function prependHistorySeparator(spreadNumber) {
     if (!list) return;
     const sep = document.createElement('div');
     sep.className = 'history-separator';
-    sep.innerText = `── 第${spreadNumber}阵 / Spread ${spreadNumber} ──`;
+    sep.innerText = `第 ${spreadNumber} 阵 / Spread ${spreadNumber}`;
     list.prepend(sep);
 }
 
@@ -104,7 +104,7 @@ function renderSavedReadingSummary(reading) {
     const when = reading.createdAt ? new Date(reading.createdAt).toLocaleString() : 'Unknown time';
     const title = document.createElement('div');
     title.className = 'saved-reading-title';
-    title.innerText = `${reading.templateName || `Spread ${reading.spreadNumber}`} · ${when}`;
+    title.innerText = `${reading.templateName || `Spread ${reading.spreadNumber}`} - ${when}`;
     wrap.appendChild(title);
     (reading.cards || []).forEach(card => appendHistoryCard(card, wrap));
     list.appendChild(wrap);
@@ -115,7 +115,7 @@ async function loadSavedHistory(limit = 10) {
     const readings = await window.TarotAPI.loadReadings(limit);
     const list = document.getElementById('history-list');
     if (!list || !Array.isArray(readings) || readings.length === 0) return;
-    appendHistoryNote(`数据库最近记录 / Latest ${readings.length} saved readings`);
+    appendHistoryNote(`最近 ${readings.length} 条记录 / Latest ${readings.length} readings`);
     readings.forEach(renderSavedReadingSummary);
 }
 
@@ -125,7 +125,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const historyPanel = document.getElementById('history');
     if (toggle && historyPanel) {
         toggle.addEventListener('click', () => {
-            historyPanel.classList.toggle('collapsed');
+            const collapsed = historyPanel.classList.toggle('collapsed');
+            toggle.setAttribute('aria-expanded', String(!collapsed));
         });
     }
 });
