@@ -131,6 +131,7 @@ body {
 
 .history-panel {
     position: relative;
+    overflow: visible;
     transition: transform 0.28s ease, opacity 0.28s ease;
 }
 
@@ -146,6 +147,7 @@ body {
     pointer-events: none;
 }
 
+
 .history-toggle {
     position: absolute;
     left: -78px;
@@ -160,6 +162,12 @@ body {
     font: inherit;
     font-size: 12px;
     pointer-events: auto;
+    /* Hide when panel is fully expanded — only needed as collapsed pull-tab */
+    display: none;
+}
+
+.history-panel.collapsed .history-toggle {
+    display: block;
 }
 #history::-webkit-scrollbar {
     display: none;               /* Chrome / Safari / Edge */
@@ -2208,17 +2216,22 @@ body.figma-stage {
     display: block;
 }
 
+/* Fixed-position overlays: do NOT set position:relative here */
 .app-topbar,
 .ui-layer,
 #idle-title,
 #result-display,
-#spread-template-ring,
 #spread-prompt,
 #idle-card-label,
 .guide,
 #video-input,
 .admin-shell {
     position: relative;
+    z-index: 10;
+}
+
+/* #spread-template-ring is position:fixed — only set z-index */
+#spread-template-ring {
     z-index: 10;
 }
 
@@ -2323,19 +2336,23 @@ body.figma-stage {
     box-shadow: inset 0 1px 0 rgba(255, 231, 185, 0.06);
 }
 
-.icon-button {
-    width: 40px;
-    height: 40px;
-    display: grid;
-    place-items: center;
-    padding: 0;
+/* ── Topbar action buttons: unified pill style ── */
+.icon-button,
+.new-reading-button,
+.control-switch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 16px;
+    font: inherit;
+    font-size: 0.82rem;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+    cursor: pointer;
 }
 
-.new-reading-button,
-.admin-link {
-    min-height: 40px;
-    padding: 0 13px;
-}
+/* Remove the square-icon override — all buttons are pill-shaped now */
 
 .icon-button:hover,
 .new-reading-button:hover,
@@ -2350,7 +2367,7 @@ body.figma-stage {
 
 .tarot-panels.ui-layer {
     position: fixed;
-    inset: 104px 36px 118px;
+    inset: 112px 18px 118px;
     width: auto;
     padding: 0;
     display: flex;
@@ -2358,6 +2375,7 @@ body.figma-stage {
     align-items: flex-start;
     pointer-events: none;
     z-index: 12;
+    overflow: visible;
 }
 
 .left-rail {
@@ -2455,9 +2473,9 @@ body.figma-stage {
 }
 
 .recent-panel {
-    width: min(270px, 22vw);
+    width: min(260px, 21vw);
     max-height: min(520px, calc(100vh - 150px));
-    overflow: hidden auto;
+    overflow: visible;
     pointer-events: auto;
 }
 
@@ -2467,9 +2485,12 @@ body.figma-stage {
 }
 
 .history-toggle {
-    left: -70px;
-    top: 18px;
-    width: 78px;
+    /* Moved inside panel - no negative offset that could clip */
+    position: relative;
+    left: auto;
+    top: auto;
+    width: auto;
+    margin-bottom: 10px;
     background: rgba(20, 5, 5, 0.8);
 }
 
@@ -2505,59 +2526,71 @@ body.figma-stage {
     position: fixed;
     left: 50%;
     right: auto;
-    bottom: 32px;
+    bottom: 28px;
     top: auto;
     transform: translateX(-50%);
-    width: min(650px, calc(100vw - 320px));
+    width: min(560px, calc(100vw - 280px));
     max-width: none;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-    padding: 12px;
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    padding: 6px;
     overflow: visible;
     background:
-        linear-gradient(180deg, rgba(54, 13, 10, 0.7), rgba(15, 4, 4, 0.74)),
-        rgba(16, 5, 5, 0.68);
+        linear-gradient(180deg, rgba(54, 13, 10, 0.82), rgba(15, 4, 4, 0.88)),
+        rgba(16, 5, 5, 0.82);
+    border: 1px solid rgba(214, 167, 92, 0.28);
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,231,185,0.07);
+    backdrop-filter: blur(14px);
 }
 
+/* Remove the pseudo-element label — no room in compact layout */
 .template-ring::before {
-    content: "Choose a Spread";
-    grid-column: 1 / -1;
-    flex: none;
-    color: var(--stage-muted);
-    font-size: 0.72rem;
-    letter-spacing: 1.4px;
-    text-transform: uppercase;
+    display: none;
 }
 
 .template-ring button {
+    flex: 1;
     min-width: 0;
-    min-height: 66px;
-    display: grid;
-    align-content: center;
-    gap: 3px;
-    padding: 8px 10px;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+    border-radius: 6px;
+    transition: background 0.18s, border-color 0.18s, color 0.18s;
 }
 
-.template-ring button span,
-.template-ring button small {
+.template-ring button span {
     display: block;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .template-ring button small {
+    display: block;
+    font-size: 0.7rem;
     color: var(--stage-muted);
-    font-size: 0.72rem;
+    letter-spacing: 0.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .template-ring button.active {
     color: #fff9ec;
-    border-color: rgba(241, 205, 131, 0.92);
+    border-color: rgba(241, 205, 131, 0.9);
     background:
-        radial-gradient(circle at 50% 0%, rgba(214, 167, 92, 0.24), transparent 64%),
-        rgba(89, 29, 18, 0.78);
+        radial-gradient(circle at 50% 0%, rgba(214, 167, 92, 0.28), transparent 70%),
+        rgba(89, 29, 18, 0.85);
 }
 
 .guide {
@@ -2576,11 +2609,22 @@ body.figma-stage {
 
 #result-display,
 #idle-card-label {
-    border: 1px solid rgba(214, 167, 92, 0.24);
     border-radius: 8px;
     background: rgba(17, 4, 4, 0.62);
     box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
     backdrop-filter: blur(12px);
+}
+
+/* result-display gets border; idle-card-label (camera follow label) does NOT */
+#result-display {
+    border: 1px solid rgba(214, 167, 92, 0.24);
+}
+
+#idle-card-label {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
 }
 
 #result-display {
@@ -3528,4 +3572,44 @@ textarea {
         align-items: flex-start;
         flex-direction: column;
     }
+}
+
+/* ══════════════════════════════════════════════
+   Override fixes — applied last to win cascade
+   ══════════════════════════════════════════════ */
+
+/* Problem 4: Spread prompt must be a centered modal above ALL layers */
+#spread-prompt {
+    position: fixed !important;
+    z-index: 300 !important;
+    top: 50% !important;
+    left: 50% !important;
+    width: min(420px, 90vw) !important;
+    transform: translate(-50%, -50%) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(214, 167, 92, 0.6) !important;
+    background: linear-gradient(160deg, rgba(32, 8, 8, 0.97), rgba(10, 3, 3, 0.98)) !important;
+    box-shadow:
+        0 0 0 9999px rgba(0, 0, 0, 0.45),
+        0 24px 64px rgba(0, 0, 0, 0.7),
+        0 0 40px rgba(214, 167, 92, 0.12) !important;
+    animation: fadeInModal 0.32s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    pointer-events: auto !important;
+}
+
+@keyframes fadeInModal {
+    from { opacity: 0; transform: translate(-50%, -46%) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Problem 1: admin-link should match the unified button height */
+.admin-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 16px;
+    font-size: 0.82rem;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
 }
