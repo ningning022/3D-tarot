@@ -60,6 +60,7 @@ function init() {
     }
     if (window.DailyDraw) DailyDraw.mountDailyDraw();
     bindTopbarActions();
+    bindDailyDrawToggle();
     bindMouseStageActions();
     bindPromptActions();
     updatePrimaryActionButton();
@@ -112,6 +113,17 @@ function bindTopbarActions() {
             menuToggle.setAttribute('aria-expanded', String(!hidden));
         });
     }
+}
+
+function bindDailyDrawToggle() {
+    const panel = document.querySelector('.daily-draw-panel');
+    const body = panel && document.getElementById('daily-draw-body');
+    if (!panel || !body) return;
+    panel.querySelector('.daily-draw-toggle').addEventListener('click', () => {
+        const expanded = panel.getAttribute('aria-expanded') === 'true';
+        panel.setAttribute('aria-expanded', String(!expanded));
+        body.hidden = expanded;
+    });
 }
 
 function bindStageControls() {

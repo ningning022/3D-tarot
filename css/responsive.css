@@ -139,8 +139,8 @@
         width: min(220px, 58vw);
     }
 
-    /* Hide deck-panel and runtime-panel on small screens */
-    .deck-panel,
+    /* Hide daily-draw-panel and runtime-panel on small screens */
+    .daily-draw-panel,
     .runtime-panel {
         display: none;
     }

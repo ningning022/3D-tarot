@@ -405,30 +405,47 @@ body.stage-controls-hidden .recent-panel {
     padding: 10px 12px;
 }
 
-/* ── Deck row ───────────────────────────────────────────── */
+/* ── Daily Draw Panel (collapsible) ─────────────────────── */
 
-.deck-row {
-    display: grid;
-    grid-template-columns: 38px minmax(0, 1fr);
-    gap: 10px;
+.daily-draw-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.daily-draw-toggle {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    margin-top: 12px;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
 }
 
-.deck-row img {
-    width: 38px;
-    border-radius: 4px;
-    border: 1px solid rgba(214, 167, 92, 0.48);
+.daily-draw-toggle .status-kicker {
+    margin: 0;
+    letter-spacing: inherit;
 }
 
-.deck-row strong,
-.deck-row span {
-    display: block;
-}
-
-.deck-row span {
+.daily-draw-chevron {
     color: var(--stage-muted);
-    font-size: 0.76rem;
+    font-size: 0.8rem;
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+}
+
+.daily-draw-panel[aria-expanded="true"] .daily-draw-chevron {
+    transform: rotate(180deg);
+}
+
+.daily-draw-body {
+    padding: 0 14px 12px;
+}
+
+.daily-draw-body[hidden] {
+    display: none;
 }
 
 /* runtime-panel hidden by default */
@@ -436,7 +453,7 @@ body.stage-controls-hidden .recent-panel {
     display: none;
 }
 
-/* deck-panel / runtime-panel hidden at ≤640px in responsive.css */
+/* daily-draw-panel / runtime-panel hidden at ≤640px in responsive.css */
 
 /* ── History panel ──────────────────────────────────────── */
 
