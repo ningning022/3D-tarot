@@ -106,6 +106,17 @@
         };
     }
 
+    function cycleNextTemplate() {
+        const idx = TEMPLATES.findIndex(t => t.key === activeKey);
+        activeKey = TEMPLATES[(idx + 1) % TEMPLATES.length].key;
+        if (typeof document !== 'undefined') {
+            document.querySelectorAll('[data-template]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.template === activeKey);
+            });
+        }
+        return getActiveTemplate();
+    }
+
     function bindTemplateSelector(containerId = 'spread-template-ring') {
         if (typeof document === 'undefined') return;
         const container = document.getElementById(containerId);
@@ -131,6 +142,7 @@
         getTemplate,
         getActiveTemplate,
         setActiveTemplate,
+        cycleNextTemplate,
         resolveSpreadPlan,
         bindTemplateSelector
     };
