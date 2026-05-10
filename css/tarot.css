@@ -78,12 +78,11 @@
 
 /* ── Idle title ─────────────────────────────────────────── */
 
-/* Final value: Figma stage pass (position:fixed, top:40px,
-   left:84px, text-align:left, opacity:0 initially) */
+/* top: 104px clears the topbar (top:18px + min-height:72px + gap) */
 #idle-title {
     position: fixed;
-    top: 40px;
-    left: 84px;
+    top: 104px;
+    left: 34px;
     transform: none;
     text-align: left;
     opacity: 0;

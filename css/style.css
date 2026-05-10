@@ -566,7 +566,7 @@ html {
     }
 
     #idle-title {
-        top: 4%;
+        top: 96px;
     }
 
     #idle-title h2 {
@@ -1128,7 +1128,7 @@ body {
 }
 
 #idle-title {
-    top: 4.5%;
+    top: 104px;
     color: var(--text);
 }
 
@@ -1883,7 +1883,7 @@ body {
 }
 
 #idle-title {
-    top: 26px;
+    top: 104px;
     left: 34px;
     transform: none;
     width: min(560px, calc(100vw - 360px));
@@ -2096,7 +2096,7 @@ body {
     }
 
     #idle-title {
-        top: 18px;
+        top: 96px;
         left: 16px;
         width: calc(100vw - 32px);
     }
@@ -2524,8 +2524,8 @@ body.figma-stage {
 
 #idle-title {
     position: fixed;
-    top: 40px;
-    left: 84px;
+    top: 104px;
+    left: 34px;
     transform: none;
     text-align: left;
     opacity: 0;
