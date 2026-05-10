@@ -480,21 +480,6 @@ function handleIdleGestures(now) {
         // 停止旋转，高亮被指向的牌
         isIdleRotating = false;
         idlePointedCard = hitMesh;
-    } else if (currentGesture === 'FIST') {
-        // FIST in IDLE: drop any held card, then cycle spread template
-        if (idleHeldCard) _returnHeldCardToRing();
-        hideIdleLabel();
-        twoFingerPrevX = null;
-        isIdleRotating = true;
-        idlePointedCard = null;
-        if (now > gestureDebounce && window.SpreadTemplates) {
-            gestureDebounce = now + 1200;
-            const next = SpreadTemplates.cycleNextTemplate();
-            if (typeof updateCurrentSpreadPanel === 'function') updateCurrentSpreadPanel();
-            if (typeof showGuideMessage === 'function') {
-                showGuideMessage(`牌阵切换: ${next.name.split('/').pop().trim()}`);
-            }
-        }
     } else {
         // NONE: 若有悬空牌则放回
         if (idleHeldCard) {

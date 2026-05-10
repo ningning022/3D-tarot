@@ -9,7 +9,6 @@
     const VALID_MODES = new Set(['mouse', 'camera']);
     const ROTATE_KICK = 0.025;
     let mouseEventsBound = false;
-    let _autoStartTimer = null;
 
     function createMemoryStorage(initial = {}) {
         const data = { ...initial };
@@ -92,44 +91,12 @@
         }
     }
 
-    function clearAutoStart() {
-        if (_autoStartTimer !== null) {
-            clearInterval(_autoStartTimer);
-            _autoStartTimer = null;
-        }
-        const el = root.document && root.document.getElementById('chooser-countdown');
-        if (el) el.style.display = 'none';
-    }
-
-    function startAutoCamera() {
-        if (!root.document) return;
-        const el = root.document.getElementById('chooser-countdown');
-        if (!el) return;
-        let secs = 3;
-        function updateEl() {
-            el.innerHTML = `摄像头将在 <strong>${secs}</strong> 秒后自动启动 / Camera auto-starts in ${secs}s`;
-        }
-        updateEl();
-        el.style.display = 'block';
-        _autoStartTimer = setInterval(() => {
-            secs -= 1;
-            if (secs <= 0) {
-                clearAutoStart();
-                selectMode('camera');
-            } else {
-                updateEl();
-            }
-        }, 1000);
-    }
-
-    function showChooser(autoStart) {
+    function showChooser() {
         const chooser = root.document && root.document.getElementById('control-chooser');
         if (chooser) chooser.style.display = 'block';
-        if (autoStart) startAutoCamera();
     }
 
     function hideChooser() {
-        clearAutoStart();
         const chooser = root.document && root.document.getElementById('control-chooser');
         if (chooser) chooser.style.display = 'none';
     }
@@ -156,6 +123,8 @@
         if (mode === 'camera') {
             if (status) status.innerText = '摄像头模式 / Camera Mode';
             if (gesture) gesture.innerText = '等待摄像头 / Awaiting camera';
+            const guide = root.document && root.document.getElementById('guide-text');
+            if (guide) guide.innerText = '张手 OPEN：悬停选牌  握拳 FIST：确认 / Open=hover  Fist=confirm';
         }
     }
 
@@ -320,7 +289,7 @@
         const search = root.location ? root.location.search : '';
         const mode = getPreferredMode(search, browserStorage());
         if (!mode) {
-            showChooser(true);  // first visit: auto-countdown to camera mode
+            showChooser();
             return null;
         }
         setPreferredMode(mode, browserStorage());

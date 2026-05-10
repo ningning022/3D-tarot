@@ -7,7 +7,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : window, function () {
     const NONE = 'NONE';
     const STATE_ALLOWED = {
-        IDLE: new Set(['OPEN', 'POINT', 'PINCH', 'TWO_FINGER', 'FIST', NONE]),
+        IDLE: new Set(['OPEN', 'POINT', 'PINCH', 'TWO_FINGER', NONE]),
         ACTIVE: new Set(['PINCH', 'FIST', 'OPEN', NONE]),
         AWAITING: new Set(['OPEN', 'FIST', NONE]),
         ENDED: new Set([NONE])

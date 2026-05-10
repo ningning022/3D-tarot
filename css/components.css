@@ -716,20 +716,6 @@ body.stage-controls-hidden .recent-panel {
     min-width: 132px;
 }
 
-.chooser-countdown {
-    margin-top: 14px;
-    font-size: 0.78rem;
-    color: var(--stage-muted);
-    text-align: center;
-    line-height: 1.6;
-}
-
-.chooser-countdown strong {
-    color: var(--stage-gold);
-    font-size: 1.1rem;
-    font-weight: 700;
-}
-
 /* ── Spread prompt (modal overlay) ─────────────────────────
    Final canonical rule — incorporates the !important patch block.
    position:fixed and z-index:300 are the definitive values.   */
