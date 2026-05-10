@@ -14,9 +14,15 @@ assert.deepStrictEqual(getPrimaryActionState('AWAITING'), {
 });
 
 assert.deepStrictEqual(getPrimaryActionState('ACTIVE'), {
-  label: '进行中 / Busy',
-  disabled: true,
-  intent: 'SHOW_BUSY'
+  label: '保存 / Save',
+  disabled: false,
+  intent: 'SAVE_READING'
+});
+
+assert.deepStrictEqual(getPrimaryActionState('ENTERING'), {
+  label: '保存 / Save',
+  disabled: false,
+  intent: 'SAVE_READING'
 });
 
 assert.strictEqual(canChangeSpread('IDLE'), true);

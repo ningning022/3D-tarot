@@ -227,7 +227,7 @@ function previewCardFromMouse(card) {
     card.rotation.z = card.userData.isReversed ? Math.PI : (card.userData.homeRotationZ || 0);
     card.scale.setScalar(Math.max(card.userData.homeScale || 1, 1.02));
     if (typeof showGuideMessage === 'function') {
-        showGuideMessage('再次点击同一张确认 / Click the same card again to confirm.');
+        showGuideMessage('再次点击翻回 / Click again to flip back. 顶部按钮保存 / Top button saves.');
     }
     return true;
 }
@@ -275,7 +275,7 @@ function handleMouseCardSelection() {
         const previewedIds = activeCards.filter(c => c.userData.state === 'MOUSE_PREVIEW').map(getMouseCardId);
         const action = MouseInteraction.resolveMouseCardAction({ phase: 'active', previewedIds }, clickedId);
         if (action === 'PREVIEW_CARD') return previewCardFromMouse(hit.object);
-        if (action === 'CONFIRM_CARD') return confirmCardFromMouse(hit.object);
+        if (action === 'UNPREVIEW_CARD') return returnMousePreviewToSlot(hit.object);
         return false;
     }
 
@@ -290,11 +290,14 @@ function handleMouseCardSelection() {
 }
 
 function handleMouseSpreadKeyboardAction(action) {
-    if (action === 'CONFIRM' && mousePreviewCard) {
-        return confirmCardFromMouse(mousePreviewCard);
+    if (action === 'CONFIRM') {
+        const flipped = activeCards.filter(c => c.userData.state === 'MOUSE_PREVIEW');
+        if (flipped.length === 0) return false;
+        flipped.slice().forEach(card => confirmCard(card));
+        return true;
     }
-    if (action === 'CANCEL' && mousePreviewCard) {
-        return returnMousePreviewToSlot(mousePreviewCard);
+    if (action === 'CANCEL') {
+        return returnAllMousePreviewsToSlot();
     }
     return false;
 }
@@ -514,6 +517,7 @@ function confirmCard(card) {
 
     recordConfirmedCard(card);
 
+    if (typeof disposeCardLabel === 'function' && card.uuid) disposeCardLabel(card.uuid);
     disposeObject(card);
     scene.remove(card);
     activeCards = activeCards.filter(c => c !== card);
@@ -567,6 +571,7 @@ function hideSpreadPrompt() {
 function returnToIdleFromSpread() {
     hideSpreadPrompt();
     activeCards.forEach(c => {
+        if (typeof disposeCardLabel === 'function' && c.uuid) disposeCardLabel(c.uuid);
         disposeObject(c);
         scene.remove(c);
     });
@@ -574,12 +579,12 @@ function returnToIdleFromSpread() {
     mousePreviewCard = null;
     hideUI();
     hideIdleLabel();
+    if (typeof clearAllCardLabels === 'function') clearAllCardLabels();
     fanAngle = 0;
     idlePinchedCards = [];
     idleHeldCard = null;
     idlePointedCard = null;
     isIdleRotating = true;
-    document.getElementById('idle-title').style.opacity = '1';
     document.getElementById('spread-template-ring').classList.remove('hidden');
     document.getElementById('guide-text').innerText =
         (typeof activeInputMode !== 'undefined' && activeInputMode === 'mouse')
@@ -594,7 +599,6 @@ function returnToIdleFromSpread() {
 
 /** OPEN 触发：轮播飞散，用已选牌（或随机3张）发牌 */
 function startSpread(selectedCards) {
-    document.getElementById('idle-title').style.opacity = '0';
     document.getElementById('spread-template-ring').classList.add('hidden');
     spreadState = 'ENTERING';
     if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
@@ -623,7 +627,7 @@ function startSpread(selectedCards) {
         });
         document.getElementById('guide-text').innerText =
             (typeof activeInputMode !== 'undefined' && activeInputMode === 'mouse')
-                ? '点击一次翻看 / First click previews. 再点确认 / Click again confirms.'
+                ? '点击翻看 / Click to flip. 再点翻回 / Click again to flip back. 顶部按钮保存 / Save via top button.'
                 : '捏合 PINCH：翻牌 / Flip | 握拳 FIST：确认 / Confirm';
 
         if (deckPool.length < plan.selectedCards.filter(item => item && item.__randomCard).length) {

@@ -883,7 +883,8 @@ body.stage-controls-hidden .recent-panel {
 
 /* Final value: cleanup pass overrides
    border:none / background:transparent / box-shadow:none */
-#idle-card-label {
+#idle-card-label,
+.card-label-floating {
     position: fixed;
     display: none;
     opacity: 0;

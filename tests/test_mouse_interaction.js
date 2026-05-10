@@ -10,16 +10,20 @@ assert.strictEqual(
   'UNSELECT_IDLE_CARD'
 );
 assert.strictEqual(
-  resolveMouseCardAction({ phase: 'active', previewCardId: null }, 'card-a'),
+  resolveMouseCardAction({ phase: 'active', previewedIds: [] }, 'card-a'),
   'PREVIEW_CARD'
 );
 assert.strictEqual(
-  resolveMouseCardAction({ phase: 'active', previewCardId: 'card-a' }, 'card-a'),
-  'CONFIRM_CARD'
+  resolveMouseCardAction({ phase: 'active', previewedIds: ['card-a'] }, 'card-a'),
+  'UNPREVIEW_CARD'
 );
 assert.strictEqual(
-  resolveMouseCardAction({ phase: 'active', previewCardId: 'card-a' }, 'card-b'),
+  resolveMouseCardAction({ phase: 'active', previewedIds: ['card-a'] }, 'card-b'),
   'PREVIEW_CARD'
+);
+assert.strictEqual(
+  resolveMouseCardAction({ phase: 'active', previewedIds: ['card-a', 'card-b'] }, 'card-b'),
+  'UNPREVIEW_CARD'
 );
 assert.strictEqual(
   resolveMouseCardAction({ phase: 'awaiting' }, 'table'),

@@ -86,6 +86,16 @@ function bindTopbarActions() {
             } else if (action === 'NEXT_SPREAD') {
                 hideSpreadPrompt();
                 dealNextSpread();
+            } else if (action === 'SAVE_READING') {
+                const flipped = (typeof activeCards !== 'undefined' ? activeCards : [])
+                    .filter(c => c.userData.state === 'MOUSE_PREVIEW' || c.userData.state === 'HELD');
+                if (flipped.length === 0) {
+                    showGuideMessage('点击牌面翻看后再保存 / Flip cards face-up before saving.');
+                } else {
+                    flipped.slice().forEach(card => {
+                        if (typeof confirmCard === 'function') confirmCard(card);
+                    });
+                }
             } else if (action === 'ABORT_READING') {
                 if (typeof returnToIdleFromSpread === 'function') returnToIdleFromSpread();
             } else {
@@ -380,22 +390,21 @@ function animate() {
     updateParticles();
     updateInteractiveGlow();
 
-    let labelShown = false;
-
     if (spreadState === 'IDLE' && idleHeldCard) {
         _showLabelForCard(idleHeldCard, 1.0);
-        labelShown = true;
+        if (typeof clearAllCardLabels === 'function') clearAllCardLabels();
     } else if (spreadState === 'ACTIVE') {
-        const labelTarget = (typeof mousePreviewCard !== 'undefined' && mousePreviewCard && mousePreviewCard.userData.state === 'MOUSE_PREVIEW')
-            ? mousePreviewCard
-            : activeCards.find(c => c.userData.state === 'HELD' || c.userData.state === 'MOUSE_CONFIRMING');
-        if (labelTarget) {
-            _showLabelForCard(labelTarget, 3.5);
-            labelShown = true;
-        }
+        hideIdleLabel();
+        const faceUp = activeCards.filter(c =>
+            c.userData.state === 'MOUSE_PREVIEW'
+            || c.userData.state === 'HELD'
+            || c.userData.state === 'MOUSE_CONFIRMING'
+        );
+        if (typeof syncCardLabels === 'function') syncCardLabels(faceUp, 3.5);
+    } else {
+        hideIdleLabel();
+        if (typeof clearAllCardLabels === 'function') clearAllCardLabels();
     }
-
-    if (!labelShown) hideIdleLabel();
 
     renderer.render(scene, camera);
 }

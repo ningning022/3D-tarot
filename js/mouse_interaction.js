@@ -16,7 +16,7 @@
 
         if (phase === 'active') {
             const previewedSet = new Set((state && state.previewedIds) || []);
-            return previewedSet.has(clickedId) ? 'CONFIRM_CARD' : 'PREVIEW_CARD';
+            return previewedSet.has(clickedId) ? 'UNPREVIEW_CARD' : 'PREVIEW_CARD';
         }
 
         if (phase === 'awaiting') {

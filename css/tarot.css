@@ -76,78 +76,13 @@
     overflow: visible;
 }
 
-/* ── Idle title ─────────────────────────────────────────── */
+/* ── Result display (suppressed) ─────────────────────────── */
 
-/* top: 104px clears the topbar (top:18px + min-height:72px + gap) */
-#idle-title {
-    position: fixed;
-    top: 104px;
-    left: 34px;
-    transform: none;
-    text-align: left;
-    opacity: 0;
-    pointer-events: none;
-    white-space: nowrap;
-    transition: opacity 0.8s ease;
-    z-index: 100;
-}
-
-.idle-kicker {
-    margin: 0 0 2px;
-    color: rgba(255, 235, 188, 0.82);
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-/* #idle-title .idle-kicker override */
-#idle-title .idle-kicker {
-    margin: 0 0 2px;
-    color: rgba(255, 235, 188, 0.82);
-    font-size: 12px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-#idle-title h2 {
-    font-size: clamp(1.8rem, 3vw, 3rem);
-    letter-spacing: 1px;
-    line-height: 1;
-    margin: 0;
-    font-weight: 900;
-    color: #f4d48b;
-    text-shadow: 0 0 24px rgba(231, 184, 94, 0.36), 0 0 62px rgba(134, 33, 38, 0.5);
-}
-
-#idle-title p:last-child {
-    margin-top: 7px;
-    color: rgba(255, 243, 220, 0.72);
-    font-size: 0.82rem;
-    letter-spacing: 1px;
-    font-weight: 700;
-    text-shadow: none;
-}
-
-/* ── Result display ─────────────────────────────────────── */
-
-/* Final value: Figma stage pass + cleanup pass */
+/* The centered card-name banner is intentionally hidden — the
+   per-card label (#idle-card-label) is the single source of truth
+   for the active card's name and orientation. */
 #result-display {
-    position: fixed;
-    bottom: 18%;
-    left: 50%;
-    transform: translate(-50%, 30px);
-    text-align: center;
-    pointer-events: none;
-    opacity: 0;
-    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-    min-width: 240px;
-    padding: 10px 18px;
-    border: 1px solid rgba(214, 167, 92, 0.24);
-    border-radius: 8px;
-    background: rgba(17, 4, 4, 0.62);
-    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
-    backdrop-filter: blur(12px);
-    z-index: 100;
+    display: none !important;
 }
 
 .card-name {

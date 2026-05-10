@@ -22,9 +22,9 @@
         }
         if (spreadState === 'ACTIVE' || spreadState === 'ENTERING') {
             return {
-                label: '放弃 / Abort',
+                label: '保存 / Save',
                 disabled: false,
-                intent: 'ABORT_READING'
+                intent: 'SAVE_READING'
             };
         }
         return {
