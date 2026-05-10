@@ -1,0 +1,934 @@
+/* ═══════════════════════════════════════════════════════════
+   components.css — Shared UI components used on both pages
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Page-level pseudo-element overlays ─────────────────── */
+
+/* Scanline / diagonal gradient overlay (z-index 1)
+   Final value: "Interaction/rendering cleanup" pass → .figma-stage::before */
+.figma-stage::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background:
+        radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.1) 48%, rgba(0, 0, 0, 0.62) 100%);
+    opacity: 0.9;
+    mix-blend-mode: normal;
+}
+
+/* Vignette overlay (z-index 2)
+   Final value: "Interaction/rendering cleanup" pass → .figma-stage::after */
+.figma-stage::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background: linear-gradient(180deg, transparent 0%, rgba(5, 1, 1, 0.42) 100%);
+    opacity: 0.55;
+}
+
+/* ── Topbar ─────────────────────────────────────────────── */
+
+/* Final cleanup pass: backdrop-filter removed from topbar */
+.app-topbar,
+.admin-topbar {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    right: 18px;
+    /* width/max-width from final boundary pass */
+    width: auto;
+    max-width: calc(100vw - 24px);
+    min-width: 0;
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+    box-sizing: border-box;
+    z-index: 50;
+    border: 1px solid rgba(214, 167, 92, 0.22);
+    border-radius: 8px;
+    /* Final cleanup pass: no backdrop-filter */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(12, 3, 3, 0.88);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+
+.brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--stage-paper);
+    text-decoration: none;
+    /* Final boundary pass */
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.brand-lockup strong {
+    display: block;
+    color: var(--stage-gold-bright);
+    font-size: clamp(1.25rem, 2.2vw, 2rem);
+    line-height: 0.95;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    /* Final boundary pass */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.brand-lockup small {
+    display: block;
+    margin-top: 4px;
+    color: var(--stage-muted);
+    font-size: 0.7rem;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    /* Final boundary pass */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.brand-lockup span:last-child {
+    min-width: 0;
+}
+
+.brand-sigil {
+    position: relative;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--stage-gold);
+    border-radius: 50%;
+    box-shadow: 0 0 28px rgba(214, 167, 92, 0.22), inset 0 0 16px rgba(214, 167, 92, 0.18);
+}
+
+.brand-sigil::before,
+.brand-sigil::after {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 1px solid rgba(214, 167, 92, 0.72);
+    transform: rotate(45deg);
+}
+
+.brand-sigil::after {
+    inset: 17px -8px;
+    border-width: 1px 0 0;
+    transform: none;
+}
+
+/* ── Topbar / Admin action button groups ────────────────── */
+
+/* Final boundary pass: flex-wrap added to all action groups */
+.topbar-actions,
+.admin-actions,
+.admin-nav,
+.reading-detail-actions,
+.prompt-actions,
+.control-chooser-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+
+.topbar-actions,
+.admin-actions,
+.reading-detail-actions {
+    justify-content: flex-end;
+}
+
+/* Final cleanup pass: align-items: center on action groups */
+.topbar-actions,
+.admin-actions,
+.reading-detail-actions,
+.admin-nav {
+    align-items: center;
+}
+
+/* ── Shared button styles ────────────────────────────────── */
+
+/* icon-button, new-reading-button, control-switch, admin-link,
+   detail-action, history-toggle, history-db-link, prompt-actions button,
+   control-chooser-actions button — unified "pill" appearance.
+   Final value: boundary pass (lines 3345-3361) + Figma stage pass */
+.icon-button,
+.new-reading-button,
+.control-switch,
+.admin-link,
+.detail-action,
+.history-toggle,
+.history-db-link,
+.prompt-actions button,
+.control-chooser-actions button {
+    color: var(--stage-paper);
+    border: 1px solid rgba(214, 167, 92, 0.42);
+    border-radius: 6px;
+    background: rgba(42, 14, 11, 0.62);
+    box-shadow: inset 0 1px 0 rgba(255, 231, 185, 0.06);
+    /* final boundary pass sizing */
+    width: auto;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 11px;
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    font: inherit;
+}
+
+/* Topbar-specific pills — inline-flex, pill shape (Figma stage pass) */
+.icon-button,
+.new-reading-button,
+.control-switch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    font-size: 0.82rem;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+}
+
+/* Final cleanup pass: min-height on icon-button */
+.icon-button {
+    min-width: 42px;
+    padding: 0 10px;
+}
+
+.control-switch {
+    min-height: 36px;
+}
+
+.new-reading-button:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
+
+/* Hover — final value: Figma stage pass */
+.icon-button:hover,
+.new-reading-button:hover,
+.admin-link:hover,
+.control-switch:hover,
+.history-db-link:hover,
+.template-ring button:hover {
+    color: #fff8e8;
+    border-color: rgba(241, 205, 131, 0.86);
+    background: rgba(97, 34, 24, 0.72);
+}
+
+/* admin-link specific sizing (final override pass) */
+.admin-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 16px;
+    font-size: 0.82rem;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.history-toggle,
+.history-db-link,
+.detail-action,
+.admin-link {
+    min-height: 34px;
+}
+
+/* Final cleanup pass: inline-flex on remaining button types */
+.icon-button,
+.new-reading-button,
+.control-switch,
+.admin-link,
+.detail-action,
+.template-ring button,
+.admin-nav button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* danger button */
+.danger-button {
+    color: var(--danger);
+    border-color: rgba(255, 132, 124, 0.58);
+    background: rgba(255, 91, 82, 0.08);
+}
+
+.danger-button:hover {
+    color: #ffd6d2;
+    background: rgba(255, 91, 82, 0.14);
+    border-color: rgba(255, 152, 146, 0.82);
+}
+
+/* prompt-actions / chooser-actions active button */
+.prompt-actions {
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.prompt-actions button,
+.control-chooser-actions button.active {
+    color: var(--stage-paper);
+    border: 1px solid rgba(240, 198, 118, 0.58);
+    border-radius: 5px;
+    background: rgba(94, 31, 23, 0.72);
+    cursor: pointer;
+    font: inherit;
+}
+
+/* ── Panels (shared glass card) ────────────────────────── */
+
+/* Final cleanup pass removes backdrop-filter from stage-panel,
+   admin-list-panel, admin-detail-panel, control-chooser, template-ring.
+   The cleanup also flattens the background. */
+.stage-panel,
+.panel,
+.status-panel,
+.control-chooser,
+.admin-list-panel,
+.admin-detail-panel {
+    color: var(--stage-paper);
+    border: 1px solid var(--stage-line);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(43, 12, 10, 0.72), rgba(13, 4, 4, 0.68)),
+        var(--stage-glass);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* #spread-prompt keeps its own backdrop-filter — see below */
+
+.stage-panel {
+    padding: 15px;
+}
+
+/* status-kicker, admin-panel-title, history-title, daily-title
+   final value: Figma stage pass */
+.status-kicker,
+.admin-panel-title,
+.history-title,
+.daily-title {
+    color: var(--stage-gold-bright);
+    font-size: 0.72rem;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+}
+
+/* ── Status panel ─────────────────────────────────────── */
+
+.status-panel {
+    /* Final "concept fidelity" pass: width: 250px / max-width: 250px
+       then overridden by Figma stage to width:auto / max-width:none */
+    width: auto;
+    max-width: none;
+}
+
+/* ── Left rail / recent panel layout ────────────────────── */
+
+.left-rail {
+    width: min(255px, 22vw);
+    display: grid;
+    gap: 12px;
+    pointer-events: auto;
+}
+
+.recent-panel {
+    width: min(260px, 21vw);
+    max-height: min(520px, calc(100vh - 150px));
+    overflow: visible;
+    pointer-events: auto;
+    /* final boundary pass */
+    overflow-x: hidden;
+}
+
+/* Hidden-state animation (final boundary pass) */
+.left-rail,
+.recent-panel {
+    transition: opacity 180ms ease, transform 180ms ease;
+    max-width: 100%;
+}
+
+.stage-panel {
+    max-width: 100%;
+}
+
+/* Controls-hidden body state */
+body.stage-controls-hidden .left-rail,
+body.stage-controls-hidden .recent-panel {
+    transform: translateY(8px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ── Spread-panel title / sub ───────────────────────────── */
+
+.spread-panel-title {
+    margin-top: 10px;
+    font-size: 1.05rem;
+    color: var(--stage-paper);
+}
+
+.spread-panel-sub,
+#gesture-active,
+.daily-date,
+.daily-empty,
+.saved-reading-title,
+.history-item,
+.admin-status,
+.empty-state {
+    color: var(--stage-muted);
+}
+
+/* ── secondary-switch (full-width panel button) ─────────── */
+
+.secondary-switch {
+    width: 100%;
+    margin-top: 14px;
+    padding: 10px 12px;
+}
+
+/* ── Deck row ───────────────────────────────────────────── */
+
+.deck-row {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.deck-row img {
+    width: 38px;
+    border-radius: 4px;
+    border: 1px solid rgba(214, 167, 92, 0.48);
+}
+
+.deck-row strong,
+.deck-row span {
+    display: block;
+}
+
+.deck-row span {
+    color: var(--stage-muted);
+    font-size: 0.76rem;
+}
+
+/* runtime-panel hidden by default */
+.runtime-panel {
+    display: none;
+}
+
+/* deck-panel / runtime-panel hidden at ≤640px in responsive.css */
+
+/* ── History panel ──────────────────────────────────────── */
+
+/* Final value: Figma stage pass — history-panel is .recent-panel */
+.history-panel {
+    opacity: 1;
+    overflow: visible;
+    transition: transform 0.28s ease, opacity 0.28s ease;
+}
+
+/* Collapsed state — final value: boundary pass (line 3384) */
+.history-panel.collapsed {
+    transform: translateX(calc(100% - 42px));
+    opacity: 0.88;
+}
+
+/* Children hidden when collapsed */
+.history-panel.collapsed .history-title,
+.history-panel.collapsed .history-db-link,
+.history-panel.collapsed #history-list {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* history-toggle — final value: Figma stage pass
+   (position: relative, inside panel, no negative offset) */
+.history-toggle {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: auto;
+    margin-bottom: 10px;
+    background: rgba(20, 5, 5, 0.8);
+    /* hidden when panel is expanded — only shown as pull-tab */
+    display: none;
+}
+
+.history-panel.collapsed .history-toggle {
+    display: block;
+}
+
+.history-title {
+    text-align: left;
+    margin-bottom: 14px;
+}
+
+.history-db-link {
+    /* Final Figma stage pass */
+    width: auto;
+    margin: 0 0 12px;
+    text-align: center;
+    color: var(--gold);
+    text-decoration: none;
+    border: 1px solid rgba(214, 167, 92, 0.42);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    background: rgba(214, 167, 92, 0.06);
+    display: block;
+    width: fit-content;
+}
+
+/* #history scrollable area */
+#history {
+    /* Final value: Figma stage layout uses .recent-panel wrapper;
+       width/max-height set via .recent-panel — #history itself scrolls */
+    width: 235px;
+    max-height: min(560px, calc(100vh - 170px));
+    overflow-y: auto;
+    scrollbar-width: none;       /* Firefox */
+}
+
+#history::-webkit-scrollbar {
+    display: none;               /* Chrome / Safari / Edge */
+}
+
+.history-item,
+.saved-reading {
+    border-color: rgba(214, 167, 92, 0.16);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--stage-muted);
+    border-bottom: 1px solid rgba(214, 167, 92, 0.16);
+    padding: 8px 0;
+}
+
+.saved-reading {
+    border-top: 1px solid rgba(212, 175, 55, 0.35);
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+.history-item strong,
+.saved-reading-title {
+    color: var(--text);
+}
+
+.history-separator {
+    border-bottom: 1px solid var(--gold);
+    margin: 6px 0;
+    text-align: center;
+    font-size: 11px;
+    color: var(--gold);
+}
+
+.history-note {
+    text-align: center;
+    color: var(--gold);
+    font-size: 12px;
+    padding: 4px 0;
+}
+
+/* Roman numeral glow */
+.card-name .roman-num,
+.history-item .roman-num {
+    font-weight: 900;
+    font-style: normal;
+    text-shadow: 0 0 16px rgba(215, 177, 95, 0.3);
+}
+
+/* ── Daily draw (inside history panel) ──────────────────── */
+
+.daily-draw {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(215, 177, 95, 0.2);
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.daily-title {
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.daily-date,
+.daily-empty {
+    color: rgba(255, 255, 255, 0.58);
+    margin-bottom: 8px;
+}
+
+.daily-card {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+
+.daily-card img {
+    width: 44px;
+    border-radius: 4px;
+    border-color: rgba(214, 167, 92, 0.56);
+    border: 1px solid rgba(214, 167, 92, 0.56);
+    box-shadow: 0 18px 28px rgba(0, 0, 0, 0.44), 0 0 18px rgba(214, 167, 92, 0.1);
+}
+
+.daily-card-image.reversed {
+    transform: rotate(180deg);
+}
+
+.daily-card strong,
+.daily-card span,
+.daily-card em {
+    display: block;
+}
+
+.daily-card strong {
+    color: var(--gold);
+}
+
+.daily-card span,
+.daily-card em {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* ── Guide bar ──────────────────────────────────────────── */
+
+/* Final value: Figma stage pass + boundary pass */
+.guide {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: calc(100vw - 28px);
+    padding: 8px 16px;
+    color: var(--stage-paper);
+    background: rgba(17, 4, 4, 0.68);
+    border: 1px solid rgba(214, 167, 92, 0.28);
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-align: center;
+    white-space: normal;
+    text-shadow: none;
+    /* No backdrop-filter (cleanup pass removed it) */
+    overflow-wrap: anywhere;
+    z-index: 100;
+}
+
+.guide.guide-flash {
+    color: var(--stage-paper);
+    border-color: rgba(240, 198, 118, 0.55);
+    background: rgba(28, 8, 7, 0.9);
+}
+
+/* ── Control chooser ────────────────────────────────────── */
+
+/* Final value: Figma stage pass (position:fixed, top:50%) */
+.control-chooser {
+    display: none;
+    position: fixed;
+    z-index: 240;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(88vw, 420px);
+    padding: 26px;
+    text-align: center;
+    pointer-events: auto;
+    color: var(--gold);
+    /* panel styles applied via .stage-panel group above */
+    /* final boundary pass */
+    max-width: calc(100vw - 28px);
+    overflow: hidden;
+}
+
+.control-chooser-kicker {
+    margin-bottom: 8px;
+    color: rgba(215, 177, 95, 0.68);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.control-chooser-title {
+    font-size: 1.25rem;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.control-chooser-sub {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 18px;
+}
+
+.control-chooser-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.control-chooser-actions button {
+    min-width: 132px;
+}
+
+/* ── Spread prompt (modal overlay) ─────────────────────────
+   Final canonical rule — incorporates the !important patch block.
+   position:fixed and z-index:300 are the definitive values.   */
+#spread-prompt {
+    display: none;
+    /* Modal positioning (was !important in the patch — baked in here) */
+    position: fixed;
+    z-index: 300;
+    top: 50%;
+    left: 50%;
+    width: min(420px, 90vw);
+    transform: translate(-50%, -50%);
+    /* Appearance */
+    color: var(--text);
+    border: 1px solid rgba(214, 167, 92, 0.6);
+    border-radius: 12px;
+    background: linear-gradient(160deg, rgba(32, 8, 8, 0.97), rgba(10, 3, 3, 0.98));
+    box-shadow:
+        0 0 0 9999px rgba(0, 0, 0, 0.45),
+        0 24px 64px rgba(0, 0, 0, 0.7),
+        0 0 40px rgba(214, 167, 92, 0.12);
+    padding: 36px 48px;
+    text-align: center;
+    pointer-events: auto;
+    animation: fadeInModal 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    /* boundary pass */
+    max-width: calc(100vw - 28px);
+    overflow: hidden;
+}
+
+@keyframes fadeInModal {
+    from { opacity: 0; transform: translate(-50%, -46%) scale(0.96); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -55%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
+}
+
+#spread-prompt .prompt-kicker {
+    font-size: 0.95rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+}
+
+#spread-prompt .prompt-title {
+    font-size: 1.8rem;
+    letter-spacing: 4px;
+    margin-bottom: 10px;
+    color: var(--gold);
+}
+
+#spread-prompt .prompt-sub {
+    font-size: 1rem;
+    color: var(--text);
+    letter-spacing: 1px;
+    margin-bottom: 24px;
+}
+
+#spread-prompt .prompt-hint {
+    font-size: 0.85rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+}
+
+/* ── Template ring (spread selector dock) ───────────────────
+   Final value: Figma stage pass + cleanup pass + boundary pass */
+.template-ring {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: 28px;
+    top: auto;
+    transform: translateX(-50%);
+    /* Boundary pass: width constrained */
+    width: min(680px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    padding: 6px;
+    overflow: hidden;
+    /* cleanup pass: no backdrop-filter */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(10, 3, 3, 0.82);
+    border: 1px solid rgba(214, 167, 92, 0.28);
+    border-radius: 10px;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.36);
+    pointer-events: auto;
+    z-index: 260; /* #spread-template-ring must sit above topbar (50) */
+}
+
+/* pseudo-label removed in cleanup pass */
+.template-ring::before {
+    display: none;
+}
+
+.template-ring.focus-pulse {
+    border-color: rgba(240, 198, 118, 0.72);
+    box-shadow: 0 0 0 2px rgba(240, 198, 118, 0.22), 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+.template-ring.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Template ring buttons — final value: Figma stage + cleanup + boundary */
+.template-ring button {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+    border-radius: 6px;
+    transition: background 0.18s, border-color 0.18s, color 0.18s;
+    /* boundary pass */
+    overflow: hidden;
+}
+
+.template-ring button span {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.template-ring button small {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--stage-muted);
+    letter-spacing: 0.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Active template ring button */
+.template-ring button.active {
+    color: #fff9ec;
+    border-color: rgba(241, 205, 131, 0.9);
+    background:
+        radial-gradient(circle at 50% 0%, rgba(214, 167, 92, 0.28), transparent 70%),
+        rgba(89, 29, 18, 0.85);
+}
+
+/* ── Idle card label (camera-follow tooltip) ─────────────── */
+
+/* Final value: cleanup pass overrides
+   border:none / background:transparent / box-shadow:none */
+#idle-card-label {
+    position: fixed;
+    display: none;
+    opacity: 0;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 200;
+    text-align: center;
+    transition: opacity 0.2s;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.idle-label-zh {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--stage-paper);
+    text-shadow: 0 0 22px rgba(214, 167, 92, 0.34);
+    letter-spacing: 0;
+}
+
+.idle-label-en {
+    display: block;
+    font-size: 1rem;
+    color: var(--stage-gold-bright);
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+}
+
+.idle-label-orient {
+    display: block;
+    font-size: 0.92rem;
+    letter-spacing: 0.8px;
+    margin-top: 8px;
+    font-weight: bold;
+    color: var(--stage-muted);
+    text-shadow: none;
+}
+
+.idle-label-orient.upright,
+.idle-label-orient.reversed {
+    color: var(--stage-muted);
+}
+
+/* ── Video input (gesture webcam preview) ───────────────── */
+
+/* Final value: Figma stage pass */
+#video-input {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 142px;
+    border: 1px solid rgba(214, 167, 92, 0.38);
+    border-radius: 8px;
+    opacity: 0.32;
+    filter: saturate(0.92) brightness(1.08);
+    transform: scaleX(-1);
+    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.45);
+    z-index: 100;
+}
+
+body[data-control-mode="mouse"] #video-input {
+    display: none;
+}

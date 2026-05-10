@@ -1,0 +1,45 @@
+/* ═══════════════════════════════════════════════════════════
+   tokens.css — All :root custom properties (single block)
+   Final cascade winner: last :root block in style.css (Figma
+   reference stage pass, lines 2156-2167) + stage vars added
+   in the same pass.
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+    /* ── Colour ── */
+    --gold:              #e3bf74;         /* last win: velvet refinement layer */
+    --gold-soft:         rgba(227, 191, 116, 0.72);
+    --gold-line:         rgba(227, 191, 116, 0.44);
+    --ink:               #0b0507;
+    --ink-panel:         rgba(18, 10, 12, 0.48);
+    --velvet:            #4b151b;
+    --velvet-deep:       #19070b;
+    --text:              #fff7e8;
+    --muted:             rgba(255, 247, 232, 0.76);
+    --danger:            #ffaaa6;
+
+    /* ── Figma stage palette (added in "Figma reference stage pass") ── */
+    --stage-ink:         #080303;
+    --stage-red:         #3a090d;
+    --stage-red-2:       #66141b;
+    --stage-glass:       rgba(24, 8, 8, 0.72);
+    --stage-glass-strong: rgba(18, 5, 5, 0.86);
+    --stage-line:        rgba(190, 129, 62, 0.42);
+    --stage-gold:        #d6a75c;
+    --stage-gold-bright: #f1cd83;
+    --stage-paper:       #f3dfba;
+    --stage-muted:       rgba(243, 223, 186, 0.68);
+}
+
+/* ─── Z-index layer map (authoritative reference) ───────────
+   canvas-container: 0
+   tarot-page::before (scanlines): 1
+   tarot-page::after  (vignette):  2
+   canvas-container (figma-stage): 3
+   admin-shell:       4
+   ui-layer (tarot-panels): 12
+   app-topbar / admin-topbar: 50
+   idle-label:        200
+   spread-template-ring: 260  (must be above topbar 50)
+   spread-prompt:     300  (modal overlay)
+   ─────────────────────────────────────────────────────────── */

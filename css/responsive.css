@@ -1,0 +1,268 @@
+/* ═══════════════════════════════════════════════════════════
+   responsive.css — All @media blocks consolidated
+   Order: widest breakpoint → narrowest
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 980px: Topbar wraps, admin layout collapses ─────────── */
+
+@media (max-width: 980px) {
+    /* Topbar */
+    .app-topbar,
+    .admin-topbar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .topbar-actions,
+    .admin-actions {
+        flex: 1 1 100%;
+        justify-content: flex-start;
+    }
+
+    .admin-nav {
+        order: 3;
+        width: 100%;
+        flex: 1 1 100%;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    /* Tarot panels */
+    .tarot-panels.ui-layer {
+        inset: 118px 12px 132px;
+    }
+
+    .left-rail {
+        width: min(250px, 52vw);
+    }
+
+    .recent-panel {
+        width: min(250px, 46vw);
+    }
+
+    /* Admin layout — all single-column */
+    .admin-grid,
+    .admin-insight-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-summary-grid,
+    .admin-info-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+
+    .admin-settings-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .reading-list {
+        max-height: none;
+    }
+
+    /* Template ring */
+    .template-ring {
+        width: calc(100vw - 28px);
+        grid-template-columns: repeat(4, minmax(92px, 1fr));
+        overflow-x: auto;
+    }
+}
+
+/* ── 860px: legacy breakpoint (earlier layers) ───────────── */
+/* NOTE: Many of the formerly separate 860px blocks were merged
+   into the 980px breakpoint above in the Figma stage pass.
+   The remaining 860px rules relate to tarot-page layout that
+   predates the figma-stage layout.  For .figma-stage pages,
+   the 980px block above governs; these rules remain for any
+   future use of the non-figma layout. */
+
+@media (max-width: 860px) {
+    .admin-header,
+    .admin-grid {
+        display: block;
+    }
+
+    .admin-list-panel {
+        position: static;
+    }
+
+    .admin-detail-panel {
+        margin-top: 16px;
+    }
+
+    .reading-detail-head {
+        display: block;
+    }
+
+    .reading-detail-head strong {
+        display: inline-block;
+        margin-top: 8px;
+    }
+}
+
+/* ── 640px: Compact topbar, narrow rail, admin shell padding ─ */
+
+@media (max-width: 640px) {
+    /* Topbar */
+    .app-topbar,
+    .admin-topbar {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        max-width: calc(100vw - 16px);
+        min-height: 64px;
+        padding: 8px 9px;
+    }
+
+    .brand-sigil {
+        width: 32px;
+        height: 32px;
+    }
+
+    .brand-lockup strong {
+        font-size: 1rem;
+    }
+
+    .brand-lockup small {
+        font-size: 0.62rem;
+    }
+
+    .topbar-actions {
+        gap: 6px;
+    }
+
+    /* Tarot panels */
+    .tarot-panels.ui-layer {
+        inset: 92px 8px 132px;
+    }
+
+    .left-rail {
+        width: min(220px, 58vw);
+    }
+
+    /* Hide deck-panel and runtime-panel on small screens */
+    .deck-panel,
+    .runtime-panel {
+        display: none;
+    }
+
+    .recent-panel {
+        width: min(205px, 48vw);
+        max-height: 250px;
+    }
+
+    .stage-panel {
+        padding: 12px;
+    }
+
+    /* Shared button sizing at 640px */
+    .icon-button,
+    .new-reading-button,
+    .control-switch,
+    .admin-link,
+    .detail-action {
+        min-height: 34px;
+        padding: 0 8px;
+        font-size: 0.76rem;
+    }
+
+    /* Template ring */
+    .template-ring {
+        bottom: 42px;
+        width: calc(100vw - 16px);
+        max-width: calc(100vw - 16px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 10px;
+        align-items: stretch;
+    }
+
+    .template-ring button {
+        min-height: 46px;
+        font-size: 0.74rem;
+    }
+
+    /* Guide */
+    .guide {
+        bottom: 6px;
+        font-size: 10px;
+    }
+
+    /* Admin */
+    .admin-shell {
+        width: calc(100vw - 16px);
+        max-width: calc(100vw - 16px);
+        padding-top: 178px;
+    }
+
+    .admin-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .reading-detail-head,
+    .reading-detail-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .admin-summary-grid,
+    .admin-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-nav button {
+        flex: 0 0 auto;
+    }
+
+    /* new-reading-button shown again at 640px (was hidden at parent breakpoint) */
+    .new-reading-button {
+        display: inline-flex;
+    }
+}
+
+/* ── 520px: legacy narrow layout (pre-Figma pages) ────────── */
+
+@media (max-width: 520px) {
+    .admin-header h1 {
+        font-size: 1.45rem;
+    }
+
+    .replay-board {
+        min-height: 360px;
+    }
+}
+
+/* ── 760px: original narrow tarot layout (legacy) ─────────── */
+
+@media (max-width: 760px) {
+    /* These rules pre-date the Figma-stage layout and apply
+       to any tarot page not using .figma-stage */
+    .template-ring {
+        top: 16%;
+        max-width: calc(100vw - 24px);
+        overflow-x: auto;
+    }
+
+    .template-ring button {
+        flex: 0 0 auto;
+        padding: 6px 8px;
+    }
+
+    #spread-prompt {
+        width: min(78vw, 360px);
+        padding: 24px 20px;
+    }
+
+    #spread-prompt .prompt-title {
+        font-size: 1.3rem;
+        letter-spacing: 4px;
+    }
+
+    .idle-label-zh {
+        font-size: 1.6rem;
+    }
+
+    .idle-label-en,
+    .idle-label-orient {
+        font-size: 1rem;
+    }
+}

@@ -1,0 +1,645 @@
+/* ═══════════════════════════════════════════════════════════
+   admin.css — Admin page specific (admin.html / .admin-page)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Admin page background ──────────────────────────────── */
+
+/* Final value: concept fidelity pass (lines 2024-2033),
+   then .admin-page.figma-stage overrides the background.
+   Since admin.html always carries .figma-stage, the effective
+   rule is the cleanup-pass gradient (no texture URL). */
+.admin-page {
+    min-height: 100vh;
+    overflow: auto;
+}
+
+/* .admin-page::before — final: concept fidelity pass */
+.admin-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.24), transparent 30%, transparent 70%, rgba(0, 0, 0, 0.24));
+}
+
+.admin-page::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* ── Admin shell ────────────────────────────────────────── */
+
+/* Final value: boundary pass (min(1480px, calc(100vw - 32px)))
+   with position:relative z-index:4 from visual redesign */
+.admin-shell {
+    position: relative;
+    z-index: 4;
+    width: min(1480px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    margin: 0 auto;
+    padding: 104px 0 26px;
+    overflow-x: hidden;
+}
+
+/* ── Admin header ────────────────────────────────────────── */
+
+.admin-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 22px 0 24px;
+    border-bottom: 1px solid rgba(227, 191, 116, 0.32);
+}
+
+.admin-kicker {
+    margin: 0 0 6px;
+    color: rgba(227, 191, 116, 0.86);
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+}
+
+.admin-header h1 {
+    margin: 0;
+    font-size: 2.15rem;
+    letter-spacing: 2px;
+    color: var(--text);
+}
+
+.admin-subtitle {
+    margin: 8px 0 0;
+    color: var(--muted);
+}
+
+/* ── Admin nav (tab buttons) ────────────────────────────── */
+
+.admin-nav a {
+    color: var(--stage-muted);
+    text-decoration: none;
+    padding: 10px 8px;
+    border-bottom: 1px solid transparent;
+}
+
+.admin-nav a.active,
+.admin-nav a:hover {
+    color: var(--stage-gold-bright);
+    border-bottom-color: var(--stage-gold-bright);
+}
+
+.admin-nav button {
+    min-height: 34px;
+    padding: 0 12px;
+    color: var(--stage-muted);
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    font: inherit;
+    font-size: 0.82rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.admin-nav button.active,
+.admin-nav button:hover {
+    color: var(--stage-paper);
+    border-color: rgba(214, 167, 92, 0.34);
+    background: rgba(214, 167, 92, 0.11);
+}
+
+/* ── Admin grid ─────────────────────────────────────────── */
+
+/* Final value: boundary pass */
+.admin-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+    max-width: 100%;
+    gap: 18px;
+    margin-top: 0;
+    align-items: start;
+}
+
+/* ── Admin list / detail panels ─────────────────────────── */
+
+/* Shared panel appearance is defined in components.css via
+   .stage-panel / .panel / .admin-list-panel / .admin-detail-panel */
+
+.admin-list-panel,
+.admin-detail-panel {
+    padding: 16px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.admin-list-panel {
+    position: sticky;
+    top: 18px;
+}
+
+/* ── Admin status / empty / replay-empty ────────────────── */
+
+.admin-status,
+.empty-state,
+.replay-empty {
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* ── Admin search ────────────────────────────────────────── */
+
+/* Final value: cleanup pass (display:grid) */
+.admin-search {
+    display: grid;
+    gap: 7px;
+    margin: 14px 0 12px;
+}
+
+.admin-search span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+}
+
+/* Final value: cleanup pass */
+.admin-search input {
+    width: 100%;
+    min-height: 38px;
+    padding: 0 12px;
+    color: var(--stage-paper);
+    border: 1px solid rgba(214, 167, 92, 0.22);
+    border-radius: 5px;
+    background: rgba(8, 2, 2, 0.64);
+    box-sizing: border-box;
+    outline: none;
+}
+
+.admin-search input:focus {
+    border-color: rgba(240, 198, 118, 0.64);
+}
+
+/* ── Reading list ────────────────────────────────────────── */
+
+.reading-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+    /* final Figma stage pass: max-height + overflow-y scroll */
+    max-height: calc(100vh - 250px);
+    overflow: auto;
+    padding-right: 4px;
+}
+
+/* ── Reading row ─────────────────────────────────────────── */
+
+/* Final value: Figma stage pass + boundary pass */
+.reading-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+    text-align: left;
+    color: var(--stage-paper);
+    background: rgba(25, 7, 7, 0.54);
+    border: 1px solid rgba(214, 167, 92, 0.22);
+    border-radius: 7px;
+    padding: 12px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.reading-row::before {
+    content: "";
+    position: absolute;
+    left: 35px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(215, 177, 95, 0.16);
+}
+
+.reading-row.active,
+.reading-row:hover {
+    border-color: rgba(241, 205, 131, 0.72);
+    background: rgba(103, 38, 22, 0.48);
+}
+
+.reading-row-index {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid rgba(214, 167, 92, 0.38);
+    border-radius: 50%;
+    background: rgba(12, 3, 3, 0.76);
+    font-size: 0.78rem;
+    color: var(--stage-gold-bright);
+}
+
+.reading-row-content,
+.reading-row-topline {
+    min-width: 0;
+}
+
+.reading-row-topline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reading-row-title,
+.reading-row-meta {
+    display: block;
+}
+
+.reading-row-title {
+    margin-top: 1px;
+    color: var(--stage-paper);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.reading-row-meta {
+    margin-top: 4px;
+    color: var(--stage-muted);
+    font-size: 0.8rem;
+}
+
+.reading-row-kind {
+    flex: 0 0 auto;
+    color: var(--stage-muted);
+    border: 1px solid rgba(215, 177, 95, 0.24);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 0.68rem;
+}
+
+.reading-list-item {
+    text-align: left;
+}
+
+/* ── Reading detail ──────────────────────────────────────── */
+
+.reading-detail,
+.replay-board,
+.admin-insight-grid,
+.admin-card-grid {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.reading-detail-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid rgba(214, 167, 92, 0.2);
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+}
+
+.reading-detail-head p,
+.reading-detail-head h2 {
+    margin: 0 0 6px;
+}
+
+.reading-detail-head p {
+    color: var(--stage-muted);
+    line-height: 1.25;
+}
+
+.reading-detail-head h2 {
+    color: var(--stage-paper);
+    letter-spacing: 0;
+    line-height: 1.25;
+}
+
+.reading-detail-head span {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.reading-detail-head strong {
+    align-self: flex-start;
+    border: 1px solid rgba(215, 177, 95, 0.34);
+    border-radius: 999px;
+    padding: 6px 10px;
+    color: var(--gold);
+    font-size: 0.82rem;
+    line-height: 1.25;
+}
+
+.reading-detail-actions {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.detail-action {
+    min-height: 34px;
+    padding: 0 11px;
+    color: var(--stage-paper);
+    border: 1px solid rgba(214, 167, 92, 0.34);
+    border-radius: 5px;
+    background: rgba(29, 8, 7, 0.68);
+    cursor: pointer;
+    font: inherit;
+}
+
+/* ── Replay board ────────────────────────────────────────── */
+
+/* Final value: cleanup pass (gradient, no texture URL) */
+.replay-board {
+    position: relative;
+    min-height: min(62vh, 670px);
+    margin-bottom: 18px;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid rgba(214, 167, 92, 0.34);
+    background:
+        radial-gradient(ellipse at center, rgba(147, 36, 30, 0.23), transparent 45%),
+        linear-gradient(180deg, rgba(33, 8, 8, 0.86), rgba(8, 2, 2, 0.94));
+    box-shadow: inset 0 0 72px rgba(0, 0, 0, 0.42), 0 16px 34px rgba(0, 0, 0, 0.25);
+}
+
+/* Decorative ring overlays */
+.replay-board::before,
+.replay-board::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+
+.replay-board::before {
+    inset: 11%;
+    border: 1px solid rgba(214, 167, 92, 0.25);
+    border-radius: 50%;
+    opacity: 0.5;
+    box-shadow:
+        0 0 0 44px rgba(214, 167, 92, 0.034),
+        0 0 0 86px rgba(214, 167, 92, 0.022);
+}
+
+.replay-board::after {
+    inset: 16px;
+    border: 1px solid rgba(214, 167, 92, 0.22);
+    border-radius: 8px;
+    opacity: 0.72;
+}
+
+/* ── Replay card ─────────────────────────────────────────── */
+
+.replay-card {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: block;
+    max-width: 136px;
+    z-index: 1;
+}
+
+.replay-card img {
+    width: 100%;
+    display: block;
+    border-radius: 6px;
+    border: 1px solid rgba(214, 167, 92, 0.56);
+    box-shadow: 0 18px 28px rgba(0, 0, 0, 0.44), 0 0 18px rgba(214, 167, 92, 0.1);
+}
+
+/* replay-slot — final: Figma stage pass (transparent bg, no border) */
+.replay-slot {
+    position: absolute;
+    left: 50%;
+    top: -22px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    color: var(--stage-gold-bright);
+    font-size: 0.72rem;
+    background: transparent;
+    border: 0;
+    text-transform: uppercase;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.85);
+}
+
+.replay-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* ── Admin card grid ─────────────────────────────────────── */
+
+/* Final value: Figma stage pass (display:none hides legacy card grid) */
+.admin-card-grid {
+    display: none;
+}
+
+.admin-card {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    border: 1px solid rgba(215, 177, 95, 0.16);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.admin-card img {
+    width: 72px;
+    border-radius: 6px;
+    display: block;
+    border-color: rgba(214, 167, 92, 0.56);
+    border: 1px solid rgba(214, 167, 92, 0.56);
+    box-shadow: 0 18px 28px rgba(0, 0, 0, 0.44), 0 0 18px rgba(214, 167, 92, 0.1);
+}
+
+.admin-card-image.reversed,
+.daily-card-image.reversed {
+    transform: rotate(180deg);
+}
+
+.admin-card h3,
+.admin-card p {
+    margin: 0 0 4px;
+}
+
+.admin-card h3 {
+    color: var(--text);
+}
+
+.admin-card p,
+.admin-card-slot {
+    color: var(--muted);
+}
+
+.admin-card-slot {
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.orientation-pill {
+    display: inline-block;
+    margin-top: 4px;
+    border: 1px solid rgba(215, 177, 95, 0.2);
+    border-radius: 999px;
+    padding: 3px 8px;
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.orientation-pill.reversed {
+    border-color: rgba(255, 132, 124, 0.42);
+    color: var(--danger);
+}
+
+/* ── Admin insight grid ──────────────────────────────────── */
+
+.admin-insight-grid {
+    display: grid;
+    /* Boundary pass: fractional columns */
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 0.5fr) minmax(130px, 0.5fr);
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.insight-card {
+    min-height: 102px;
+    padding: 16px;
+    border: 1px solid rgba(214, 167, 92, 0.18);
+    border-radius: 7px;
+    background: rgba(16, 5, 5, 0.52);
+    min-width: 0;
+}
+
+.insight-card h3 {
+    margin: 0 0 10px;
+    color: var(--stage-gold-bright);
+    font-size: 0.78rem;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+}
+
+.insight-card p,
+.insight-card span {
+    color: var(--stage-muted);
+}
+
+.insight-card strong {
+    display: block;
+    color: var(--stage-paper);
+}
+
+/* ── Admin summary / info / settings grids ───────────────── */
+
+.admin-summary-grid,
+.admin-info-grid,
+.admin-settings-actions {
+    display: grid;
+    gap: 12px;
+}
+
+.admin-summary-grid {
+    grid-template-columns: repeat(4, minmax(110px, 1fr));
+}
+
+.admin-info-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+}
+
+.admin-settings-actions {
+    grid-template-columns: repeat(2, minmax(150px, max-content));
+    align-items: center;
+}
+
+/* Mini panels */
+.admin-mini-panel,
+.admin-summary-card,
+.admin-summary-grid > article,
+.notes-panel,
+.system-panel {
+    padding: 14px;
+    border: 1px solid rgba(214, 167, 92, 0.18);
+    border-radius: 6px;
+    background: rgba(10, 3, 3, 0.62);
+}
+
+.admin-summary-card strong,
+.admin-summary-grid > article strong {
+    display: block;
+    color: var(--stage-paper);
+    font-size: 1.34rem;
+    line-height: 1.1;
+}
+
+.admin-summary-card span,
+.admin-summary-grid > article span,
+.admin-mini-panel span,
+.system-panel span {
+    color: var(--stage-muted);
+    font-size: 0.78rem;
+}
+
+/* ── Notes panel ─────────────────────────────────────────── */
+
+.notes-panel {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.notes-panel textarea {
+    width: 100%;
+    min-height: 92px;
+    resize: vertical;
+    padding: 10px 12px;
+    color: var(--stage-paper);
+    border: 1px solid rgba(214, 167, 92, 0.22);
+    border-radius: 5px;
+    background: rgba(5, 1, 1, 0.64);
+    font: inherit;
+    line-height: 1.4;
+}
+
+.notes-panel textarea:focus {
+    border-color: rgba(240, 198, 118, 0.62);
+    outline: none;
+}
+
+.notes-toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.notes-card,
+.insight-card {
+    min-width: 0;
+}
+
+.notes-card textarea,
+#reading-notes {
+    display: block;
+    max-width: 100%;
+}
+
+/* ── Deck row images (admin context) ─────────────────────── */
+
+.admin-card img,
+.daily-card img {
+    border-color: rgba(214, 167, 92, 0.56);
+    box-shadow: 0 18px 28px rgba(0, 0, 0, 0.44), 0 0 18px rgba(214, 167, 92, 0.1);
+}

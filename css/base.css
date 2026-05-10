@@ -1,0 +1,44 @@
+/* ═══════════════════════════════════════════════════════════
+   base.css — html, body, universal reset
+   ═══════════════════════════════════════════════════════════ */
+
+/* Universal box-sizing (final boundary pass, line 3290) */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    /* background colour for the very edge / scrollbar gutter */
+    background: #21050a;
+    /* Prevent horizontal overflow (final boundary pass) */
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    /* Final body background: figma-stage cleanup pass removes velvet texture
+       from the body itself — Three.js owns the table texture. */
+    background:
+        radial-gradient(circle at 50% 36%, rgba(116, 29, 24, 0.32), transparent 38%),
+        radial-gradient(circle at 50% 120%, rgba(214, 167, 92, 0.1), transparent 42%),
+        linear-gradient(180deg, #100404 0%, #050202 64%, #020101 100%);
+    /* font-family: final value from Figma-stage body.figma-stage rule */
+    font-family: "Cinzel", "Constantia", "Palatino Linotype", "Palatino", serif;
+    color: var(--stage-paper);
+    /* Prevent horizontal overflow (final boundary pass) */
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* Interactive element max-width guard (final boundary pass) */
+button,
+a,
+input,
+textarea {
+    max-width: 100%;
+}

@@ -1,0 +1,198 @@
+/* ═══════════════════════════════════════════════════════════
+   tarot.css — Tarot page specific (Three.html / .tarot-page)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Page background ────────────────────────────────────── */
+
+/* Final value: "Interaction/rendering cleanup" pass (lines 2992-2998)
+   Three.js owns the velvet table texture, so the page background is
+   a pure CSS gradient, no texture URL. */
+.tarot-page.figma-stage,
+.admin-page.figma-stage {
+    background:
+        radial-gradient(circle at 50% 36%, rgba(116, 29, 24, 0.32), transparent 38%),
+        radial-gradient(circle at 50% 120%, rgba(214, 167, 92, 0.1), transparent 42%),
+        linear-gradient(180deg, #100404 0%, #050202 64%, #020101 100%);
+}
+
+/* Tarot-page scanline overlay — final value: concept fidelity pass
+   (used when .tarot-page does NOT also have .figma-stage) */
+.tarot-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 50% 42%, rgba(255, 198, 120, 0.035), transparent 44%),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.3), transparent 24%, transparent 76%, rgba(0, 0, 0, 0.32)),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.06), transparent 30%, rgba(0, 0, 0, 0.22));
+    opacity: 0.82;
+}
+
+.tarot-page::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 50% 52%, transparent 48%, rgba(0, 0, 0, 0.38) 100%),
+        linear-gradient(180deg, rgba(255, 218, 150, 0.035), transparent 18%, rgba(0, 0, 0, 0.22) 100%);
+}
+
+/* ── Canvas container ───────────────────────────────────── */
+
+/* Final value: Figma stage pass (z-index: 3 so it sits above
+   the fixed ::before/::after page overlays) */
+#canvas-container {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+}
+
+#canvas-container canvas {
+    display: block;
+}
+
+/* ── UI layer (tarot panels) ─────────────────────────────── */
+
+/* Final value: Figma stage pass — the tarot-panels div is
+   position:fixed, z-index:12, spanning the usable area */
+.tarot-panels.ui-layer {
+    position: fixed;
+    inset: 112px 18px 118px;
+    /* left/right from boundary pass (safe-area) */
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    max-width: calc(100vw - 24px);
+    width: auto;
+    padding: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: none;
+    z-index: 12;
+    overflow: visible;
+}
+
+/* ── Idle title ─────────────────────────────────────────── */
+
+/* Final value: Figma stage pass (position:fixed, top:40px,
+   left:84px, text-align:left, opacity:0 initially) */
+#idle-title {
+    position: fixed;
+    top: 40px;
+    left: 84px;
+    transform: none;
+    text-align: left;
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    transition: opacity 0.8s ease;
+    z-index: 100;
+}
+
+.idle-kicker {
+    margin: 0 0 2px;
+    color: rgba(255, 235, 188, 0.82);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* #idle-title .idle-kicker override */
+#idle-title .idle-kicker {
+    margin: 0 0 2px;
+    color: rgba(255, 235, 188, 0.82);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+#idle-title h2 {
+    font-size: clamp(1.8rem, 3vw, 3rem);
+    letter-spacing: 1px;
+    line-height: 1;
+    margin: 0;
+    font-weight: 900;
+    color: #f4d48b;
+    text-shadow: 0 0 24px rgba(231, 184, 94, 0.36), 0 0 62px rgba(134, 33, 38, 0.5);
+}
+
+#idle-title p:last-child {
+    margin-top: 7px;
+    color: rgba(255, 243, 220, 0.72);
+    font-size: 0.82rem;
+    letter-spacing: 1px;
+    font-weight: 700;
+    text-shadow: none;
+}
+
+/* ── Result display ─────────────────────────────────────── */
+
+/* Final value: Figma stage pass + cleanup pass */
+#result-display {
+    position: fixed;
+    bottom: 18%;
+    left: 50%;
+    transform: translate(-50%, 30px);
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    min-width: 240px;
+    padding: 10px 18px;
+    border: 1px solid rgba(214, 167, 92, 0.24);
+    border-radius: 8px;
+    background: rgba(17, 4, 4, 0.62);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+}
+
+.card-name {
+    font-size: 1.5rem;
+    margin: 0;
+    letter-spacing: 0;
+    font-weight: 900;
+    color: var(--stage-paper);
+    text-shadow: 0 0 22px rgba(214, 167, 92, 0.34);
+}
+
+.card-name-en {
+    font-size: 0.95rem;
+    margin: 4px 0 0 0;
+    letter-spacing: 1px;
+    font-weight: 700;
+    color: var(--stage-gold-bright);
+    font-style: italic;
+}
+
+.card-orient {
+    font-size: 0.85rem;
+    margin-top: 8px;
+    color: var(--stage-muted);
+    font-weight: 700;
+    border-top: 1px solid rgba(215, 177, 95, 0.24);
+    padding-top: 6px;
+    display: inline-block;
+    letter-spacing: 0.8px;
+    text-shadow: none;
+}
+
+/* ── Gesture video preview ─────────────────────────────── */
+
+#gesture-active {
+    color: var(--stage-muted);
+    margin-top: 5px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+/* Status text */
+#status {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+}
