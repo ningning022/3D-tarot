@@ -221,19 +221,21 @@ function returnMousePreviewToSlot(card) {
 
 function previewCardFromMouse(card) {
     if (!card || card.userData.state === 'DEALING' || card.userData.state === 'MOUSE_CONFIRMING') return false;
-    if (mousePreviewCard && mousePreviewCard !== card) {
-        returnMousePreviewToSlot(mousePreviewCard);
-    }
     mousePreviewCard = card;
     card.userData.state = 'MOUSE_PREVIEW';
     card.rotation.y = Math.PI;
     card.rotation.z = card.userData.isReversed ? Math.PI : (card.userData.homeRotationZ || 0);
     card.scale.setScalar(Math.max(card.userData.homeScale || 1, 1.02));
-    showUI(card.userData);
     if (typeof showGuideMessage === 'function') {
         showGuideMessage('再次点击同一张确认 / Click the same card again to confirm.');
     }
     return true;
+}
+
+function returnAllMousePreviewsToSlot() {
+    const previewed = activeCards.filter(c => c.userData.state === 'MOUSE_PREVIEW');
+    previewed.forEach(c => returnMousePreviewToSlot(c));
+    return previewed.length > 0;
 }
 
 function confirmCardFromMouse(card) {
@@ -242,7 +244,6 @@ function confirmCardFromMouse(card) {
     card.rotation.y = Math.PI;
     card.rotation.z = card.userData.isReversed ? Math.PI : (card.userData.homeRotationZ || 0);
     card.scale.setScalar(Math.max(card.userData.homeScale || 1, 0.96));
-    showUI(card.userData);
     if (mousePreviewCard === card) mousePreviewCard = null;
     window.setTimeout(() => {
         if (activeCards.includes(card) && card.userData.state === 'MOUSE_CONFIRMING') {
@@ -271,8 +272,8 @@ function handleMouseCardSelection() {
         const hit = raycaster.intersectObjects(activeCards)[0];
         if (!hit) return false;
         const clickedId = getMouseCardId(hit.object);
-        const previewCardId = getMouseCardId(mousePreviewCard);
-        const action = MouseInteraction.resolveMouseCardAction({ phase: 'active', previewCardId }, clickedId);
+        const previewedIds = activeCards.filter(c => c.userData.state === 'MOUSE_PREVIEW').map(getMouseCardId);
+        const action = MouseInteraction.resolveMouseCardAction({ phase: 'active', previewedIds }, clickedId);
         if (action === 'PREVIEW_CARD') return previewCardFromMouse(hit.object);
         if (action === 'CONFIRM_CARD') return confirmCardFromMouse(hit.object);
         return false;

@@ -157,9 +157,9 @@ function bindMouseStageActions() {
             }
             return true;
         }
-        if (spreadState === 'ACTIVE' && typeof mousePreviewCard !== 'undefined' && mousePreviewCard) {
-            if (typeof returnMousePreviewToSlot === 'function') {
-                return returnMousePreviewToSlot(mousePreviewCard);
+        if (spreadState === 'ACTIVE') {
+            if (typeof returnAllMousePreviewsToSlot === 'function') {
+                return returnAllMousePreviewsToSlot();
             }
         }
         return false;
@@ -386,9 +386,11 @@ function animate() {
         _showLabelForCard(idleHeldCard, 1.0);
         labelShown = true;
     } else if (spreadState === 'ACTIVE') {
-        const held = activeCards.find(c => c.userData.state === 'HELD' || c.userData.state === 'MOUSE_PREVIEW' || c.userData.state === 'MOUSE_CONFIRMING');
-        if (held) {
-            _showLabelForCard(held, 3.5);
+        const labelTarget = (typeof mousePreviewCard !== 'undefined' && mousePreviewCard && mousePreviewCard.userData.state === 'MOUSE_PREVIEW')
+            ? mousePreviewCard
+            : activeCards.find(c => c.userData.state === 'HELD' || c.userData.state === 'MOUSE_CONFIRMING');
+        if (labelTarget) {
+            _showLabelForCard(labelTarget, 3.5);
             labelShown = true;
         }
     }
