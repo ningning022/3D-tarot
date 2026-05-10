@@ -4,6 +4,8 @@ Akashic Tarot is a local, gesture-controlled 3D tarot reading app. It uses Three
 
 The app is designed for local use first: no account system, no cloud service, and no build step.
 
+![Akashic Tarot — main reading table and chronicle archive](1.png)
+
 ## Features
 
 - 78-card tarot deck with an animated 3D carousel.
@@ -20,6 +22,10 @@ The app is designed for local use first: no account system, no cloud service, an
 ## Visual Design
 
 The main page is styled as a local 3D reading table: brighter dark-burgundy velvet texture, subtle gold linework, warm candlelit card shadows, and lightweight translucent panels. The admin page acts as a chronicle archive with a timeline list and visual spread replay.
+
+| Main reading table | Chronicle archive |
+| --- | --- |
+| ![Main reading table concept](docs/visuals/akashic-main-concept.png) | ![Admin chronicle concept](docs/visuals/akashic-admin-concept.png) |
 
 Visual reference images live in `docs/visuals/`:
 
