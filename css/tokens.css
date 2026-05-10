@@ -5,9 +5,32 @@
    in the same pass.
    ═══════════════════════════════════════════════════════════ */
 
-:root {
-    /* ── Colour ── */
-    --gold:              #e3bf74;         /* last win: velvet refinement layer */
+/*
+   Tokens are now driven by [data-theme]. The :root fallback below mirrors
+   the dark theme so legacy callers keep working if data-theme is absent.
+   Theme-specific accents:
+     dark  → --accent maps to gold      (#E3BF74)
+     light → --accent maps to amber     (#D97757)  ← unveil.fr signature
+*/
+:root,
+[data-theme="dark"] {
+    /* ── Surface (new, owned by this redesign) ── */
+    --surface:           #0a0506;
+    --surface-elevated:  rgba(20, 12, 14, 0.86);
+    --ink-text:          #f5e9d2;
+
+    /* ── Accent ── */
+    --accent:            #e3bf74;
+    --accent-strong:     rgba(227, 191, 116, 0.92);
+    --accent-soft:       rgba(227, 191, 116, 0.45);
+    --accent-line:       rgba(227, 191, 116, 0.28);
+
+    /* ── Panel surfaces ── */
+    --panel-bg:          rgba(24, 14, 16, 0.62);
+    --panel-line:        rgba(227, 191, 116, 0.24);
+
+    /* ── Legacy aliases (kept so existing components don't need a sweep) ── */
+    --gold:              #e3bf74;
     --gold-soft:         rgba(227, 191, 116, 0.72);
     --gold-line:         rgba(227, 191, 116, 0.44);
     --ink:               #0b0507;
@@ -18,7 +41,6 @@
     --muted:             rgba(255, 247, 232, 0.76);
     --danger:            #ffaaa6;
 
-    /* ── Figma stage palette (added in "Figma reference stage pass") ── */
     --stage-ink:         #080303;
     --stage-red:         #3a090d;
     --stage-red-2:       #66141b;
@@ -29,6 +51,46 @@
     --stage-gold-bright: #f1cd83;
     --stage-paper:       #f3dfba;
     --stage-muted:       rgba(243, 223, 186, 0.68);
+}
+
+[data-theme="light"] {
+    /* ── Surface ── */
+    --surface:           #fafaf7;
+    --surface-elevated:  rgba(255, 252, 246, 0.86);
+    --ink-text:          #1a0f08;
+
+    /* ── Accent (unveil.fr amber) ── */
+    --accent:            #d97757;
+    --accent-strong:     rgba(217, 119, 87, 0.92);
+    --accent-soft:       rgba(217, 119, 87, 0.45);
+    --accent-line:       rgba(217, 119, 87, 0.32);
+
+    /* ── Panel surfaces (warm parchment) ── */
+    --panel-bg:          rgba(255, 252, 246, 0.78);
+    --panel-line:        rgba(217, 119, 87, 0.32);
+
+    /* ── Legacy aliases remapped for light surface ── */
+    --gold:              #d97757;
+    --gold-soft:         rgba(217, 119, 87, 0.72);
+    --gold-line:         rgba(217, 119, 87, 0.42);
+    --ink:               #fafaf7;
+    --ink-panel:         rgba(252, 246, 235, 0.62);
+    --velvet:            #f4ece0;
+    --velvet-deep:       #e8d8c2;
+    --text:              #1a0f08;
+    --muted:             rgba(26, 15, 8, 0.66);
+    --danger:            #b03b1f;
+
+    --stage-ink:         #fafaf7;
+    --stage-red:         #f4ece0;
+    --stage-red-2:       #ead7c1;
+    --stage-glass:       rgba(255, 252, 246, 0.72);
+    --stage-glass-strong: rgba(255, 248, 236, 0.92);
+    --stage-line:        rgba(217, 119, 87, 0.34);
+    --stage-gold:        #d97757;
+    --stage-gold-bright: #b8552f;
+    --stage-paper:       #2a1408;
+    --stage-muted:       rgba(42, 20, 8, 0.6);
 }
 
 /* ─── Z-index layer map (authoritative reference) ───────────
