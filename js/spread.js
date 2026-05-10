@@ -137,9 +137,10 @@ function detachIdleCardToScene(card) {
     scene.add(card);
 }
 
-function returnIdleCardToRing(card) {
+/** 将牌从 scene 重新挂回其旋转 group，并还原 local 坐标（纯几何操作）*/
+function _reparentCardToRing(card) {
     const entry = idleCards.find(c => c.mesh === card);
-    if (!entry || !entry.group || card.parent === entry.group) return;
+    if (!entry || !entry.group) return;
     const angle = card.userData.baseAngle;
     scene.remove(card);
     entry.group.add(card);
@@ -150,6 +151,12 @@ function returnIdleCardToRing(card) {
     );
     card.rotation.set(0, angle + Math.PI, 0);
     card.scale.setScalar(1);
+}
+
+function returnIdleCardToRing(card) {
+    const entry = idleCards.find(c => c.mesh === card);
+    if (!entry || !entry.group || card.parent === entry.group) return;
+    _reparentCardToRing(card);
 }
 
 function markIdleCardSelected(card) {
@@ -176,6 +183,8 @@ function markIdleCardSelected(card) {
     if (typeof showGuideMessage === 'function') {
         showGuideMessage(`${card.userData.en} 已选 / Selected. 再点取消，或点新占卜 / New.`);
     }
+    const unselectBtn = document.getElementById('unselect-card-button');
+    if (unselectBtn) unselectBtn.style.display = '';
     return true;
 }
 
@@ -191,6 +200,8 @@ function unselectIdleCardFromMouse(card) {
     if (typeof showGuideMessage === 'function') {
         showGuideMessage(`${card.userData.en} 已取消 / Unselected.`);
     }
+    const unselectBtn = document.getElementById('unselect-card-button');
+    if (unselectBtn) unselectBtn.style.display = 'none';
     return true;
 }
 
@@ -310,28 +321,7 @@ function handleGestures() {
             dealNextSpread();
         } else if (currentGesture === 'FIST') {
             gestureDebounce = now + 1800;
-            hideSpreadPrompt();
-            // 清除场景中残余抽牌 / Remove any remaining spread cards
-            activeCards.forEach(c => {
-                disposeObject(c);
-                scene.remove(c);
-            });
-            activeCards = [];
-            hideUI();
-            // 重置状态，返回待机动画 / Return to idle carousel
-            fanAngle = 0;
-            idlePinchedCards = [];
-            idleHeldCard = null;
-            idlePointedCard = null;
-            isIdleRotating = true;
-            document.getElementById('idle-title').style.opacity = '1';
-            document.getElementById('spread-template-ring').classList.remove('hidden');
-            document.getElementById('guide-text').innerText =
-                '张手 OPEN：开始占卜 / Open hand to begin';
-            document.getElementById('status').innerText =
-                `第${spreadCount}阵已完成 / Spread ${spreadCount} done`;
-            createIdleFan();
-            spreadState = 'IDLE';
+            returnToIdleFromSpread();
         }
         return;
     }
@@ -512,22 +502,7 @@ function _returnHeldCardToRing() {
     }
 
     // 将牌从 scene 重新挂回旋转 group，并还原 local 位置
-    const entry = idleCards.find(c => c.mesh === card);
-    if (entry && entry.group) {
-        const group = entry.group;
-        // 计算固定位置（group 旋转是动态的，归位用本地坐标即可）
-        const angle = card.userData.baseAngle;
-        scene.remove(card);
-        group.add(card);
-        // 重置为初始局部坐标
-        card.position.set(
-            CAROUSEL_R * Math.sin(angle),
-            0,
-            CAROUSEL_R * Math.cos(angle)
-        );
-        card.rotation.set(0, angle + Math.PI, 0);
-        card.scale.setScalar(1); // 缩放由 updateIdleFan 处理
-    }
+    _reparentCardToRing(card);
 }
 
 function confirmCard(card) {
@@ -603,7 +578,9 @@ function returnToIdleFromSpread() {
     document.getElementById('idle-title').style.opacity = '1';
     document.getElementById('spread-template-ring').classList.remove('hidden');
     document.getElementById('guide-text').innerText =
-        '点击选牌 / Click cards, then 新占卜 / New.';
+        (typeof activeInputMode !== 'undefined' && activeInputMode === 'mouse')
+            ? '点击选牌 / Click cards, then 新占卜 / New.'
+            : '张手 OPEN：开始占卜 / Open hand to begin';
     const status = document.getElementById('status');
     if (status) status.innerText = `第 ${spreadCount} 阵完成 / Spread ${spreadCount} done`;
     createIdleFan();

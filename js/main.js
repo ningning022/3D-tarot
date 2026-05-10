@@ -85,10 +85,23 @@ function bindTopbarActions() {
             } else if (action === 'NEXT_SPREAD') {
                 hideSpreadPrompt();
                 dealNextSpread();
+            } else if (action === 'ABORT_READING') {
+                if (typeof returnToIdleFromSpread === 'function') returnToIdleFromSpread();
             } else {
                 showGuideMessage('请先完成当前牌阵 / Finish the current spread first.');
             }
             updatePrimaryActionButton();
+        });
+    }
+
+    const unselectBtn = document.getElementById('unselect-card-button');
+    if (unselectBtn) {
+        unselectBtn.addEventListener('click', () => {
+            if (typeof unselectIdleCardFromMouse === 'function' && typeof idleHeldCard !== 'undefined' && idleHeldCard) {
+                unselectIdleCardFromMouse(idleHeldCard);
+                updatePrimaryActionButton();
+            }
+            unselectBtn.style.display = 'none';
         });
     }
 

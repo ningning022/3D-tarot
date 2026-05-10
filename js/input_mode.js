@@ -255,6 +255,10 @@
             chooser.querySelectorAll('[data-control-mode]').forEach(button => {
                 button.addEventListener('click', () => selectMode(button.dataset.controlMode));
             });
+            const dismiss = doc.getElementById('chooser-dismiss');
+            if (dismiss) {
+                dismiss.addEventListener('click', () => selectMode('mouse'));
+            }
         }
         if (switchButton) {
             switchButton.addEventListener('click', () => {

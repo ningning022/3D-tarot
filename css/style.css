@@ -3,6 +3,16 @@
     --deep: #05050a;
 }
 
+/* ─── Z-index 层级规范（所有弹窗/覆盖层的权威参考）───
+   canvas:         3
+   ui-layer:      12
+   topbar:        50
+   idle-label:   200
+   chooser:      100   (first-pass value, kept for specificity)
+   template-ring:260   (must be above topbar 50)
+   modal:         300  (#spread-prompt !important)
+   ─────────────────────────────────────────────────── */
+
 body {
     margin: 0;
     overflow: hidden;
@@ -2230,9 +2240,9 @@ body.figma-stage {
     z-index: 10;
 }
 
-/* #spread-template-ring is position:fixed — only set z-index */
+/* #spread-template-ring must sit above topbar (50) — fixed overlay */
 #spread-template-ring {
-    z-index: 10;
+    z-index: 260;
 }
 
 /* Topbar must sit above admin-shell's padding area to receive clicks */

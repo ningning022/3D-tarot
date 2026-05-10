@@ -20,6 +20,13 @@
                 intent: 'NEXT_SPREAD'
             };
         }
+        if (spreadState === 'ACTIVE' || spreadState === 'ENTERING') {
+            return {
+                label: '放弃 / Abort',
+                disabled: false,
+                intent: 'ABORT_READING'
+            };
+        }
         return {
             label: '进行中 / Busy',
             disabled: true,

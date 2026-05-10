@@ -28,23 +28,17 @@ function renderHistoryCardHtml(entry) {
     return `<span class="history-mark">✓</span> <strong>${entry.slotLabel || `Slot ${entry.slot}`}</strong> - ${zhWithRoman(entry.zh)} <em>${entry.en}</em> - ${orient}`;
 }
 
-function prependHistoryCard(entry) {
-    const list = document.getElementById('history-list');
-    if (!list) return;
-    const item = document.createElement('div');
-    item.className = 'history-item';
-    item.innerHTML = renderHistoryCardHtml(entry);
-    list.prepend(item);
-}
-
-function appendHistoryCard(entry, targetList) {
+function _insertHistoryCard(entry, targetList, position) {
     const list = targetList || document.getElementById('history-list');
     if (!list) return;
     const item = document.createElement('div');
     item.className = 'history-item';
     item.innerHTML = renderHistoryCardHtml(entry);
-    list.appendChild(item);
+    position === 'prepend' ? list.prepend(item) : list.appendChild(item);
 }
+
+function prependHistoryCard(entry) { _insertHistoryCard(entry, null, 'prepend'); }
+function appendHistoryCard(entry, targetList) { _insertHistoryCard(entry, targetList, 'append'); }
 
 function prependHistorySeparator(spreadNumber) {
     const list = document.getElementById('history-list');
@@ -55,23 +49,17 @@ function prependHistorySeparator(spreadNumber) {
     list.prepend(sep);
 }
 
-function prependHistoryNote(text) {
+function _insertHistoryNote(text, position) {
     const list = document.getElementById('history-list');
     if (!list) return;
     const note = document.createElement('div');
     note.className = 'history-note';
     note.innerText = text;
-    list.prepend(note);
+    position === 'prepend' ? list.prepend(note) : list.appendChild(note);
 }
 
-function appendHistoryNote(text) {
-    const list = document.getElementById('history-list');
-    if (!list) return;
-    const note = document.createElement('div');
-    note.className = 'history-note';
-    note.innerText = text;
-    list.appendChild(note);
-}
+function prependHistoryNote(text) { _insertHistoryNote(text, 'prepend'); }
+function appendHistoryNote(text) { _insertHistoryNote(text, 'append'); }
 
 function recordConfirmedCard(card) {
     const entry = cardToHistoryEntry(card);
