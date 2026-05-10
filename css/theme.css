@@ -1,0 +1,39 @@
+/* ═══════════════════════════════════════════════════════════
+   theme.css — dual-theme tokens, frame-glow + fog overlays,
+   global theme transitions. Loaded between components.css and
+   tarot.css so it can override base widget colours but still be
+   trumped by page-specific layout.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Theme transition (avoid flashing on toggle) ─────────────
+   Animate only colour-bearing props, never layout props. */
+:root {
+    --theme-transition: color 0.55s ease, background-color 0.55s ease,
+                        border-color 0.55s ease, box-shadow 0.55s ease,
+                        opacity 0.55s ease, filter 0.55s ease;
+}
+
+html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
+.brand-lockup, .guide, .stage-frame-glow, .topbar-actions button,
+.history-panel, .daily-draw-panel, .current-spread-panel,
+.idle-label-zh, .idle-label-en, .idle-label-orient,
+.card-label-floating, .card-label-floating * {
+    transition: var(--theme-transition);
+}
+
+/* ── Theme-toggle icon swap ─────────────────────────────────
+   Sun shows in dark mode (you'd switch *to* light), moon shows
+   in light mode (you'd switch *to* dark). */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 8px 10px;
+    color: currentColor;
+}
+.theme-toggle .theme-icon { display: none; }
+[data-theme="dark"]  .theme-toggle .theme-icon-sun  { display: block; }
+[data-theme="light"] .theme-toggle .theme-icon-moon { display: block; }
+.theme-toggle:hover { color: var(--accent, currentColor); }
+.theme-toggle:active { transform: scale(0.92); }
