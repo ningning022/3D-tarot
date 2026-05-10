@@ -147,6 +147,24 @@ function bindStageControls() {
 }
 
 function bindMouseStageActions() {
+    window.handleMouseRightClick = function handleMouseRightClick() {
+        if (spreadState === 'IDLE' && typeof idleHeldCard !== 'undefined' && idleHeldCard) {
+            if (typeof unselectIdleCardFromMouse === 'function') {
+                unselectIdleCardFromMouse(idleHeldCard);
+                updatePrimaryActionButton();
+                const btn = document.getElementById('unselect-card-button');
+                if (btn) btn.style.display = 'none';
+            }
+            return true;
+        }
+        if (spreadState === 'ACTIVE' && typeof mousePreviewCard !== 'undefined' && mousePreviewCard) {
+            if (typeof returnMousePreviewToSlot === 'function') {
+                return returnMousePreviewToSlot(mousePreviewCard);
+            }
+        }
+        return false;
+    };
+
     window.handleMouseCardClick = function handleMouseCardClick(clientX, clientY) {
         if (typeof activeInputMode !== 'undefined' && activeInputMode !== 'mouse') return false;
         handScreenPos.x = (clientX / window.innerWidth - 0.5) * 2;

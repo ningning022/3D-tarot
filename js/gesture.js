@@ -54,8 +54,11 @@
         const ringFolded = isFolded(lm, 16, 14);
         const pinkyFolded = isFolded(lm, 20, 18);
 
-        const isPinch = pinchDistance < 0.34;
-        const isFist = !isPinch && indexFolded && middleFolded && ringFolded && pinkyFolded;
+        // FIST takes priority: if all four fingers are curled, it's a fist regardless
+        // of thumb position. Only classify PINCH when fingers are not all folded.
+        const allFolded = indexFolded && middleFolded && ringFolded && pinkyFolded;
+        const isPinch = !allFolded && pinchDistance < 0.34;
+        const isFist = allFolded;
         const isOpen = indexExtended && middleExtended && ringExtended && pinkyExtended && pinchDistance > 0.46;
         const isTwoFinger = indexExtended && middleExtended && ringFolded && pinkyFolded
             && twoFingerDistance < 0.55 && pinchDistance > 0.42;

@@ -150,7 +150,7 @@
             if (gesture) gesture.innerText = '鼠标 + 键盘 / Mouse + keyboard';
             const guide = root.document.getElementById('guide-text');
             if (guide) {
-                guide.innerText = '移动指向，点击翻看，再点确认 / Move, click to preview, click again to confirm.';
+                guide.innerText = '左键选牌/翻看/确认 · 右键取消 / Left=select·preview·confirm  Right=cancel';
             }
         }
         if (mode === 'camera') {
@@ -239,6 +239,15 @@
             const action = mapMouseEventToAction(event.type);
             if (action === 'SELECT_CARD' && typeof root.handleMouseCardClick === 'function') {
                 root.handleMouseCardClick(event.clientX, event.clientY);
+            }
+        });
+
+        root.window.addEventListener('contextmenu', event => {
+            if (typeof activeInputMode !== 'undefined' && activeInputMode !== 'mouse') return;
+            if (isInteractiveElement(event.target)) return;
+            event.preventDefault();
+            if (typeof root.handleMouseRightClick === 'function') {
+                root.handleMouseRightClick();
             }
         });
 
