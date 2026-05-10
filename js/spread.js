@@ -332,15 +332,18 @@ function handleGestures() {
     raycaster.setFromCamera(handScreenPos, camera);
     const intersects = raycaster.intersectObjects(activeCards);
 
+    // Only one card can be HELD at a time — lock onto whichever is already held,
+    // and only grab a new card when nothing is currently held.
+    const alreadyHeld = activeCards.find(c => c.userData.state === 'HELD') || null;
+
     activeCards.forEach(card => {
         const isHit = intersects.length > 0 && intersects[0].object === card;
 
-        // PINCH: 翻牌查看 / Flip & inspect
         if (card.userData.state === 'DEALING') {
             return;
         }
 
-        if (currentGesture === 'PINCH' && (isHit || card.userData.state === 'HELD')) {
+        if (currentGesture === 'PINCH' && (card === alreadyHeld || (!alreadyHeld && isHit))) {
             card.userData.state = 'HELD';
             _spreadTarget.set(handScreenPos.x * 7, handScreenPos.y * 4, 4);
             card.position.lerp(_spreadTarget, 0.15);

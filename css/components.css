@@ -632,10 +632,11 @@ body.stage-controls-hidden .recent-panel {
 
 /* ── Guide bar ──────────────────────────────────────────── */
 
-/* Final value: Figma stage pass + boundary pass */
+/* Final value: Figma stage pass + boundary pass
+   bottom clears .template-ring (bottom:28px + ~56px height) */
 .guide {
     position: fixed;
-    bottom: 12px;
+    bottom: 96px;
     left: 50%;
     transform: translateX(-50%);
     width: auto;
