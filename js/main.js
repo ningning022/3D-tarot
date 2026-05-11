@@ -108,11 +108,31 @@ function init() {
     createIdleFan();
 
     window.addEventListener('resize', onResize);
+    bindCascadeWheel();
     if (window.InputMode) {
         InputMode.bindChooser();
         InputMode.startPreferredMode();
     }
     animate();
+}
+
+/**
+ * Mouse-wheel handler for the diagonal cascade carousel. Translates a
+ * wheel delta into cascade scroll velocity, mirroring how unveil.fr
+ * lets visitors flick through their image stack with a quick scroll.
+ * Only active in IDLE so it never fights the spread interactions.
+ */
+function bindCascadeWheel() {
+    window.addEventListener('wheel', (event) => {
+        if (spreadState !== 'IDLE') return;
+        if (idleHeldCard) return; // don't scroll while inspecting a card
+        // deltaY > 0 (scroll down/forward) → advance cascade rightward
+        // Trackpads send small deltas; mouse wheels send 100+ per notch.
+        const kick = Math.max(-0.06, Math.min(0.06, event.deltaY * 0.0008));
+        carouselVelocity += kick;
+        // Cap absolute velocity so a single fast scroll can't run away.
+        carouselVelocity = Math.max(-0.5, Math.min(0.5, carouselVelocity));
+    }, { passive: true });
 }
 
 function bindTopbarActions() {
