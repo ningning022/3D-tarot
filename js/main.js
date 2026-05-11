@@ -1,3 +1,40 @@
+// Holders for theme-driven re-tuning (set in init()).
+let _ambient, _frontLight, _topLight, _rimLight, _candleGlow, _tableGlow;
+
+const LIGHT_PRESETS = {
+    dark: {
+        exposure: 0.98,
+        ambient: { color: 0xffd7aa, intensity: 0.42 },
+        front:   { color: 0xffc57d, intensity: 1.52 },
+        top:     { color: 0xffb45d, intensity: 1.10 },
+        rim:     { color: 0xd49842, intensity: 1.28 },
+        candle:  { color: 0xffa24d, intensity: 1.55 },
+        table:   { color: 0xb22a24, intensity: 0.82 }
+    },
+    light: {
+        // Cool warm daylight: lift ambient, drop the candle/table moodiness,
+        // keep a soft amber kicker so the cards still feel hand-lit.
+        exposure: 1.05,
+        ambient: { color: 0xfff1d6, intensity: 0.78 },
+        front:   { color: 0xffe8c2, intensity: 1.05 },
+        top:     { color: 0xffd9a8, intensity: 0.65 },
+        rim:     { color: 0xd97757, intensity: 0.55 }, // unveil amber
+        candle:  { color: 0xffb98a, intensity: 0.42 },
+        table:   { color: 0xd97757, intensity: 0.00 }  // off in daylight
+    }
+};
+
+function applyThemeLights(theme) {
+    const preset = LIGHT_PRESETS[theme] || LIGHT_PRESETS.dark;
+    if (renderer) renderer.toneMappingExposure = preset.exposure;
+    if (_ambient)    { _ambient.color.setHex(preset.ambient.color);  _ambient.intensity    = preset.ambient.intensity; }
+    if (_frontLight) { _frontLight.color.setHex(preset.front.color); _frontLight.intensity = preset.front.intensity; }
+    if (_topLight)   { _topLight.color.setHex(preset.top.color);     _topLight.intensity   = preset.top.intensity; }
+    if (_rimLight)   { _rimLight.color.setHex(preset.rim.color);     _rimLight.intensity   = preset.rim.intensity; }
+    if (_candleGlow) { _candleGlow.color.setHex(preset.candle.color); _candleGlow.intensity = preset.candle.intensity; }
+    if (_tableGlow)  { _tableGlow.color.setHex(preset.table.color);  _tableGlow.intensity  = preset.table.intensity; }
+}
+
 function init() {
     scene = new THREE.Scene();
     scene.background = null;
@@ -16,36 +53,42 @@ function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffd7aa, 0.42));
-    const frontLight = new THREE.DirectionalLight(0xffc57d, 1.52);
-    frontLight.position.set(-3.8, 6.2, 9.2);
-    frontLight.castShadow = true;
-    frontLight.shadow.mapSize.set(3072, 3072);
-    frontLight.shadow.camera.left = -14;
-    frontLight.shadow.camera.right = 14;
-    frontLight.shadow.camera.top = 8;
-    frontLight.shadow.camera.bottom = -8;
-    frontLight.shadow.camera.near = 0.5;
-    frontLight.shadow.camera.far = 32;
-    frontLight.shadow.bias = -0.00018;
-    frontLight.shadow.normalBias = 0.035;
-    scene.add(frontLight);
+    _ambient = new THREE.AmbientLight(0xffd7aa, 0.42);
+    scene.add(_ambient);
+    _frontLight = new THREE.DirectionalLight(0xffc57d, 1.52);
+    _frontLight.position.set(-3.8, 6.2, 9.2);
+    _frontLight.castShadow = true;
+    _frontLight.shadow.mapSize.set(3072, 3072);
+    _frontLight.shadow.camera.left = -14;
+    _frontLight.shadow.camera.right = 14;
+    _frontLight.shadow.camera.top = 8;
+    _frontLight.shadow.camera.bottom = -8;
+    _frontLight.shadow.camera.near = 0.5;
+    _frontLight.shadow.camera.far = 32;
+    _frontLight.shadow.bias = -0.00018;
+    _frontLight.shadow.normalBias = 0.035;
+    scene.add(_frontLight);
 
-    const topLight = new THREE.PointLight(0xffb45d, 1.1, 42);
-    topLight.position.set(0, 5.2, 5.8);
-    scene.add(topLight);
+    _topLight = new THREE.PointLight(0xffb45d, 1.1, 42);
+    _topLight.position.set(0, 5.2, 5.8);
+    scene.add(_topLight);
 
-    const rimLight = new THREE.PointLight(0xd49842, 1.28, 34);
-    rimLight.position.set(5.8, -4.2, 5.4);
-    scene.add(rimLight);
+    _rimLight = new THREE.PointLight(0xd49842, 1.28, 34);
+    _rimLight.position.set(5.8, -4.2, 5.4);
+    scene.add(_rimLight);
 
-    const candleGlow = new THREE.PointLight(0xffa24d, 1.55, 16);
-    candleGlow.position.set(4.7, 3.2, 3.6);
-    scene.add(candleGlow);
+    _candleGlow = new THREE.PointLight(0xffa24d, 1.55, 16);
+    _candleGlow.position.set(4.7, 3.2, 3.6);
+    scene.add(_candleGlow);
 
-    const tableGlow = new THREE.PointLight(0xb22a24, 0.82, 26);
-    tableGlow.position.set(0, -2.8, 4.2);
-    scene.add(tableGlow);
+    _tableGlow = new THREE.PointLight(0xb22a24, 0.82, 26);
+    _tableGlow.position.set(0, -2.8, 4.2);
+    scene.add(_tableGlow);
+
+    // Match the lights to whatever theme.js already applied.
+    const initialTheme = (document.documentElement.dataset.theme === 'light') ? 'light' : 'dark';
+    applyThemeLights(initialTheme);
+    window.addEventListener('theme-change', e => applyThemeLights(e.detail && e.detail.theme));
 
     raycaster = new THREE.Raycaster();
 
