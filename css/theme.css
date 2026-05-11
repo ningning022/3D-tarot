@@ -121,6 +121,41 @@ html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
     -webkit-backdrop-filter: blur(24px) saturate(1.05);
 }
 
+/* Modals — the spread prompt + control chooser were hard-coded to a
+   dark wine gradient, which clashed badly with the light surface.
+   Both now inherit panel tokens so they read as warm parchment in
+   light mode and stay deep wine in dark. */
+#spread-prompt,
+.control-chooser {
+    background: var(--panel-bg) !important;
+    border-color: var(--panel-line) !important;
+    color: var(--ink-text) !important;
+    /* Scrim around the modal: keep dark in dark mode, switch to a
+       cream wash in light mode so the page doesn't read as muddy. */
+    box-shadow:
+        0 0 0 9999px color-mix(in oklch, var(--surface) 85%, transparent),
+        0 24px 64px color-mix(in oklch, var(--surface) 50%, transparent),
+        0 0 40px color-mix(in oklch, var(--accent) 18%, transparent) !important;
+}
+
+#spread-prompt .prompt-title,
+#spread-prompt .prompt-sub,
+.control-chooser-title {
+    color: var(--ink-text);
+}
+
+#spread-prompt .prompt-kicker,
+#spread-prompt .prompt-hint,
+.control-chooser-kicker,
+.control-chooser-sub {
+    color: color-mix(in oklch, var(--ink-text) 65%, transparent);
+}
+
+#spread-prompt .prompt-title,
+.control-chooser-title {
+    color: var(--accent);
+}
+
 /* The brand wordmark rides on the accent glow. */
 .brand-lockup strong {
     color: var(--accent);

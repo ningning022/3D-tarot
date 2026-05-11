@@ -33,6 +33,38 @@ function applyThemeLights(theme) {
     if (_rimLight)   { _rimLight.color.setHex(preset.rim.color);     _rimLight.intensity   = preset.rim.intensity; }
     if (_candleGlow) { _candleGlow.color.setHex(preset.candle.color); _candleGlow.intensity = preset.candle.intensity; }
     if (_tableGlow)  { _tableGlow.color.setHex(preset.table.color);  _tableGlow.intensity  = preset.table.intensity; }
+    applyThemeCardBacks(theme);
+}
+
+/**
+ * Boost the saturation of card backs in light mode so the Rider-Waite
+ * green/cream pattern reads as vibrant artwork rather than aged paper.
+ * Index 4 of the box-geometry materials holds the back texture for both
+ * cascade cards (carousel.js) and dealt cards (spread.js).
+ */
+function applyThemeCardBacks(theme) {
+    const isLight = theme === 'light';
+    const tuneBack = mat => {
+        if (!mat) return;
+        if (isLight) {
+            mat.emissive && mat.emissive.setHex(0x6a4a1c);
+            mat.emissiveIntensity = 0.34;
+            mat.roughness = 0.42;
+            mat.metalness = 0.06;
+        } else {
+            mat.emissive && mat.emissive.setHex(0x000000);
+            mat.emissiveIntensity = 0.0;
+            mat.roughness = 0.7;
+            mat.metalness = 0.0;
+        }
+        mat.needsUpdate = true;
+    };
+    const visit = card => {
+        if (!card || !Array.isArray(card.material)) return;
+        tuneBack(card.material[4]);
+    };
+    if (typeof idleCards !== 'undefined') idleCards.forEach(({ mesh }) => visit(mesh));
+    if (typeof activeCards !== 'undefined') activeCards.forEach(visit);
 }
 
 function init() {

@@ -102,6 +102,9 @@ function spawnCard(slot, cardDef, isReversed, slotLabel) {
     card.rotation.z = homeRotationZ;
     scene.add(card);
     activeCards.push(card);
+    if (typeof applyThemeCardBacks === 'function') {
+        applyThemeCardBacks(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+    }
 }
 
 function ensureIdleCardFaceLoaded(card) {
