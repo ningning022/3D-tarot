@@ -4,41 +4,13 @@
 
 /* ── Page background ────────────────────────────────────── */
 
-/* Final value: "Interaction/rendering cleanup" pass (lines 2992-2998)
-   Three.js owns the velvet table texture, so the page background is
-   a pure CSS gradient, no texture URL. */
+/* Flat surface owned by the active theme. Atmospheric "lighting"
+   moves out of CSS gradients and into .stage-frame-glow / .stage-fog
+   overlays defined in theme.css (unveil.fr-style framed glow). */
 .tarot-page.figma-stage,
 .admin-page.figma-stage {
-    background:
-        radial-gradient(circle at 50% 36%, rgba(116, 29, 24, 0.32), transparent 38%),
-        radial-gradient(circle at 50% 120%, rgba(214, 167, 92, 0.1), transparent 42%),
-        linear-gradient(180deg, #100404 0%, #050202 64%, #020101 100%);
-}
-
-/* Tarot-page scanline overlay — final value: concept fidelity pass
-   (used when .tarot-page does NOT also have .figma-stage) */
-.tarot-page::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    background:
-        radial-gradient(ellipse at 50% 42%, rgba(255, 198, 120, 0.035), transparent 44%),
-        linear-gradient(90deg, rgba(0, 0, 0, 0.3), transparent 24%, transparent 76%, rgba(0, 0, 0, 0.32)),
-        linear-gradient(180deg, rgba(0, 0, 0, 0.06), transparent 30%, rgba(0, 0, 0, 0.22));
-    opacity: 0.82;
-}
-
-.tarot-page::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    background:
-        radial-gradient(ellipse at 50% 52%, transparent 48%, rgba(0, 0, 0, 0.38) 100%),
-        linear-gradient(180deg, rgba(255, 218, 150, 0.035), transparent 18%, rgba(0, 0, 0, 0.22) 100%);
+    background: var(--surface);
+    color: var(--ink-text);
 }
 
 /* ── Canvas container ───────────────────────────────────── */

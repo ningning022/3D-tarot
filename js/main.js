@@ -1,3 +1,84 @@
+// Holders for theme-driven re-tuning (set in init()).
+let _ambient, _frontLight, _topLight, _rimLight, _candleGlow, _tableGlow;
+
+const LIGHT_PRESETS = {
+    dark: {
+        exposure: 0.98,
+        ambient: { color: 0xffd7aa, intensity: 0.42 },
+        front:   { color: 0xffc57d, intensity: 1.52 },
+        top:     { color: 0xffb45d, intensity: 1.10 },
+        rim:     { color: 0xd49842, intensity: 1.28 },
+        candle:  { color: 0xffa24d, intensity: 1.55 },
+        table:   { color: 0xb22a24, intensity: 0.82 }
+    },
+    light: {
+        // Cool warm daylight: lift ambient, drop the candle/table moodiness,
+        // keep a soft amber kicker so the cards still feel hand-lit.
+        exposure: 1.05,
+        ambient: { color: 0xfff1d6, intensity: 0.78 },
+        front:   { color: 0xffe8c2, intensity: 1.05 },
+        top:     { color: 0xffd9a8, intensity: 0.65 },
+        rim:     { color: 0xd97757, intensity: 0.55 }, // unveil amber
+        candle:  { color: 0xffb98a, intensity: 0.42 },
+        table:   { color: 0xd97757, intensity: 0.00 }  // off in daylight
+    }
+};
+
+function applyThemeLights(theme) {
+    const preset = LIGHT_PRESETS[theme] || LIGHT_PRESETS.dark;
+    if (renderer) renderer.toneMappingExposure = preset.exposure;
+    if (_ambient)    { _ambient.color.setHex(preset.ambient.color);  _ambient.intensity    = preset.ambient.intensity; }
+    if (_frontLight) { _frontLight.color.setHex(preset.front.color); _frontLight.intensity = preset.front.intensity; }
+    if (_topLight)   { _topLight.color.setHex(preset.top.color);     _topLight.intensity   = preset.top.intensity; }
+    if (_rimLight)   { _rimLight.color.setHex(preset.rim.color);     _rimLight.intensity   = preset.rim.intensity; }
+    if (_candleGlow) { _candleGlow.color.setHex(preset.candle.color); _candleGlow.intensity = preset.candle.intensity; }
+    if (_tableGlow)  { _tableGlow.color.setHex(preset.table.color);  _tableGlow.intensity  = preset.table.intensity; }
+    applyThemeCardBacks(theme);
+}
+
+/**
+ * Bring out the original Rider-Waite back colours in each theme:
+ *
+ *   light → multiply the texture by a cool white tint so the cream
+ *           ground reads as paper-white and the teal-blue florals
+ *           pop as vivid pigment instead of muddy amber. A small
+ *           cool-blue emissive lifts the whole back without warming
+ *           it, counteracting the warm-amber stage lights.
+ *   dark  → leave the material un-tinted so the back keeps its
+ *           candle-lit moodiness; reset any lingering light values.
+ *
+ * Index 4 of the box-geometry materials holds the back texture for
+ * both cascade cards (carousel.js) and dealt cards (spread.js).
+ */
+function applyThemeCardBacks(theme) {
+    const isLight = theme === 'light';
+    const tuneBack = mat => {
+        if (!mat) return;
+        if (isLight) {
+            // color is multiplied with map; cool-white lifts the cream,
+            // brightens the teal florals, kills the warm yellow cast.
+            mat.color && mat.color.setHex(0xeaf0ff);
+            mat.emissive && mat.emissive.setHex(0x1a2a48);
+            mat.emissiveIntensity = 0.18;
+            mat.roughness = 0.34;
+            mat.metalness = 0.04;
+        } else {
+            mat.color && mat.color.setHex(0xffffff);
+            mat.emissive && mat.emissive.setHex(0x000000);
+            mat.emissiveIntensity = 0.0;
+            mat.roughness = 0.7;
+            mat.metalness = 0.0;
+        }
+        mat.needsUpdate = true;
+    };
+    const visit = card => {
+        if (!card || !Array.isArray(card.material)) return;
+        tuneBack(card.material[4]);
+    };
+    if (typeof idleCards !== 'undefined') idleCards.forEach(({ mesh }) => visit(mesh));
+    if (typeof activeCards !== 'undefined') activeCards.forEach(visit);
+}
+
 function init() {
     scene = new THREE.Scene();
     scene.background = null;
@@ -16,38 +97,42 @@ function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffd7aa, 0.42));
-    const frontLight = new THREE.DirectionalLight(0xffc57d, 1.52);
-    frontLight.position.set(-3.8, 6.2, 9.2);
-    frontLight.castShadow = true;
-    frontLight.shadow.mapSize.set(3072, 3072);
-    frontLight.shadow.camera.left = -14;
-    frontLight.shadow.camera.right = 14;
-    frontLight.shadow.camera.top = 8;
-    frontLight.shadow.camera.bottom = -8;
-    frontLight.shadow.camera.near = 0.5;
-    frontLight.shadow.camera.far = 32;
-    frontLight.shadow.bias = -0.00018;
-    frontLight.shadow.normalBias = 0.035;
-    scene.add(frontLight);
+    _ambient = new THREE.AmbientLight(0xffd7aa, 0.42);
+    scene.add(_ambient);
+    _frontLight = new THREE.DirectionalLight(0xffc57d, 1.52);
+    _frontLight.position.set(-3.8, 6.2, 9.2);
+    _frontLight.castShadow = true;
+    _frontLight.shadow.mapSize.set(3072, 3072);
+    _frontLight.shadow.camera.left = -14;
+    _frontLight.shadow.camera.right = 14;
+    _frontLight.shadow.camera.top = 8;
+    _frontLight.shadow.camera.bottom = -8;
+    _frontLight.shadow.camera.near = 0.5;
+    _frontLight.shadow.camera.far = 32;
+    _frontLight.shadow.bias = -0.00018;
+    _frontLight.shadow.normalBias = 0.035;
+    scene.add(_frontLight);
 
-    const topLight = new THREE.PointLight(0xffb45d, 1.1, 42);
-    topLight.position.set(0, 5.2, 5.8);
-    scene.add(topLight);
+    _topLight = new THREE.PointLight(0xffb45d, 1.1, 42);
+    _topLight.position.set(0, 5.2, 5.8);
+    scene.add(_topLight);
 
-    const rimLight = new THREE.PointLight(0xd49842, 1.28, 34);
-    rimLight.position.set(5.8, -4.2, 5.4);
-    scene.add(rimLight);
+    _rimLight = new THREE.PointLight(0xd49842, 1.28, 34);
+    _rimLight.position.set(5.8, -4.2, 5.4);
+    scene.add(_rimLight);
 
-    const candleGlow = new THREE.PointLight(0xffa24d, 1.55, 16);
-    candleGlow.position.set(4.7, 3.2, 3.6);
-    scene.add(candleGlow);
+    _candleGlow = new THREE.PointLight(0xffa24d, 1.55, 16);
+    _candleGlow.position.set(4.7, 3.2, 3.6);
+    scene.add(_candleGlow);
 
-    const tableGlow = new THREE.PointLight(0xb22a24, 0.82, 26);
-    tableGlow.position.set(0, -2.8, 4.2);
-    scene.add(tableGlow);
+    _tableGlow = new THREE.PointLight(0xb22a24, 0.82, 26);
+    _tableGlow.position.set(0, -2.8, 4.2);
+    scene.add(_tableGlow);
 
-    createTableSpace();
+    // Match the lights to whatever theme.js already applied.
+    const initialTheme = (document.documentElement.dataset.theme === 'light') ? 'light' : 'dark';
+    applyThemeLights(initialTheme);
+    window.addEventListener('theme-change', e => applyThemeLights(e.detail && e.detail.theme));
 
     raycaster = new THREE.Raycaster();
 
@@ -67,11 +152,31 @@ function init() {
     createIdleFan();
 
     window.addEventListener('resize', onResize);
+    bindCascadeWheel();
     if (window.InputMode) {
         InputMode.bindChooser();
         InputMode.startPreferredMode();
     }
     animate();
+}
+
+/**
+ * Mouse-wheel handler for the diagonal cascade carousel. Translates a
+ * wheel delta into cascade scroll velocity, mirroring how unveil.fr
+ * lets visitors flick through their image stack with a quick scroll.
+ * Only active in IDLE so it never fights the spread interactions.
+ */
+function bindCascadeWheel() {
+    window.addEventListener('wheel', (event) => {
+        if (spreadState !== 'IDLE') return;
+        if (idleHeldCard) return; // don't scroll while inspecting a card
+        // deltaY > 0 (scroll down/forward) → advance cascade rightward
+        // Trackpads send small deltas; mouse wheels send 100+ per notch.
+        const kick = Math.max(-0.06, Math.min(0.06, event.deltaY * 0.0008));
+        carouselVelocity += kick;
+        // Cap absolute velocity so a single fast scroll can't run away.
+        carouselVelocity = Math.max(-0.5, Math.min(0.5, carouselVelocity));
+    }, { passive: true });
 }
 
 function bindTopbarActions() {
@@ -246,111 +351,6 @@ function showGuideMessage(message) {
     guide.innerText = message;
     guide.classList.add('guide-flash');
     window.setTimeout(() => guide.classList.remove('guide-flash'), 900);
-}
-
-function createTableSpace() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 1024;
-    const ctx = canvas.getContext('2d');
-    const base = ctx.createRadialGradient(512, 430, 80, 512, 520, 720);
-    base.addColorStop(0, '#78212a');
-    base.addColorStop(0.48, '#4d1119');
-    base.addColorStop(1, '#160305');
-    ctx.fillStyle = base;
-    ctx.fillRect(0, 0, 1024, 1024);
-
-    for (let y = 0; y < 1024; y += 5) {
-        ctx.strokeStyle = y % 30 === 0 ? 'rgba(255, 205, 152, 0.055)' : 'rgba(255, 178, 156, 0.026)';
-        ctx.beginPath();
-        ctx.moveTo(0, y + Math.sin(y * 0.03) * 5);
-        ctx.lineTo(1024, y + Math.cos(y * 0.027) * 5);
-        ctx.stroke();
-    }
-    for (let x = 0; x < 1024; x += 11) {
-        ctx.strokeStyle = x % 44 === 0 ? 'rgba(20, 0, 5, 0.2)' : 'rgba(255, 220, 170, 0.02)';
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x + Math.sin(x * 0.025) * 10, 1024);
-        ctx.stroke();
-    }
-
-    for (let i = 0; i < 9000; i += 1) {
-        const alpha = 0.018 + Math.random() * 0.045;
-        const warm = Math.random() > 0.58;
-        ctx.fillStyle = warm
-            ? `rgba(255, 210, 142, ${alpha})`
-            : `rgba(24, 0, 6, ${alpha})`;
-        ctx.fillRect(Math.random() * 1024, Math.random() * 1024, 1, 1);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(3.4, 2.3);
-    if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
-
-    const tableMaterial = new THREE.MeshStandardMaterial({
-        map: texture,
-        color: 0xffffff,
-        roughness: 0.96,
-        metalness: 0.0,
-        emissive: 0x100204,
-        emissiveIntensity: 0.12
-    });
-
-    const table = new THREE.Mesh(
-        new THREE.PlaneGeometry(27.2, 15.3),
-        tableMaterial
-    );
-    table.position.set(0, -0.38, -0.4);
-    table.receiveShadow = true;
-    scene.add(table);
-
-    const border = new THREE.LineSegments(
-        new THREE.EdgesGeometry(new THREE.PlaneGeometry(27.2, 15.3)),
-        new THREE.LineBasicMaterial({ color: 0xd4a85a, transparent: true, opacity: 0.2 })
-    );
-    border.position.copy(table.position);
-    scene.add(border);
-
-    [2.5, 4.4, 5.8, 7.05].forEach((radius, index) => {
-        const curve = new THREE.EllipseCurve(0, 0, radius, radius * 0.56, 0, Math.PI * 2);
-        const points = curve.getPoints(220).map(point => new THREE.Vector3(point.x, point.y - 0.18, -0.18 + index * 0.002));
-        const line = new THREE.LineLoop(
-            new THREE.BufferGeometry().setFromPoints(points),
-            new THREE.LineBasicMaterial({
-                color: 0xe2b45c,
-                transparent: true,
-                opacity: 0.12 - index * 0.018
-            })
-        );
-        scene.add(line);
-    });
-
-    const axisMaterial = new THREE.LineBasicMaterial({ color: 0xe2b45c, transparent: true, opacity: 0.085 });
-    [[-7.2, 0, 7.2, 0], [0, -4.05, 0, 4.05], [-5.2, -2.9, 5.2, 2.9], [-5.2, 2.9, 5.2, -2.9]].forEach((coords, index) => {
-        const geometry = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(coords[0], coords[1] - 0.18, -0.16 - index * 0.001),
-            new THREE.Vector3(coords[2], coords[3] - 0.18, -0.16 - index * 0.001)
-        ]);
-        scene.add(new THREE.Line(geometry, axisMaterial));
-    });
-
-    [
-        [-7.05, -0.18],
-        [7.05, -0.18],
-        [0, 3.85],
-        [0, -4.2]
-    ].forEach(([x, y]) => {
-        const mark = new THREE.Mesh(
-            new THREE.RingGeometry(0.12, 0.22, 4),
-            new THREE.MeshBasicMaterial({ color: 0xe2b45c, transparent: true, opacity: 0.18, side: THREE.DoubleSide })
-        );
-        mark.position.set(x, y, -0.13);
-        mark.rotation.z = Math.PI / 4;
-        scene.add(mark);
-    });
 }
 
 function onResize() {

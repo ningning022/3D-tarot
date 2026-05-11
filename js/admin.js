@@ -49,6 +49,27 @@ const AdminChronicle = (() => {
         return card.isReversed ? 'admin-card-image reversed' : 'admin-card-image upright';
     }
 
+    /**
+     * Summarise a reading's cards as a list of <span> chips, one per card,
+     * each tagged with the upright/reversed orientation.
+     * Example output: "圣杯III · 正  ｜  月亮 · 逆  ｜  星币国王 · 正"
+     */
+    function renderCardChips(cards) {
+        if (!Array.isArray(cards) || cards.length === 0) {
+            return '<span class="reading-row-card empty">无卡牌 / No cards</span>';
+        }
+        return cards.map(card => {
+            const name = formatZhName(card.zh || card.en || '?');
+            const orientCls = card.isReversed ? 'reversed' : 'upright';
+            const orientLabel = card.isReversed ? '逆' : '正';
+            const enHint = card.en ? ` title="${escapeHtml(card.en)}"` : '';
+            return `<span class="reading-row-card ${orientCls}"${enHint}>`
+                + `<span class="reading-row-card-name">${name}</span>`
+                + `<span class="reading-row-card-orient">${orientLabel}</span>`
+                + `</span>`;
+        }).join('');
+    }
+
     function setStatus(text) {
         const status = el('admin-status');
         if (status) status.innerText = text;
@@ -85,7 +106,8 @@ const AdminChronicle = (() => {
         }
 
         readings.forEach(reading => {
-            const cardCount = (reading.cards || []).length;
+            const cards = reading.cards || [];
+            const cardCount = cards.length;
             const button = document.createElement('button');
             button.type = 'button';
             button.className = reading.id === state.selectedId ? 'reading-row active' : 'reading-row';
@@ -97,7 +119,8 @@ const AdminChronicle = (() => {
                         <span class="reading-row-title">${escapeHtml(readingTitle(reading))}</span>
                         <span class="reading-row-kind">${readingKind(reading)}</span>
                     </span>
-                    <span class="reading-row-meta">${formatTime(reading.createdAt)} - ${cardCount} cards</span>
+                    <span class="reading-row-meta">${formatTime(reading.createdAt)} · ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}</span>
+                    <span class="reading-row-cards">${renderCardChips(cards)}</span>
                 </span>
             `;
             button.addEventListener('click', () => selectReading(reading.id));
@@ -112,10 +135,16 @@ const AdminChronicle = (() => {
 
         return replayCards.map(card => {
             const alt = `${card.en || card.zh} ${card.orientationLabel}`;
+            const orientShort = card.isReversed ? '逆' : '正';
             return `
                 <article class="replay-card ${card.orientationClass}" style="left:${card.leftPercent}%;top:${card.topPercent}%;width:${card.widthPercent}%;">
                     <div class="replay-slot">${escapeHtml(card.slotLabel || `Slot ${card.slot}`)}</div>
                     <img class="${cardImageClass(card)}" src="${imageSrc(card.imageFile)}" alt="${escapeHtml(alt)}">
+                    <div class="replay-name">
+                        <span class="replay-name-zh">${formatZhName(card.zh || card.en || '?')}</span>
+                        <span class="replay-name-en">${escapeHtml(card.en || '')}</span>
+                        <span class="replay-name-orient ${card.orientationClass}">${orientShort} / ${card.orientationLabel}</span>
+                    </div>
                 </article>
             `;
         }).join('');

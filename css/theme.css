@@ -1,0 +1,248 @@
+/* ═══════════════════════════════════════════════════════════
+   theme.css — dual-theme tokens, frame-glow + fog overlays,
+   global theme transitions. Loaded between components.css and
+   tarot.css so it can override base widget colours but still be
+   trumped by page-specific layout.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Theme transition (avoid flashing on toggle) ─────────────
+   Animate only colour-bearing props, never layout props. */
+:root {
+    --theme-transition: color 0.55s ease, background-color 0.55s ease,
+                        border-color 0.55s ease, box-shadow 0.55s ease,
+                        opacity 0.55s ease, filter 0.55s ease;
+}
+
+html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
+.brand-lockup, .guide, .stage-frame-glow, .topbar-actions button,
+.history-panel, .daily-draw-panel, .current-spread-panel,
+.idle-label-zh, .idle-label-en, .idle-label-orient,
+.card-label-floating, .card-label-floating * {
+    transition: var(--theme-transition);
+}
+
+/* ── Theme-toggle icon swap ─────────────────────────────────
+   Sun shows in dark mode (you'd switch *to* light), moon shows
+   in light mode (you'd switch *to* dark). */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 8px 10px;
+    color: currentColor;
+}
+.theme-toggle .theme-icon { display: none; }
+[data-theme="dark"]  .theme-toggle .theme-icon-sun  { display: block; }
+[data-theme="light"] .theme-toggle .theme-icon-moon { display: block; }
+/* Beat the generic .icon-button:hover (which forces #fff8e8). */
+.app-topbar .theme-toggle:hover,
+.theme-toggle:hover {
+    color: var(--accent);
+    border-color: var(--accent-line);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+}
+.theme-toggle:active { transform: scale(0.92); }
+.theme-toggle .theme-icon { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.theme-toggle:hover .theme-icon { transform: rotate(15deg); }
+
+/* ── Stage frame glow ────────────────────────────────────────
+   The unveil.fr "light from the edges" feel: three radial pools
+   anchored at the page corners + a low pool at the bottom, all
+   tinted with --accent. Sits at z-index 1, below the canvas (3),
+   above the html background (0). */
+.stage-frame-glow {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+        radial-gradient(120% 90% at 0% 0%,
+            color-mix(in oklch, var(--accent) 14%, transparent) 0%,
+            transparent 38%),
+        radial-gradient(120% 90% at 100% 0%,
+            color-mix(in oklch, var(--accent) 14%, transparent) 0%,
+            transparent 38%),
+        radial-gradient(140% 90% at 50% 110%,
+            color-mix(in oklch, var(--accent) 10%, transparent) 0%,
+            transparent 44%),
+        radial-gradient(140% 90% at 50% -10%,
+            color-mix(in oklch, var(--accent) 6%, transparent) 0%,
+            transparent 50%);
+    opacity: 0.78;
+}
+
+[data-theme="light"] .stage-frame-glow {
+    opacity: 0.62;
+}
+
+/* Subtle inset feathered vignette so the page doesn't look like a
+   flat slab. Picks up the surface tone at the very edges. Sits on
+   z-index 2, between the frame-glow and the canvas. */
+.stage-fog {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+        linear-gradient(180deg,
+            color-mix(in oklch, var(--surface) 28%, transparent) 0%,
+            transparent 12%,
+            transparent 88%,
+            color-mix(in oklch, var(--surface) 28%, transparent) 100%),
+        linear-gradient(90deg,
+            color-mix(in oklch, var(--surface) 22%, transparent) 0%,
+            transparent 8%,
+            transparent 92%,
+            color-mix(in oklch, var(--surface) 22%, transparent) 100%);
+}
+
+/* ── Accent glow filter (drop-shadow stack à la unveil.fr) ───
+   Apply to anything that should "emit" light: brand sigil, card
+   labels, primary CTA. Composes safely with existing transforms. */
+.glow-accent {
+    filter:
+        drop-shadow(0 0 4px color-mix(in oklch, var(--accent) 90%, transparent))
+        drop-shadow(0 0 12px color-mix(in oklch, var(--accent) 45%, transparent));
+}
+
+/* Topbar / panels gain theme awareness without overriding their
+   layout. Backdrop-filter is what gives unveil.fr's floating UI
+   its characteristic depth. */
+.app-topbar,
+.stage-panel,
+.history-panel,
+.daily-draw-panel,
+.current-spread-panel {
+    background: var(--panel-bg);
+    border-color: var(--panel-line);
+    color: var(--ink-text);
+    backdrop-filter: blur(24px) saturate(1.05);
+    -webkit-backdrop-filter: blur(24px) saturate(1.05);
+}
+
+/* Modals — the spread prompt + control chooser were hard-coded to a
+   dark wine gradient, which clashed badly with the light surface.
+   Both now inherit panel tokens so they read as warm parchment in
+   light mode and stay deep wine in dark. */
+#spread-prompt,
+.control-chooser {
+    background: var(--panel-bg) !important;
+    border-color: var(--panel-line) !important;
+    color: var(--ink-text) !important;
+    /* Scrim around the modal: keep dark in dark mode, switch to a
+       cream wash in light mode so the page doesn't read as muddy. */
+    box-shadow:
+        0 0 0 9999px color-mix(in oklch, var(--surface) 85%, transparent),
+        0 24px 64px color-mix(in oklch, var(--surface) 50%, transparent),
+        0 0 40px color-mix(in oklch, var(--accent) 18%, transparent) !important;
+}
+
+#spread-prompt .prompt-title,
+#spread-prompt .prompt-sub,
+.control-chooser-title {
+    color: var(--ink-text);
+}
+
+#spread-prompt .prompt-kicker,
+#spread-prompt .prompt-hint,
+.control-chooser-kicker,
+.control-chooser-sub {
+    color: color-mix(in oklch, var(--ink-text) 65%, transparent);
+}
+
+#spread-prompt .prompt-title,
+.control-chooser-title {
+    color: var(--accent);
+}
+
+/* ── Light-mode action buttons ──────────────────────────────
+   The wine-red action pills (Next, Return, New, etc.) clash with
+   the warm-cream light surface. In light mode they read as pale
+   goose-yellow lozenges with a dark border — same visual weight,
+   none of the dark-on-light hole. The selectors below cover every
+   action surface that previously fell back to the wine palette. */
+[data-theme="light"] .new-reading-button,
+[data-theme="light"] #prompt-next,
+[data-theme="light"] #prompt-return,
+[data-theme="light"] .prompt-actions button,
+[data-theme="light"] .control-chooser-actions button,
+[data-theme="light"] .control-chooser-actions button.active,
+[data-theme="light"] .detail-action,
+[data-theme="light"] .admin-link,
+[data-theme="light"] .template-ring button.active {
+    background: #fbe7a4;
+    color: #5b2a14;
+    border: 1px solid #7a3f1f;
+    box-shadow: 0 1px 0 rgba(122, 63, 31, 0.10);
+}
+
+[data-theme="light"] .new-reading-button:hover,
+[data-theme="light"] #prompt-next:hover,
+[data-theme="light"] #prompt-return:hover,
+[data-theme="light"] .prompt-actions button:hover,
+[data-theme="light"] .control-chooser-actions button:hover,
+[data-theme="light"] .control-chooser-actions button.active:hover,
+[data-theme="light"] .detail-action:hover,
+[data-theme="light"] .admin-link:hover,
+[data-theme="light"] .template-ring button.active:hover {
+    background: #f7d97a;
+    color: #3d1a08;
+    border-color: #5b2a14;
+}
+
+/* The generic .icon-button:hover in components.css (which forces
+   #fff8e8 + dark wine bg) also fires in light mode — neutralize for
+   icon-bearing topbar buttons so they pick up the goose-yellow. */
+[data-theme="light"] .icon-button:hover,
+[data-theme="light"] .control-switch:hover,
+[data-theme="light"] .history-db-link:hover,
+[data-theme="light"] .template-ring button:hover {
+    color: #5b2a14;
+    background: #fbe7a4;
+    border-color: #7a3f1f;
+}
+
+/* Danger pill (Delete) keeps its red identity but in a paler form so
+   it doesn't punch a hole through the cream. */
+[data-theme="light"] .danger-button {
+    background: #ffe1d2;
+    color: #8a2a14;
+    border: 1px solid #8a2a14;
+}
+[data-theme="light"] .danger-button:hover {
+    background: #ffc9b0;
+    color: #5a1408;
+    border-color: #5a1408;
+}
+
+/* The brand wordmark rides on the accent glow. */
+.brand-lockup strong {
+    color: var(--accent);
+}
+
+/* In the light theme, the body text + guide read as warm ink. */
+[data-theme="light"] body,
+[data-theme="light"] .guide,
+[data-theme="light"] .stage-panel,
+[data-theme="light"] .history-panel,
+[data-theme="light"] .daily-draw-panel {
+    color: var(--ink-text);
+}
+
+/* Card labels follow the accent + ink-text so they read in both
+   themes without the per-element tweaks the dark-only stylesheet
+   used to need. */
+.idle-label-zh,
+.card-label-floating .idle-label-zh {
+    color: var(--ink-text);
+}
+.idle-label-en,
+.card-label-floating .idle-label-en {
+    color: var(--accent);
+}
+.idle-label-orient,
+.card-label-floating .idle-label-orient {
+    color: color-mix(in oklch, var(--ink-text) 70%, transparent);
+}
+

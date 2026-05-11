@@ -4,31 +4,10 @@
 
 /* ── Page-level pseudo-element overlays ─────────────────── */
 
-/* Scanline / diagonal gradient overlay (z-index 1)
-   Final value: "Interaction/rendering cleanup" pass → .figma-stage::before */
-.figma-stage::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-    background:
-        radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.1) 48%, rgba(0, 0, 0, 0.62) 100%);
-    opacity: 0.9;
-    mix-blend-mode: normal;
-}
-
-/* Vignette overlay (z-index 2)
-   Final value: "Interaction/rendering cleanup" pass → .figma-stage::after */
-.figma-stage::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 2;
-    background: linear-gradient(180deg, transparent 0%, rgba(5, 1, 1, 0.42) 100%);
-    opacity: 0.55;
-}
+/* The previous .figma-stage::before / ::after vignettes are retired —
+   the new .stage-frame-glow + .stage-fog overlays in theme.css cover
+   the same job and adapt to dark/light themes. Removing them prevents
+   a hard-coded dark wash from bleeding through in light mode. */
 
 /* ── Topbar ─────────────────────────────────────────────── */
 

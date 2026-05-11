@@ -290,6 +290,54 @@
     text-align: left;
 }
 
+/* ── Card-name + orientation chips inside the row ────────── */
+/* Inline list of every card in the reading; each chip is the
+   Chinese name + a 正/逆 marker tinted by orientation. */
+.reading-row-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    margin-top: 6px;
+}
+
+.reading-row-card {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--accent-line, rgba(215, 177, 95, 0.28));
+    background: color-mix(in oklch, var(--accent) 8%, transparent);
+    font-size: 0.74rem;
+    line-height: 1.25;
+    color: var(--ink-text);
+    white-space: nowrap;
+}
+
+.reading-row-card.empty {
+    color: var(--stage-muted);
+    background: transparent;
+    border-style: dashed;
+}
+
+.reading-row-card-name {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.reading-row-card-orient {
+    font-size: 0.66rem;
+    font-weight: 700;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--accent) 22%, transparent);
+}
+
+.reading-row-card.reversed .reading-row-card-orient {
+    background: color-mix(in oklch, var(--danger, #ffaaa6) 24%, transparent);
+    color: var(--danger, #ffaaa6);
+}
+
 /* ── Reading detail ──────────────────────────────────────── */
 
 .reading-detail,
@@ -413,6 +461,48 @@
     border-radius: 6px;
     border: 1px solid rgba(214, 167, 92, 0.56);
     box-shadow: 0 18px 28px rgba(0, 0, 0, 0.44), 0 0 18px rgba(214, 167, 92, 0.1);
+}
+
+/* Card name strip below each replay card. Mirrors the front page's
+   per-card label so a saved spread reads the same as a live one. */
+.replay-name {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.replay-name-zh {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--ink-text);
+    letter-spacing: 0.02em;
+}
+
+.replay-name-en {
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-style: italic;
+    letter-spacing: 0.04em;
+}
+
+.replay-name-orient {
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: color-mix(in oklch, var(--ink-text) 70%, transparent);
+    letter-spacing: 0.06em;
+    margin-top: 1px;
+}
+
+.replay-name-orient.reversed {
+    color: var(--danger);
 }
 
 /* replay-slot — final: Figma stage pass (transparent bg, no border) */

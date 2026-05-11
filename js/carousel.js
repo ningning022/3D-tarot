@@ -1,16 +1,33 @@
-// ── 轮播常量 / Carousel constants ──
-const CAROUSEL_R = 16;   // 圆盘半径
-const CAROUSEL_CZ = 20;  // 圆心Z（屏幕前方更远，可见弧段≈100°）
-const CAM_Z = 10;         // 摄像机 Z
+// ── Diagonal-cascade carousel constants ────────────────────────
+// Cards are positioned along a diagonal axis (lower-left → upper-right),
+// each one slightly tilted on the Y axis so they read like overlapping
+// glass slides — the same arrangement language as unveil.fr.
+
+const CASCADE_DX = 0.74;          // X step between adjacent cards (wider gap)
+const CASCADE_DY = 0.46;          // Y step (so cards march upward)
+const CASCADE_DZ = 0.05;          // Z step (closer cards sit forward)
+const CASCADE_TILT = -0.10;       // Y rotation, ~-5.7° — subtle lean
+const CASCADE_BASE_SCALE = 2.05;  // larger card faces
+const CASCADE_VISIBLE = 11;       // |delta| under this is rendered
+const CASCADE_SCROLL_BASE = -0.0035; // gentle drift to the left
+
 const _wp = new THREE.Vector3();
 const _wq = new THREE.Quaternion();
 const _heldTarget = new THREE.Vector3();
 const _scaleTarget = new THREE.Vector3();
+const _cascadeTarget = new THREE.Vector3();
 
-/** 创建环绕阵列：圆心在屏幕正前方，牌背朝内朝用户 */
+/**
+ * Build the diagonal cascade of card meshes. Each card lives in a
+ * shared THREE.Group anchored just in front of the camera so the
+ * cascade scrolls as a whole when carouselVelocity changes.
+ */
 function createIdleFan() {
     const group = new THREE.Group();
-    group.position.z = CAROUSEL_CZ; // 圆心在屏幕前方
+    // Anchor the cascade just in front of the camera. The camera sits at
+    // (0, -1.7, 11.2) and looks at (0, -0.55, 0), so z ≈ 6 puts the active
+    // card comfortably in frame without colliding with the lens.
+    group.position.set(0, -0.4, 6.4);
     scene.add(group);
 
     const deckCount = FULL_DECK.length;
@@ -21,53 +38,63 @@ function createIdleFan() {
     for (let i = 0; i < displayOrder.length; i++) {
         const cardIndex = displayOrder[i];
         const cardDef = FULL_DECK[cardIndex];
-        const angle = (i / displayOrder.length) * Math.PI * 2;
         const geo = new THREE.BoxGeometry(0.6, 1.0, 0.04);
         const mats = [
             new THREE.MeshStandardMaterial({ color: 0x0d0d0d }),
             new THREE.MeshStandardMaterial({ color: 0x0d0d0d }),
             new THREE.MeshStandardMaterial({ color: 0x0d0d0d }),
             new THREE.MeshStandardMaterial({ color: 0x0d0d0d }),
-            // material[4] = +Z面 = 圆角牌背，朝内（朝圆心/用户）
+            // +Z face = card back, points toward the user
             new THREE.MeshStandardMaterial({ map: makeRoundedTexture(CARD_BACK, 0.6, 1.0, 0.08) }),
-            new THREE.MeshStandardMaterial({ color: 0x060606 }),
+            new THREE.MeshStandardMaterial({ color: 0x060606 })
         ];
         const mesh = new THREE.Mesh(geo, mats);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.position.set(
-            CAROUSEL_R * Math.sin(angle),
-            0,
-            CAROUSEL_R * Math.cos(angle)
-        );
-        // 牌背朝内：+Z面指向圆心 => rotation.y = angle + π
-        mesh.rotation.y = angle + Math.PI;
-        // 保存初始角度，方便回位 / Store base angle for return
-        mesh.userData.baseAngle = angle;
+        // No shadows in the cascade: with cards overlapping at small Z
+        // offsets, cast shadows pile up into a muddy halo. The
+        // .stage-frame-glow CSS overlay supplies the only depth cue.
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        // Initial placement at row 0 so the lerp can ease everything to its
+        // resting slot on the first few frames.
+        mesh.position.set(0, 0, 0);
+        mesh.rotation.y = CASCADE_TILT;
+        mesh.userData.cascadeIndex = i;
         mesh.userData.cardIndex = cardIndex;
-        mesh.userData.zh = cardDef.zh;    // 供标签使用 / For label
+        mesh.userData.zh = cardDef.zh;
         mesh.userData.en = cardDef.en;
-        mesh.userData.isPinched = false; // 是否已被查看过 / Has been inspected
+        mesh.userData.isPinched = false;
         group.add(mesh);
         idleCards.push({ mesh, group });
     }
+    // Apply the active theme to the freshly-created card backs so
+    // they spawn with the correct vibrancy on first paint.
+    if (typeof applyThemeCardBacks === 'function') {
+        applyThemeCardBacks(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+    }
 }
 
-/** 每帧更新轮播 / Update carousel each frame */
+/**
+ * Per-frame placement. The shared variable `carouselVelocity` is now
+ * interpreted as the scroll velocity along the cascade index axis, so
+ * the existing TWO_FINGER swipe handler keeps working without changes.
+ * `fanAngle` is reused as the floating-point cascade offset so any
+ * legacy reads of it stay continuous.
+ */
 function updateIdleFan() {
     if (idleCards.length === 0) return;
     const group = idleCards[0] && idleCards[0].group;
+    const total = idleCards.length;
 
-    // 只有 isIdleRotating 为真且在IDLE状态时才自转
+    // Self-drift in IDLE; suppressed once a card is held or the user
+    // is dragging via TWO_FINGER (spread.js writes carouselVelocity).
     if (group && spreadState === 'IDLE' && isIdleRotating) {
-        // 使用速度变量驱动旋转，每帧阻尼回归基础速度
-        group.rotation.y += carouselVelocity;
-        carouselVelocity += (CAROUSEL_BASE_SPEED - carouselVelocity) * 0.025; // easing
+        fanAngle += carouselVelocity;
+        // Wrap so the cascade is an infinite loop.
+        if (fanAngle >= total) fanAngle -= total;
+        if (fanAngle < 0) fanAngle += total;
+        // Ease back toward the baseline drift each frame.
+        carouselVelocity += (CASCADE_SCROLL_BASE - carouselVelocity) * 0.04;
     }
-
-    // 反向补偿透视，远端手动放大、近端手动缩小，使尺寸过渡更一致
-    const zArcFront = CAROUSEL_CZ - CAROUSEL_R; // 圆圈最远端 z = 4
-    const zArcEdge = Math.min(CAM_Z - 0.4, CAROUSEL_CZ); // 近端夹止 z = 9.6
 
     idleCards.forEach(({ mesh }) => {
         if (mesh.userData.dismissing) {
@@ -81,55 +108,82 @@ function updateIdleFan() {
                     obj.material.opacity = a;
                 }
             });
-        } else if (mesh === idleHeldCard) {
-            // 被捏住时已从 group 剥离到 scene，直接在世界坐标操作
-            // 目标：屏幕中央偏手部位置，靠近摄像机
+            return;
+        }
+
+        if (mesh === idleHeldCard) {
+            // Held card is detached from the group (see spread.js
+            // detachIdleCardToScene). Lift toward the cursor in world space.
             _heldTarget.set(handScreenPos.x * 5, handScreenPos.y * 3, 7.5);
-            mesh.position.lerp(_heldTarget, 0.15);
-            // 缩小到 1.1（中等预览，原来0.55的2倍）
-            _scaleTarget.setScalar(1.1);
-            mesh.scale.lerp(_scaleTarget, 0.12);
-            // 翻面：material[5]（-Z面，牌正面）朝向摄像机需 rotation.y = PI
+            mesh.position.lerp(_heldTarget, 0.18);
+            _scaleTarget.setScalar(1.6);
+            mesh.scale.lerp(_scaleTarget, 0.14);
+            // Flip the front face toward the camera; reverse the orientation
+            // via z-rotation when the card was drawn upside down.
             mesh.rotation.y = THREE.MathUtils.lerp(mesh.rotation.y, Math.PI, 0.12);
-            // 逆位时 Z 轴翻转 180°
             const targetRZ = mesh.userData.isReversed ? Math.PI : 0;
             mesh.rotation.z = THREE.MathUtils.lerp(mesh.rotation.z, targetRZ, 0.12);
-        } else {
-            // 正常轮播牌的缩放补偿
-            mesh.getWorldPosition(_wp);
-            // nz: 0=最远端(圆圈正前方), 1=最近端(圆壳边缘)
-            const nz = Math.max(0, Math.min(1,
-                (_wp.z - zArcFront) / (zArcEdge - zArcFront)
-            ));
-            // 远端手动放大、近端手动缩小，平衡相机透视影响
-            const baseScale = 1.6 - nz * 0.9; // 1.6(远端) ~ 0.7(近端)
+            return;
+        }
 
-            if (mesh === idlePointedCard) {
-                // 被指向的牌：轻微放大并向前
-                _scaleTarget.setScalar(baseScale * 1.25);
-                mesh.scale.lerp(_scaleTarget, 0.12);
-            } else if (mesh.userData.isPinched) {
-                // 已被查看过的牌：金色高亮（通过放大轻微区分）
-                _scaleTarget.setScalar(baseScale);
-                mesh.scale.lerp(_scaleTarget, 0.1);
-                // 金色边框效果：修改侧面颜色
-                mesh.material[0].color.lerp(new THREE.Color(0x4a3500), 0.05);
-                mesh.material[1].color.lerp(new THREE.Color(0x4a3500), 0.05);
-                mesh.material[2].color.lerp(new THREE.Color(0x4a3500), 0.05);
-                mesh.material[3].color.lerp(new THREE.Color(0x4a3500), 0.05);
-            } else {
-                _scaleTarget.setScalar(baseScale);
-                mesh.scale.lerp(_scaleTarget, 0.1);
-            }
+        // Wrap the delta into [-total/2, +total/2) so cards always pick
+        // the shortest path back to their slot.
+        let delta = mesh.userData.cascadeIndex - fanAngle;
+        if (delta > total / 2) delta -= total;
+        if (delta < -total / 2) delta += total;
+
+        // Cull cards that are far from the visible window. Setting
+        // mesh.visible to false skips them in raycasting and rendering.
+        const absDelta = Math.abs(delta);
+        mesh.visible = absDelta < CASCADE_VISIBLE;
+        if (!mesh.visible) return;
+
+        // Diagonal slot position. Closer-to-center cards sit a hair
+        // forward in Z so the overlap reads as depth, not flatness.
+        _cascadeTarget.set(
+            delta * CASCADE_DX,
+            delta * CASCADE_DY,
+            -absDelta * CASCADE_DZ
+        );
+
+        const isHovered = (mesh === idlePointedCard);
+        if (isHovered) {
+            // Pop the hovered card forward + grow. This is the POINT
+            // / mouse-hover affordance.
+            _cascadeTarget.z += 0.55;
+            mesh.position.lerp(_cascadeTarget, 0.22);
+            _scaleTarget.setScalar(CASCADE_BASE_SCALE * 1.18);
+            mesh.scale.lerp(_scaleTarget, 0.18);
+        } else {
+            mesh.position.lerp(_cascadeTarget, 0.16);
+            _scaleTarget.setScalar(CASCADE_BASE_SCALE);
+            mesh.scale.lerp(_scaleTarget, 0.12);
+        }
+
+        // All cards share the same tilt so the cascade reads as a
+        // unified gesture rather than a random pile.
+        mesh.rotation.y = THREE.MathUtils.lerp(mesh.rotation.y, CASCADE_TILT, 0.12);
+        mesh.rotation.z = THREE.MathUtils.lerp(mesh.rotation.z, 0, 0.12);
+
+        // Previously-inspected cards keep a faint gold rim on their sides,
+        // so the user can tell which ones they've already seen.
+        if (mesh.userData.isPinched) {
+            const goldRim = new THREE.Color(0x4a3500);
+            mesh.material[0].color.lerp(goldRim, 0.05);
+            mesh.material[1].color.lerp(goldRim, 0.05);
+            mesh.material[2].color.lerp(goldRim, 0.05);
+            mesh.material[3].color.lerp(goldRim, 0.05);
         }
     });
 }
 
-/** 解散轮播，牌飞散淡出 / Dismiss carousel with fly-out */
+/**
+ * OPEN → spread. Each cascade card flies off along its current diagonal
+ * tilt and fades out, so the exit reads as the cascade dispersing.
+ */
 function dismissIdleFan() {
     const group = idleCards[0] && idleCards[0].group;
     idleCards.forEach(({ mesh }) => {
-        // 将牌从 group 剥离到 scene，保持世界坐标
         mesh.getWorldPosition(_wp);
         mesh.getWorldQuaternion(_wq);
         if (group) group.remove(mesh);
@@ -139,10 +193,12 @@ function dismissIdleFan() {
 
         mesh.userData.dismissing = true;
         mesh.userData.dismissAlpha = 1.0;
+        // Velocity biased along the cascade axis (+x, +y) so cards
+        // disperse in the same direction they were stacked.
         mesh.userData.dismissVel = new THREE.Vector3(
-            (Math.random() - 0.5) * 0.2,
-            0.08 + Math.random() * 0.12,
-            (Math.random() - 0.5) * 0.15
+            0.06 + Math.random() * 0.10,
+            0.05 + Math.random() * 0.10,
+            (Math.random() - 0.5) * 0.10
         );
     });
     if (group) scene.remove(group);
@@ -156,8 +212,8 @@ function dismissIdleFan() {
 }
 
 /**
- * 将轮盘牌的世界坐标投影到屏幕像素坐标，用于跟随标签
- * Project a carousel card's world position to screen pixel coords
+ * Project a cascade card's world position to screen pixel coords so the
+ * floating label can follow it.
  */
 function projectToScreen(mesh) {
     const pos = new THREE.Vector3();

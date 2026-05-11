@@ -5,16 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Akashic Tarot - Full 78-Card Deck</title>
+    <script>
+        // Anti-FOUC: set data-theme before stylesheets paint.
+        (function () {
+            try {
+                var stored = localStorage.getItem('akashic-theme');
+                var theme = (stored === 'dark' || stored === 'light')
+                    ? stored
+                    : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.dataset.theme = theme;
+            } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+        })();
+    </script>
     <link rel="stylesheet" href="css/tokens.css">
     <link rel="stylesheet" href="css/base.css">
     <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/tarot.css">
     <link rel="stylesheet" href="css/responsive.css">
 </head>
 
 <body class="tarot-page figma-stage">
+    <div class="stage-frame-glow" aria-hidden="true"></div>
+    <div class="stage-fog" aria-hidden="true"></div>
+
     <header class="app-topbar tarot-topbar">
-        <a class="brand-lockup" href="Three.html" aria-label="Akashic Tarot home">
+        <a class="brand-lockup glow-accent" href="Three.html" aria-label="Akashic Tarot home">
             <span class="brand-sigil" aria-hidden="true"></span>
             <span>
                 <strong>Akashic Tarot</strong>
@@ -26,6 +42,24 @@
             <button id="unselect-card-button" class="icon-button" type="button" style="display:none" aria-label="Unselect card">取消选牌 / Unselect</button>
             <button id="new-reading-button" class="new-reading-button" type="button">新占卜 / New</button>
             <button id="control-switch" class="icon-button control-switch" type="button" aria-label="Switch controls">模式 / Mode</button>
+            <button id="theme-toggle" class="icon-button theme-toggle" type="button" aria-label="Toggle dark/light theme" title="Toggle theme (T)">
+                <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/>
+                    <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                        <line x1="12" y1="2.6" x2="12" y2="5.2"/>
+                        <line x1="12" y1="18.8" x2="12" y2="21.4"/>
+                        <line x1="2.6" y1="12" x2="5.2" y2="12"/>
+                        <line x1="18.8" y1="12" x2="21.4" y2="12"/>
+                        <line x1="5.2" y1="5.2" x2="7.0" y2="7.0"/>
+                        <line x1="17.0" y1="17.0" x2="18.8" y2="18.8"/>
+                        <line x1="5.2" y1="18.8" x2="7.0" y2="17.0"/>
+                        <line x1="17.0" y1="7.0" x2="18.8" y2="5.2"/>
+                    </g>
+                </svg>
+                <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M19.5 14.6A8.5 8.5 0 0 1 9.4 4.5a.6.6 0 0 0-.8-.7A9.6 9.6 0 1 0 20.2 15.4a.6.6 0 0 0-.7-.8z" fill="currentColor"/>
+                </svg>
+            </button>
         </nav>
     </header>
 
@@ -121,6 +155,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
+    <script src="js/theme.js"></script>
     <script src="js/deck.js"></script>
     <script src="js/state.js"></script>
     <script src="js/utils.js"></script>

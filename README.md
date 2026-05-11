@@ -1,124 +1,112 @@
-﻿# Akashic Tarot
+# Akashic Tarot
 
-Akashic Tarot is a local, gesture-controlled 3D tarot reading app. It uses Three.js for the card scene, MediaPipe Hands for webcam gestures, and a zero-dependency Python + SQLite backend for saved readings.
+Akashic Tarot 是一个本地运行的 3D 塔罗交互应用：前端使用 Three.js 呈现卡牌舞台，MediaPipe Hands 支持摄像头手势，Python + SQLite 负责保存本地占卜记录。项目优先面向本地使用，不需要账号、不依赖云服务，也不需要前端构建步骤。
 
-The app is designed for local use first: no account system, no cloud service, and no build step.
+![黑夜模式主界面](docs/visuals/akashic-main-dark-mouse.png)
 
-![Akashic Tarot — main reading table and chronicle archive](1.png)
+## 功能概览
 
-## Features
+- 78 张塔罗牌 3D 卡组，支持动态卡牌浏览与洗牌顺序。
+- 鼠标模式和摄像头模式两套控制方式，摄像头模式可识别 OPEN、POINT、PINCH、FIST、TWO_FINGER 等手势。
+- 支持三张牌、五张牌、凯尔特十字和自由牌阵。
+- 每日一牌会按本地日期生成一条独立记录。
+- 使用本地 SQLite 保存历史记录，后台页面可查看最近记录、回放牌阵并清空数据库。
+- 支持黑夜/白天主题切换，主题偏好保存在浏览器本地。
+- 包含前端交互、牌阵布局、手势识别、每日一牌和后端 API 测试。
 
-- 78-card tarot deck with an animated 3D carousel.
-- Idle carousel order is shuffled on each page load to avoid fixed first-card bias.
-- Webcam gesture controls for selecting, inspecting, confirming, and continuing readings.
-- Explicit mouse + keyboard control mode for users who do not want to enable a camera.
-- Local SQLite storage for reading history.
-- Built-in spread templates for 3-card, 5-card, Celtic Cross, and free spreads.
-- Daily Draw creates one local card record per day without interpretation text.
-- Read-only database viewer at `admin.html` with visual spread replay.
-- Safe "clear database" action guarded by a `CLEAR` confirmation prompt.
-- Responsive multi-card spread layout for large readings.
+## 界面示意
 
-## Visual Design
+```mermaid
+flowchart LR
+    A["选择控制方式"] --> B["浏览 78 张牌"]
+    B --> C["选择牌阵"]
+    C --> D["抽牌与确认"]
+    D --> E["保存到本地 SQLite"]
+    E --> F["后台查看与牌阵回放"]
+```
 
-The main page is styled as a local 3D reading table: brighter dark-burgundy velvet texture, subtle gold linework, warm candlelit card shadows, and lightweight translucent panels. The admin page acts as a chronicle archive with a timeline list and visual spread replay.
+| 黑夜模式鼠标操作 | 摄像头模式等待态 | 后台记录页 |
+| --- | --- | --- |
+| ![鼠标模式截图](docs/visuals/akashic-main-dark-mouse.png) | ![摄像头模式截图](docs/visuals/akashic-main-dark-camera.png) | ![后台截图](docs/visuals/akashic-admin-dark.png) |
 
-| Main reading table | Chronicle archive |
-| --- | --- |
-| ![Main reading table concept](docs/visuals/akashic-main-concept.png) | ![Admin chronicle concept](docs/visuals/akashic-admin-concept.png) |
+演示视频：[`docs/visuals/akashic-demo-dark.mp4`](docs/visuals/akashic-demo-dark.mp4)
 
-Visual reference images live in `docs/visuals/`:
+## 快速开始
 
-- `akashic-main-concept.png`: pure tabletop reference layer for the main reading table.
-- `akashic-admin-concept.png`: pure tabletop reference layer for the chronicle archive.
+环境要求：
 
-Suggested screenshots for an open-source gallery after running the app:
+- Python 3.10 或更新版本
+- 支持 WebGL 的现代浏览器
+- 首次打开页面时需要联网加载 Three.js 和 MediaPipe CDN 脚本
+- Node.js 仅用于运行 JavaScript 测试
 
-- Main reading table in mouse mode.
-- Main reading table in camera mode with the gesture preview visible.
-- Admin chronicle page showing a saved spread replay.
-
-## Quick Start
-
-Requirements:
-
-- Python 3.10 or newer
-- A modern browser with WebGL support
-- Internet access for the CDN-hosted Three.js and MediaPipe scripts
-- Node.js only if you want to run the JavaScript checks/tests
-
-Start the local static server and SQLite API:
+启动本地服务：
 
 ```bash
 python server.py
 ```
 
-Then open:
+打开页面：
 
-- Main app: `http://localhost:8080/Three.html`
-- Main app in mouse mode: `http://localhost:8080/Three.html?control=mouse`
-- Database viewer: `http://localhost:8080/admin.html`
-- Health check: `http://localhost:8080/api/health`
+- 主应用：`http://localhost:8080/Three.html`
+- 强制鼠标模式：`http://localhost:8080/Three.html?control=mouse`
+- 强制摄像头模式：`http://localhost:8080/Three.html?control=camera`
+- 后台记录页：`http://localhost:8080/admin.html`
+- 健康检查：`http://localhost:8080/api/health`
 
-Do not open `Three.html` by double-clicking it if you want persistent history. The page can still run as a static file, but SQLite saving requires `python server.py`.
+如果需要保存历史记录，请通过 `python server.py` 启动服务后访问页面；直接双击 `Three.html` 只能运行静态页面，不能写入 SQLite。
 
-## Control Modes
+## 操作说明
 
-The main page asks you to choose a control mode before it starts camera input.
+首次进入主应用时会选择控制方式，选择结果保存在浏览器 `localStorage` 中，也可以通过 URL 参数强制指定。
 
-| Mode | How to Use |
+| 模式 | 操作 |
 | --- | --- |
-| Camera | Use OPEN, POINT, PINCH, FIST, and TWO_FINGER webcam gestures. |
-| Mouse | Move the mouse to point, hold the left mouse button to pick/inspect, release to open/start, press Space to confirm, and use A/D or left/right arrows to nudge carousel rotation. |
+| 鼠标模式 | 移动鼠标指向卡牌，按住左键拾取/预览，松开开始或翻开；按 Space 确认；按 A/D 或左右方向键调整轮播方向。 |
+| 摄像头模式 | 允许浏览器使用摄像头后，通过 OPEN、POINT、PINCH、FIST、TWO_FINGER 控制选牌、确认和继续。 |
+| 主题切换 | 点击顶部主题按钮，或按键盘 `T` 在黑夜/白天主题之间切换。 |
 
-The choice is remembered in `localStorage`. You can also force a mode with `?control=mouse` or `?control=camera`.
+常用手势：
 
-## Gestures
-
-| Gesture | State | Action |
+| 手势 | 状态 | 行为 |
 | --- | --- | --- |
-| OPEN | Idle | Start the selected spread template. Previously selected cards are used first; fixed templates are filled or trimmed to their slot count. |
-| POINT | Idle | Pause the carousel and highlight the pointed card. |
-| PINCH | Idle | Pick up and inspect the pointed carousel card. |
-| TWO_FINGER | Idle | Swipe left or right to change carousel speed/direction. |
-| PINCH | Spread | Pick up and inspect a spread card. |
-| FIST | Holding a spread card | Confirm the card and save it into the current reading. |
-| OPEN | Spread | Return the held card to its slot. |
-| OPEN | Prompt | Continue with another spread. |
-| FIST | Prompt | End the reading and return to idle. |
+| OPEN | 空闲 | 开始当前牌阵。 |
+| POINT | 空闲 | 暂停轮播并高亮指向的牌。 |
+| PINCH | 空闲或牌阵中 | 拾取并查看卡牌。 |
+| FIST | 持牌时 | 确认当前卡牌并写入本次牌阵。 |
+| TWO_FINGER | 空闲 | 左右滑动调整轮播速度或方向。 |
+| OPEN / FIST | 牌阵完成提示 | OPEN 继续下一阵，FIST 结束并返回空闲状态。 |
 
-## Database
+## 本地数据与后台
 
-The backend automatically creates a local SQLite database at:
+后端会自动创建本地数据库：
 
 ```text
 data/tarot.sqlite3
 ```
 
-This file contains local reading history and is ignored by git. Do not commit real `data/*.sqlite3` files to a public repository.
+数据库包含两类核心数据：
 
-The database stores:
+- `readings`：每次牌阵或每日一牌的记录，包括类型、牌阵名称、日期和创建时间。
+- `reading_cards`：每条记录中的卡牌，包括位置、位置含义、中文名、英文名、图片文件和正逆位。
 
-- `readings`: one row per completed spread or daily draw, including kind, template key/name, date, and created time.
-- `reading_cards`: the cards in each record, including slot, slot label, card id, Chinese and English names, image file name, and upright/reversed state.
-
-The admin page can view saved records, replay each saved spread visually, and clear all readings. Clearing the database is irreversible for the local SQLite file.
+后台页面 `admin.html` 可以查看最近记录、回放已保存牌阵，并提供清空数据库功能。清空操作需要输入 `CLEAR` 二次确认；该操作只影响本地 SQLite 文件。
 
 ## API
 
-All API routes are served by `server.py`.
+所有接口由 `server.py` 提供。
 
-| Method | Path | Description |
+| 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| `GET` | `/api/health` | Returns backend/database readiness. |
-| `POST` | `/api/readings` | Saves a completed reading. |
-| `GET` | `/api/readings?limit=20` | Lists recent readings, newest first. |
-| `GET` | `/api/readings/{id}` | Loads one reading and its cards. |
-| `DELETE` | `/api/readings` | Clears all local reading records and resets ids. |
-| `GET` | `/api/daily-draw?date=YYYY-MM-DD` | Loads the saved Daily Draw for a local date. |
-| `POST` | `/api/daily-draw` | Creates or returns the Daily Draw for a local date. |
+| `GET` | `/api/health` | 检查后端和数据库状态。 |
+| `POST` | `/api/readings` | 保存一次完成的牌阵。 |
+| `GET` | `/api/readings?limit=20` | 获取最近记录。 |
+| `GET` | `/api/readings/{id}` | 获取单条记录和卡牌详情。 |
+| `DELETE` | `/api/readings` | 清空本地记录并重置 id。 |
+| `GET` | `/api/daily-draw?date=YYYY-MM-DD` | 获取指定日期的每日一牌。 |
+| `POST` | `/api/daily-draw` | 创建或返回指定日期的每日一牌。 |
 
-Example save request:
+保存记录示例：
 
 ```json
 {
@@ -141,90 +129,54 @@ Example save request:
 }
 ```
 
-## Project Structure
+## 测试
 
-```text
-taluo/
-├── Three.html          # Main tarot app
-├── admin.html          # Local reading history viewer
-├── server.py           # Static server + SQLite API
-├── css/
-│   └── style.css
-├── assets/
-│   └── textures/      # Local velvet table/archive texture
-├── data/
-│   └── .gitkeep        # Runtime SQLite files are created here and ignored
-├── docs/
-│   └── visuals/        # Website-ratio UI concept references
-├── image2/
-│   ├── 00.jpg          # Card back
-│   └── *.jpg           # Tarot card images
-├── js/
-│   ├── api.js          # API wrapper with offline fallback
-│   ├── admin.js        # Admin page UI
-│   ├── carousel.js     # Idle carousel
-│   ├── daily_draw.js   # Daily Draw creation/rendering
-│   ├── deck.js         # Card definitions
-│   ├── deck_order.js   # Idle carousel shuffle helper
-│   ├── gesture.js      # Gesture classification and stabilization
-│   ├── history.js      # Reading capture and history rendering
-│   ├── input_mode.js   # Camera/mouse control mode selection
-│   ├── main.js         # Three.js setup and animation loop
-│   ├── mediapipe.js    # MediaPipe camera integration
-│   ├── reading_replay.js # Admin spread replay helper
-│   ├── spread.js       # Spread state machine and card interactions
-│   ├── spread_flow.js  # Small testable spread-flow helpers
-│   ├── spread_layout.js # Responsive spread layout helper
-│   ├── spread_templates.js # Spread template definitions
-│   ├── state.js        # Shared runtime state
-│   ├── ui.js           # Card label UI helpers
-│   └── utils.js        # Texture and cleanup helpers
-└── tests/
-    ├── test_gesture.js
-    ├── test_daily_draw.js
-    ├── test_deck_order.js
-    ├── test_input_mode.js
-    ├── test_reading_orientation.js
-    ├── test_reading_replay.js
-    ├── test_server.py
-    ├── test_spread_templates.js
-    └── test_spread_layout.js
-```
-
-## Tests
-
-Run JavaScript behavior checks:
+运行 JavaScript 行为测试：
 
 ```bash
 node tests/test_gesture.js
 node tests/test_daily_draw.js
 node tests/test_deck_order.js
 node tests/test_input_mode.js
+node tests/test_mouse_interaction.js
+node tests/test_main_ui_state.js
 node tests/test_spread_layout.js
 node tests/test_spread_templates.js
 node tests/test_reading_orientation.js
 node tests/test_reading_replay.js
+node tests/test_admin_helpers.js
 ```
 
-Check JavaScript syntax:
+检查 JavaScript 语法：
 
 ```powershell
 Get-ChildItem js -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-Run backend tests:
+运行后端测试：
 
 ```bash
 python -m unittest tests.test_server -v
 ```
 
-## Open Source Notes
+## 项目结构
 
-- The code is licensed under the MIT License.
-- The card images in `image2/` are included for the local demo. Their rights may differ from the project code license. Check the applicable artwork rights before redistributing the images in another project.
-- Camera gestures require browser camera permission.
-- Three.js and MediaPipe are loaded from public CDNs in `Three.html`, so the default setup needs network access when the page starts.
+```text
+taluo/
+├── Three.html          # 主应用
+├── admin.html          # 本地历史记录后台
+├── server.py           # 静态服务 + SQLite API
+├── css/                # 主题、布局和响应式样式
+├── js/                 # Three.js 场景、交互、手势、历史记录和后台逻辑
+├── image2/             # 塔罗牌图片
+├── docs/visuals/       # README 截图、概念图和演示视频
+├── assets/textures/    # 本地纹理素材
+└── tests/              # 前后端行为测试
+```
 
-## License
+## 开源说明
 
-MIT. See [LICENSE](LICENSE).
+- 项目代码使用 MIT License，详见 [LICENSE](LICENSE)。
+- `image2/` 中的卡牌图片用于本地演示，图片权利可能与项目代码许可证不同；再次分发前请确认对应素材授权。
+- 摄像头手势需要浏览器摄像头权限。
+- 默认页面会从公共 CDN 加载 Three.js 和 MediaPipe。
