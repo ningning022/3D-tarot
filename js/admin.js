@@ -135,10 +135,16 @@ const AdminChronicle = (() => {
 
         return replayCards.map(card => {
             const alt = `${card.en || card.zh} ${card.orientationLabel}`;
+            const orientShort = card.isReversed ? '逆' : '正';
             return `
                 <article class="replay-card ${card.orientationClass}" style="left:${card.leftPercent}%;top:${card.topPercent}%;width:${card.widthPercent}%;">
                     <div class="replay-slot">${escapeHtml(card.slotLabel || `Slot ${card.slot}`)}</div>
                     <img class="${cardImageClass(card)}" src="${imageSrc(card.imageFile)}" alt="${escapeHtml(alt)}">
+                    <div class="replay-name">
+                        <span class="replay-name-zh">${formatZhName(card.zh || card.en || '?')}</span>
+                        <span class="replay-name-en">${escapeHtml(card.en || '')}</span>
+                        <span class="replay-name-orient ${card.orientationClass}">${orientShort} / ${card.orientationLabel}</span>
+                    </div>
                 </article>
             `;
         }).join('');
