@@ -3,12 +3,12 @@
 // each one slightly tilted on the Y axis so they read like overlapping
 // glass slides — the same arrangement language as unveil.fr.
 
-const CASCADE_DX = 0.46;          // X step between adjacent cards
-const CASCADE_DY = 0.30;          // Y step (so cards march upward)
-const CASCADE_DZ = 0.04;          // Z step (closer cards sit forward)
-const CASCADE_TILT = -0.22;       // Y rotation, ~-12.5° — leans right
-const CASCADE_BASE_SCALE = 1.55;  // baseline scale
-const CASCADE_VISIBLE = 12;       // |delta| under this is rendered
+const CASCADE_DX = 0.74;          // X step between adjacent cards (wider gap)
+const CASCADE_DY = 0.46;          // Y step (so cards march upward)
+const CASCADE_DZ = 0.05;          // Z step (closer cards sit forward)
+const CASCADE_TILT = -0.10;       // Y rotation, ~-5.7° — subtle lean
+const CASCADE_BASE_SCALE = 2.05;  // larger card faces
+const CASCADE_VISIBLE = 11;       // |delta| under this is rendered
 const CASCADE_SCROLL_BASE = -0.0035; // gentle drift to the left
 
 const _wp = new THREE.Vector3();
@@ -49,8 +49,11 @@ function createIdleFan() {
             new THREE.MeshStandardMaterial({ color: 0x060606 })
         ];
         const mesh = new THREE.Mesh(geo, mats);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
+        // No shadows in the cascade: with cards overlapping at small Z
+        // offsets, cast shadows pile up into a muddy halo. The
+        // .stage-frame-glow CSS overlay supplies the only depth cue.
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
         // Initial placement at row 0 so the lerp can ease everything to its
         // resting slot on the first few frames.
         mesh.position.set(0, 0, 0);
@@ -62,6 +65,11 @@ function createIdleFan() {
         mesh.userData.isPinched = false;
         group.add(mesh);
         idleCards.push({ mesh, group });
+    }
+    // Apply the active theme to the freshly-created card backs so
+    // they spawn with the correct vibrancy on first paint.
+    if (typeof applyThemeCardBacks === 'function') {
+        applyThemeCardBacks(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
     }
 }
 
