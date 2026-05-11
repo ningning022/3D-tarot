@@ -156,6 +156,66 @@ html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
     color: var(--accent);
 }
 
+/* ── Light-mode action buttons ──────────────────────────────
+   The wine-red action pills (Next, Return, New, etc.) clash with
+   the warm-cream light surface. In light mode they read as pale
+   goose-yellow lozenges with a dark border — same visual weight,
+   none of the dark-on-light hole. The selectors below cover every
+   action surface that previously fell back to the wine palette. */
+[data-theme="light"] .new-reading-button,
+[data-theme="light"] #prompt-next,
+[data-theme="light"] #prompt-return,
+[data-theme="light"] .prompt-actions button,
+[data-theme="light"] .control-chooser-actions button,
+[data-theme="light"] .control-chooser-actions button.active,
+[data-theme="light"] .detail-action,
+[data-theme="light"] .admin-link,
+[data-theme="light"] .template-ring button.active {
+    background: #fbe7a4;
+    color: #5b2a14;
+    border: 1px solid #7a3f1f;
+    box-shadow: 0 1px 0 rgba(122, 63, 31, 0.10);
+}
+
+[data-theme="light"] .new-reading-button:hover,
+[data-theme="light"] #prompt-next:hover,
+[data-theme="light"] #prompt-return:hover,
+[data-theme="light"] .prompt-actions button:hover,
+[data-theme="light"] .control-chooser-actions button:hover,
+[data-theme="light"] .control-chooser-actions button.active:hover,
+[data-theme="light"] .detail-action:hover,
+[data-theme="light"] .admin-link:hover,
+[data-theme="light"] .template-ring button.active:hover {
+    background: #f7d97a;
+    color: #3d1a08;
+    border-color: #5b2a14;
+}
+
+/* The generic .icon-button:hover in components.css (which forces
+   #fff8e8 + dark wine bg) also fires in light mode — neutralize for
+   icon-bearing topbar buttons so they pick up the goose-yellow. */
+[data-theme="light"] .icon-button:hover,
+[data-theme="light"] .control-switch:hover,
+[data-theme="light"] .history-db-link:hover,
+[data-theme="light"] .template-ring button:hover {
+    color: #5b2a14;
+    background: #fbe7a4;
+    border-color: #7a3f1f;
+}
+
+/* Danger pill (Delete) keeps its red identity but in a paler form so
+   it doesn't punch a hole through the cream. */
+[data-theme="light"] .danger-button {
+    background: #ffe1d2;
+    color: #8a2a14;
+    border: 1px solid #8a2a14;
+}
+[data-theme="light"] .danger-button:hover {
+    background: #ffc9b0;
+    color: #5a1408;
+    border-color: #5a1408;
+}
+
 /* The brand wordmark rides on the accent glow. */
 .brand-lockup strong {
     color: var(--accent);

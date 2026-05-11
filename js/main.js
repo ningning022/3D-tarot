@@ -37,21 +37,33 @@ function applyThemeLights(theme) {
 }
 
 /**
- * Boost the saturation of card backs in light mode so the Rider-Waite
- * green/cream pattern reads as vibrant artwork rather than aged paper.
- * Index 4 of the box-geometry materials holds the back texture for both
- * cascade cards (carousel.js) and dealt cards (spread.js).
+ * Bring out the original Rider-Waite back colours in each theme:
+ *
+ *   light → multiply the texture by a cool white tint so the cream
+ *           ground reads as paper-white and the teal-blue florals
+ *           pop as vivid pigment instead of muddy amber. A small
+ *           cool-blue emissive lifts the whole back without warming
+ *           it, counteracting the warm-amber stage lights.
+ *   dark  → leave the material un-tinted so the back keeps its
+ *           candle-lit moodiness; reset any lingering light values.
+ *
+ * Index 4 of the box-geometry materials holds the back texture for
+ * both cascade cards (carousel.js) and dealt cards (spread.js).
  */
 function applyThemeCardBacks(theme) {
     const isLight = theme === 'light';
     const tuneBack = mat => {
         if (!mat) return;
         if (isLight) {
-            mat.emissive && mat.emissive.setHex(0x6a4a1c);
-            mat.emissiveIntensity = 0.34;
-            mat.roughness = 0.42;
-            mat.metalness = 0.06;
+            // color is multiplied with map; cool-white lifts the cream,
+            // brightens the teal florals, kills the warm yellow cast.
+            mat.color && mat.color.setHex(0xeaf0ff);
+            mat.emissive && mat.emissive.setHex(0x1a2a48);
+            mat.emissiveIntensity = 0.18;
+            mat.roughness = 0.34;
+            mat.metalness = 0.04;
         } else {
+            mat.color && mat.color.setHex(0xffffff);
             mat.emissive && mat.emissive.setHex(0x000000);
             mat.emissiveIntensity = 0.0;
             mat.roughness = 0.7;
