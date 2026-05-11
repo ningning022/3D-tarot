@@ -29,8 +29,6 @@ flowchart LR
 | --- | --- | --- |
 | ![鼠标模式截图](docs/visuals/akashic-main-dark-mouse.png) | ![摄像头模式截图](docs/visuals/akashic-main-dark-camera.png) | ![后台截图](docs/visuals/akashic-admin-dark.png) |
 
-演示视频：[`docs/visuals/akashic-demo-dark.mp4`](docs/visuals/akashic-demo-dark.mp4)
-
 ## 快速开始
 
 环境要求：
@@ -169,7 +167,7 @@ taluo/
 ├── css/                # 主题、布局和响应式样式
 ├── js/                 # Three.js 场景、交互、手势、历史记录和后台逻辑
 ├── image2/             # 塔罗牌图片
-├── docs/visuals/       # README 截图、概念图和演示视频
+├── docs/visuals/       # README 截图和概念图
 ├── assets/textures/    # 本地纹理素材
 └── tests/              # 前后端行为测试
 ```
