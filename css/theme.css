@@ -35,8 +35,16 @@ html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
 .theme-toggle .theme-icon { display: none; }
 [data-theme="dark"]  .theme-toggle .theme-icon-sun  { display: block; }
 [data-theme="light"] .theme-toggle .theme-icon-moon { display: block; }
-.theme-toggle:hover { color: var(--accent, currentColor); }
+/* Beat the generic .icon-button:hover (which forces #fff8e8). */
+.app-topbar .theme-toggle:hover,
+.theme-toggle:hover {
+    color: var(--accent);
+    border-color: var(--accent-line);
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+}
 .theme-toggle:active { transform: scale(0.92); }
+.theme-toggle .theme-icon { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.theme-toggle:hover .theme-icon { transform: rotate(15deg); }
 
 /* ── Stage frame glow ────────────────────────────────────────
    The unveil.fr "light from the edges" feel: three radial pools
