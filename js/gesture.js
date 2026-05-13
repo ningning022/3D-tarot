@@ -55,15 +55,22 @@
         const pinkyFolded = isFolded(lm, 20, 18);
 
         const allFolded = indexFolded && middleFolded && ringFolded && pinkyFolded;
-        const isStrongPinch = pinchDistance < 0.18;
-        const isPinch = (!allFolded || isStrongPinch) && pinchDistance < 0.34;
-        const isFist = allFolded && !isStrongPinch;
+        // Pinch is the dominant signature: when thumb tip approaches index
+        // tip, other-finger curl is irrelevant. The previous gate
+        //   (!allFolded || isStrongPinch) && pinchDistance < 0.34
+        // rejected the most natural way to pinch (curl all fingers, bring
+        // thumb to index) and routed it to FIST. Threshold raised to 0.38
+        // so a relaxed pinch — fingertips ~1cm apart — still registers.
+        const isPinch = pinchDistance < 0.38;
+        // FIST requires a closed hand with no pinch signature — i.e. thumb
+        // tucked away from the index, not loosely touching it.
+        const isFist = allFolded && pinchDistance >= 0.38;
         const isOpen = indexExtended && middleExtended && ringExtended && pinkyExtended && pinchDistance > 0.46;
         const isTwoFinger = indexExtended && middleExtended && ringFolded && pinkyFolded
             && twoFingerDistance < 0.55 && pinchDistance > 0.42;
         const isPoint = indexExtended && middleFolded && ringFolded && pinkyFolded && pinchDistance > 0.42;
 
-        if (isPinch) return { gesture: 'PINCH', confidence: scoreFromMargin(pinchDistance, 0.34) };
+        if (isPinch) return { gesture: 'PINCH', confidence: scoreFromMargin(pinchDistance, 0.38) };
         if (isFist) return { gesture: 'FIST', confidence: 0.86 };
         if (isOpen) return { gesture: 'OPEN', confidence: 0.82 };
         if (isTwoFinger) return { gesture: 'TWO_FINGER', confidence: scoreFromMargin(twoFingerDistance, 0.55) };
