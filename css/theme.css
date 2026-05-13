@@ -157,12 +157,20 @@ html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
 }
 
 /* ── Light-mode action buttons ──────────────────────────────
-   The wine-red action pills (Next, Return, New, etc.) clash with
-   the warm-cream light surface. In light mode they read as pale
-   goose-yellow lozenges with a dark border — same visual weight,
-   none of the dark-on-light hole. The selectors below cover every
-   action surface that previously fell back to the wine palette. */
+   Every action surface in light mode reads as a pale goose-yellow
+   lozenge with a dark amber border + dark amber text. The selectors
+   below cover the full set: topbar pills, modal buttons, side-panel
+   toggles, the bottom guide bar, the dropdown, and any DOM element
+   that previously inherited the wine-red base button rule. */
+[data-theme="light"] .icon-button,
 [data-theme="light"] .new-reading-button,
+[data-theme="light"] .control-switch,
+[data-theme="light"] .secondary-switch,
+[data-theme="light"] #change-spread-button,
+[data-theme="light"] .theme-toggle,
+[data-theme="light"] #menu-toggle,
+[data-theme="light"] #unselect-card-button,
+[data-theme="light"] #control-switch,
 [data-theme="light"] #prompt-next,
 [data-theme="light"] #prompt-return,
 [data-theme="light"] .prompt-actions button,
@@ -170,14 +178,32 @@ html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
 [data-theme="light"] .control-chooser-actions button.active,
 [data-theme="light"] .detail-action,
 [data-theme="light"] .admin-link,
-[data-theme="light"] .template-ring button.active {
+[data-theme="light"] .admin-nav button,
+[data-theme="light"] .history-toggle,
+[data-theme="light"] .history-db-link,
+[data-theme="light"] .daily-draw-toggle,
+[data-theme="light"] .template-ring button,
+[data-theme="light"] .template-ring button.active,
+[data-theme="light"] .guide,
+[data-theme="light"] .daily-draw-panel select,
+[data-theme="light"] select {
     background: #fbe7a4;
     color: #5b2a14;
     border: 1px solid #7a3f1f;
     box-shadow: 0 1px 0 rgba(122, 63, 31, 0.10);
+    text-shadow: none;
 }
 
+/* Hover state — slightly deeper yellow + darker border. */
+[data-theme="light"] .icon-button:hover,
 [data-theme="light"] .new-reading-button:hover,
+[data-theme="light"] .control-switch:hover,
+[data-theme="light"] .secondary-switch:hover,
+[data-theme="light"] #change-spread-button:hover,
+[data-theme="light"] .theme-toggle:hover,
+[data-theme="light"] #menu-toggle:hover,
+[data-theme="light"] #unselect-card-button:hover,
+[data-theme="light"] #control-switch:hover,
 [data-theme="light"] #prompt-next:hover,
 [data-theme="light"] #prompt-return:hover,
 [data-theme="light"] .prompt-actions button:hover,
@@ -185,22 +211,39 @@ html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
 [data-theme="light"] .control-chooser-actions button.active:hover,
 [data-theme="light"] .detail-action:hover,
 [data-theme="light"] .admin-link:hover,
+[data-theme="light"] .admin-nav button:hover,
+[data-theme="light"] .history-toggle:hover,
+[data-theme="light"] .history-db-link:hover,
+[data-theme="light"] .daily-draw-toggle:hover,
+[data-theme="light"] .template-ring button:hover,
 [data-theme="light"] .template-ring button.active:hover {
     background: #f7d97a;
     color: #3d1a08;
     border-color: #5b2a14;
 }
 
-/* The generic .icon-button:hover in components.css (which forces
-   #fff8e8 + dark wine bg) also fires in light mode — neutralize for
-   icon-bearing topbar buttons so they pick up the goose-yellow. */
-[data-theme="light"] .icon-button:hover,
-[data-theme="light"] .control-switch:hover,
-[data-theme="light"] .history-db-link:hover,
-[data-theme="light"] .template-ring button:hover {
-    color: #5b2a14;
+/* Active template tile gets a bolder fill so the user sees which
+   spread is selected without losing the goose-yellow identity. */
+[data-theme="light"] .template-ring button.active {
+    background: #f6cb56;
+    border-color: #5b2a14;
+    box-shadow: inset 0 0 0 2px rgba(91, 42, 20, 0.18);
+}
+
+/* Guide bar (bottom-center "PINCH/FIST" hint) was a dark pill — the
+   selector list above gives it the goose-yellow base; we just need
+   to tighten typography and kill the inherited dark text-shadow. */
+[data-theme="light"] .guide,
+[data-theme="light"] .guide.guide-flash {
     background: #fbe7a4;
+    color: #5b2a14;
     border-color: #7a3f1f;
+}
+
+/* Daily-draw chevron (▾) inside the toggle inherits color naturally;
+   make sure the kicker text reads as dark amber too. */
+[data-theme="light"] .daily-draw-toggle .status-kicker {
+    color: #5b2a14;
 }
 
 /* Danger pill (Delete) keeps its red identity but in a paler form so

@@ -12,14 +12,15 @@ const LIGHT_PRESETS = {
         table:   { color: 0xb22a24, intensity: 0.82 }
     },
     light: {
-        // Cool warm daylight: lift ambient, drop the candle/table moodiness,
-        // keep a soft amber kicker so the cards still feel hand-lit.
-        exposure: 1.05,
-        ambient: { color: 0xfff1d6, intensity: 0.78 },
-        front:   { color: 0xffe8c2, intensity: 1.05 },
-        top:     { color: 0xffd9a8, intensity: 0.65 },
-        rim:     { color: 0xd97757, intensity: 0.55 }, // unveil amber
-        candle:  { color: 0xffb98a, intensity: 0.42 },
+        // Cool daylight: pull the warm amber off the lights so the
+        // blue/white card backs read as their actual pigment instead
+        // of being painted yellow by the stage lights.
+        exposure: 1.18,
+        ambient: { color: 0xeaf2ff, intensity: 0.92 },
+        front:   { color: 0xf4f8ff, intensity: 1.10 },
+        top:     { color: 0xeef3ff, intensity: 0.72 },
+        rim:     { color: 0xd97757, intensity: 0.42 }, // amber kicker only
+        candle:  { color: 0xffd6b8, intensity: 0.28 },
         table:   { color: 0xd97757, intensity: 0.00 }  // off in daylight
     }
 };
@@ -55,13 +56,16 @@ function applyThemeCardBacks(theme) {
     const tuneBack = mat => {
         if (!mat) return;
         if (isLight) {
-            // color is multiplied with map; cool-white lifts the cream,
-            // brightens the teal florals, kills the warm yellow cast.
-            mat.color && mat.color.setHex(0xeaf0ff);
-            mat.emissive && mat.emissive.setHex(0x1a2a48);
-            mat.emissiveIntensity = 0.18;
-            mat.roughness = 0.34;
-            mat.metalness = 0.04;
+            // Push the back hard toward white + saturated blue:
+            //   color: pure white so the texture's full brightness shows
+            //   emissive: punchy royal-blue at high intensity to pull
+            //             the teal florals into vivid blue and lift the
+            //             cream ground toward white in highlights
+            mat.color && mat.color.setHex(0xffffff);
+            mat.emissive && mat.emissive.setHex(0x3a5fb8);
+            mat.emissiveIntensity = 0.55;
+            mat.roughness = 0.22;
+            mat.metalness = 0.05;
         } else {
             mat.color && mat.color.setHex(0xffffff);
             mat.emissive && mat.emissive.setHex(0x000000);
