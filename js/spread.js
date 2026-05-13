@@ -140,19 +140,18 @@ function detachIdleCardToScene(card) {
     scene.add(card);
 }
 
-/** 将牌从 scene 重新挂回其旋转 group，并还原 local 坐标（纯几何操作）*/
+/**
+ * Re-attach a previously-pinched card to the cascade group at its slot.
+ * The cascade is index-driven (carousel.js), so we just hand the mesh
+ * back to its group — updateIdleFan() recomputes its slot position from
+ * mesh.userData.cascadeIndex on the next frame.
+ */
 function _reparentCardToRing(card) {
     const entry = idleCards.find(c => c.mesh === card);
     if (!entry || !entry.group) return;
-    const angle = card.userData.baseAngle;
     scene.remove(card);
     entry.group.add(card);
-    card.position.set(
-        CAROUSEL_R * Math.sin(angle),
-        0,
-        CAROUSEL_R * Math.cos(angle)
-    );
-    card.rotation.set(0, angle + Math.PI, 0);
+    card.rotation.set(0, 0, 0);
     card.scale.setScalar(1);
 }
 
