@@ -48,6 +48,21 @@ function handFor(gesture) {
     setFinger(lm, 8, 6, false);
     lm[4] = point(lm[8].x + 0.018, lm[8].y + 0.012);
   }
+  // NATURAL_PINCH: the "I'm pinching with my hand naturally relaxed"
+  // gesture users actually make — index curled in, other fingers also
+  // curled (i.e. allFolded), thumb tip ~1cm from index tip. Previous
+  // classifier routed this to FIST; it must now register as PINCH.
+  if (gesture === 'NATURAL_PINCH') {
+    setFinger(lm, 8, 6, false);
+    lm[4] = point(lm[8].x + 0.05, lm[8].y + 0.04);
+  }
+  // LOOSE_FIST: closed hand with thumb tucked across the palm, away from
+  // the index. Must still register as FIST (sanity check that we didn't
+  // accidentally route every closed hand to PINCH).
+  if (gesture === 'LOOSE_FIST') {
+    setFinger(lm, 8, 6, false);
+    lm[4] = point(0.18, 0.65);
+  }
   if (gesture === 'TWO_FINGER') {
     setFinger(lm, 8, 6, true);
     setFinger(lm, 12, 10, true);
@@ -61,6 +76,8 @@ function handFor(gesture) {
 assert.strictEqual(classifyGesture(null).gesture, 'NONE');
 assert.strictEqual(classifyGesture(handFor('PINCH')).gesture, 'PINCH');
 assert.strictEqual(classifyGesture(handFor('BENT_PINCH')).gesture, 'PINCH');
+assert.strictEqual(classifyGesture(handFor('NATURAL_PINCH')).gesture, 'PINCH');
+assert.strictEqual(classifyGesture(handFor('LOOSE_FIST')).gesture, 'FIST');
 assert.strictEqual(classifyGesture(handFor('OPEN')).gesture, 'OPEN');
 assert.strictEqual(classifyGesture(handFor('POINT')).gesture, 'POINT');
 assert.strictEqual(classifyGesture(handFor('TWO_FINGER')).gesture, 'TWO_FINGER');
