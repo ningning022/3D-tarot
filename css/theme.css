@@ -259,6 +259,175 @@ html, body, .stage-panel, .panel, .icon-button, .new-reading-button,
     border-color: #5a1408;
 }
 
+/* ── Admin page light-mode parity ──────────────────────────
+   The admin page (admin.html) carries .admin-page.figma-stage and
+   reuses the same panel/topbar structures, but admin.css hardcodes
+   wine-on-cream surfaces in many places. The block below recolours
+   every admin-specific surface to the warm-cream palette so the
+   chronicle archive matches the main page in light mode. */
+
+[data-theme="light"] .admin-page::before {
+    background:
+        linear-gradient(90deg,
+            color-mix(in oklch, var(--surface) 24%, transparent) 0%,
+            transparent 30%,
+            transparent 70%,
+            color-mix(in oklch, var(--surface) 24%, transparent) 100%);
+}
+
+[data-theme="light"] .admin-list-panel,
+[data-theme="light"] .admin-detail-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-line);
+    color: var(--ink-text);
+}
+
+[data-theme="light"] .admin-search input,
+[data-theme="light"] #reading-search {
+    background: #fffaf0;
+    color: var(--ink-text);
+    border: 1px solid #c79360;
+}
+[data-theme="light"] .admin-search input:focus,
+[data-theme="light"] #reading-search:focus {
+    border-color: #7a3f1f;
+    outline: 2px solid color-mix(in oklch, var(--accent) 35%, transparent);
+    outline-offset: 1px;
+}
+
+[data-theme="light"] .reading-row {
+    background: #fff5dd;
+    border: 1px solid #d2a96f;
+    color: #2a1408;
+}
+[data-theme="light"] .reading-row:hover {
+    background: #ffe9b8;
+    border-color: #7a3f1f;
+}
+[data-theme="light"] .reading-row.active {
+    background: #fbe7a4;
+    border-color: #5b2a14;
+    color: #3d1a08;
+    box-shadow: inset 0 0 0 1px #5b2a14;
+}
+
+[data-theme="light"] .reading-row-meta,
+[data-theme="light"] .reading-row-kind {
+    color: color-mix(in oklch, var(--ink-text) 60%, transparent);
+}
+
+/* Replay board (the saved-spread display area) */
+[data-theme="light"] .replay-board {
+    background:
+        radial-gradient(ellipse at center,
+            color-mix(in oklch, var(--accent) 6%, transparent),
+            transparent 50%),
+        linear-gradient(180deg, #fffaf0, #f4ece0);
+    border: 1px solid #d2a96f;
+    box-shadow: inset 0 0 72px color-mix(in oklch, var(--accent) 6%, transparent),
+                0 16px 34px color-mix(in oklch, var(--surface) 30%, transparent);
+}
+[data-theme="light"] .replay-board::before,
+[data-theme="light"] .replay-board::after {
+    border-color: color-mix(in oklch, var(--accent) 32%, transparent);
+}
+
+/* Replay slot label (above the card) reads dark in light mode. */
+[data-theme="light"] .replay-slot {
+    color: #5b2a14;
+    text-shadow: 0 0 6px rgba(255, 250, 240, 0.85);
+}
+
+/* Insight cards (Notes / Deck / Spread) on the detail panel */
+[data-theme="light"] .insight-card {
+    background: #fffaf0;
+    border: 1px solid #d2a96f;
+    color: var(--ink-text);
+}
+[data-theme="light"] .insight-card h3 {
+    color: #7a3f1f;
+}
+[data-theme="light"] .insight-card p,
+[data-theme="light"] .insight-card span {
+    color: color-mix(in oklch, var(--ink-text) 70%, transparent);
+}
+[data-theme="light"] .insight-card strong {
+    color: var(--ink-text);
+}
+[data-theme="light"] .insight-card textarea,
+[data-theme="light"] #reading-notes {
+    background: #fff5dd;
+    color: var(--ink-text);
+    border: 1px solid #d2a96f;
+    font-family: inherit;
+}
+[data-theme="light"] .insight-card textarea:focus,
+[data-theme="light"] #reading-notes:focus {
+    border-color: #7a3f1f;
+    outline: 2px solid color-mix(in oklch, var(--accent) 35%, transparent);
+    outline-offset: 1px;
+}
+
+/* Reading detail head + actions area */
+[data-theme="light"] .reading-detail-head {
+    border-bottom: 1px solid #d2a96f;
+    color: var(--ink-text);
+}
+[data-theme="light"] .reading-detail-head h2,
+[data-theme="light"] .reading-detail-head p,
+[data-theme="light"] .reading-detail-head span {
+    color: var(--ink-text);
+}
+
+/* Empty state ("Select a reading", "No matching readings") */
+[data-theme="light"] .empty-state,
+[data-theme="light"] .replay-empty,
+[data-theme="light"] .admin-status,
+[data-theme="light"] .admin-panel-title {
+    color: color-mix(in oklch, var(--ink-text) 70%, transparent);
+}
+[data-theme="light"] .admin-panel-title {
+    color: var(--accent);
+}
+
+/* Orientation pill on the saved card detail */
+[data-theme="light"] .orientation-pill {
+    color: color-mix(in oklch, var(--ink-text) 70%, transparent);
+    border-color: #d2a96f;
+    background: #fffaf0;
+}
+[data-theme="light"] .orientation-pill.reversed {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: #ffe1d2;
+}
+
+/* Admin nav (currently active section pill at top) */
+[data-theme="light"] .admin-nav button {
+    background: #fff5dd;
+    color: #5b2a14;
+    border: 1px solid #d2a96f;
+}
+[data-theme="light"] .admin-nav button.active {
+    background: #fbe7a4;
+    border-color: #5b2a14;
+    color: #3d1a08;
+}
+[data-theme="light"] .admin-nav button:hover {
+    background: #ffe9b8;
+    border-color: #7a3f1f;
+}
+
+/* Summary / info / settings cards (other admin views) — generic
+   panel treatment so we don't have to chase every selector. */
+[data-theme="light"] .admin-summary-grid > *,
+[data-theme="light"] .admin-info-grid > *,
+[data-theme="light"] .admin-settings-actions > * {
+    background: #fffaf0;
+    border: 1px solid #d2a96f;
+    color: var(--ink-text);
+}
+
 /* The brand wordmark rides on the accent glow. */
 .brand-lockup strong {
     color: var(--accent);
