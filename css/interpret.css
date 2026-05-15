@@ -1,0 +1,311 @@
+/* ═══════════════════════════════════════════════════════════
+   interpret.css — interpretation panel
+   Used on both admin.html (in reading-detail) and Three.html
+   (inside the spread-prompt modal as an overlay).
+   ═══════════════════════════════════════════════════════════ */
+
+.interpretation-panel {
+    margin-top: 16px;
+    padding: 14px 16px 16px;
+    border-radius: 8px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-line);
+    color: var(--ink-text);
+    transition: var(--theme-transition);
+    backdrop-filter: blur(20px) saturate(1.05);
+    -webkit-backdrop-filter: blur(20px) saturate(1.05);
+}
+
+/* ── Toolbar (style + language + buttons + status) ───────── */
+
+.interpret-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.interpret-style-select,
+.interpret-lang-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: color-mix(in oklch, var(--accent) 5%, transparent);
+    color: var(--ink-text);
+    border: 1px solid var(--panel-line);
+    border-radius: 5px;
+    padding: 6px 26px 6px 10px;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+                      linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+}
+
+.interpret-style-select:focus,
+.interpret-lang-select:focus {
+    outline: 2px solid color-mix(in oklch, var(--accent) 35%, transparent);
+    outline-offset: 1px;
+    border-color: var(--accent);
+}
+
+.interpret-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    border-radius: 5px;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--theme-transition);
+    background: color-mix(in oklch, var(--accent) 12%, transparent);
+    color: var(--accent);
+    border: 1px solid var(--accent-line, var(--accent));
+}
+
+.interpret-btn:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--accent) 22%, transparent);
+}
+
+.interpret-btn:disabled {
+    opacity: 0.62;
+    cursor: not-allowed;
+}
+
+.interpret-btn.is-loading {
+    position: relative;
+    padding-right: 30px;
+}
+
+.interpret-btn.is-loading::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    border: 2px solid color-mix(in oklch, var(--accent) 40%, transparent);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: interpret-spin 0.7s linear infinite;
+}
+
+@keyframes interpret-spin {
+    to { transform: rotate(360deg); }
+}
+
+.interpret-status {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: color-mix(in oklch, var(--ink-text) 65%, transparent);
+    letter-spacing: 0.02em;
+}
+
+/* ── Health banner slot ─────────────────────────────────── */
+.interpret-health-slot:empty { display: none; }
+.interpret-health-slot { margin-bottom: 10px; }
+
+/* ── Result (streaming text area) ───────────────────────── */
+
+.interpret-result {
+    min-height: 70px;
+    padding: 10px 14px;
+    background: color-mix(in oklch, var(--surface) 50%, transparent);
+    border: 1px solid color-mix(in oklch, var(--panel-line) 60%, transparent);
+    border-radius: 6px;
+    line-height: 1.78;
+    letter-spacing: 0.01em;
+    font-size: 0.95rem;
+    color: var(--ink-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: justify;
+}
+
+.interpret-result:empty::before {
+    content: '点击上方按钮生成解读 / Click the button above to generate';
+    color: color-mix(in oklch, var(--ink-text) 45%, transparent);
+    font-style: italic;
+    letter-spacing: 0.04em;
+}
+
+/* Blinking cursor at end of streaming text */
+.interpret-result-streaming::after {
+    content: '▍';
+    color: var(--accent);
+    animation: interpret-cursor 0.85s steps(2, end) infinite;
+    margin-left: 2px;
+}
+
+@keyframes interpret-cursor {
+    to { opacity: 0; }
+}
+
+/* ── Error banner ───────────────────────────────────────── */
+
+.interpret-error {
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: color-mix(in oklch, var(--danger, #b03b1f) 12%, transparent);
+    border: 1px solid color-mix(in oklch, var(--danger, #b03b1f) 35%, transparent);
+    color: var(--danger, #b03b1f);
+    font-size: 0.88rem;
+}
+
+.interpret-error-hint {
+    margin-top: 4px;
+    color: color-mix(in oklch, var(--ink-text) 78%, transparent);
+    font-weight: normal;
+}
+
+.interpret-error-cmd {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: color-mix(in oklch, var(--surface) 70%, transparent);
+    color: var(--ink-text);
+    border: 1px solid color-mix(in oklch, var(--accent-line) 80%, transparent);
+    border-radius: 4px;
+    font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    cursor: pointer;
+    user-select: all;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.interpret-error-cmd:hover {
+    border-color: var(--accent);
+}
+
+/* ── History list (older interpretations) ───────────────── */
+
+.interpret-history {
+    margin-top: 12px;
+}
+
+.interpret-history:empty {
+    margin-top: 0;
+}
+
+.interpret-history-title {
+    font-size: 0.75rem;
+    color: color-mix(in oklch, var(--ink-text) 60%, transparent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.interpret-history-item {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 6px 6px 0;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--accent) 6%, transparent);
+    color: var(--ink-text);
+    border: 1px solid color-mix(in oklch, var(--panel-line) 70%, transparent);
+    font: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+    transition: var(--theme-transition);
+}
+
+.interpret-history-item:hover {
+    background: color-mix(in oklch, var(--accent) 14%, transparent);
+    border-color: var(--accent);
+}
+
+/* ── Three.html overlay variant (modal-mode) ────────────── */
+
+#interpret-overlay {
+    position: fixed;
+    inset: 5% 8%;
+    z-index: 310;
+    overflow: auto;
+    padding: 22px 24px 24px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    box-shadow:
+        0 0 0 9999px color-mix(in oklch, var(--surface) 78%, transparent),
+        0 30px 80px color-mix(in oklch, var(--surface) 50%, transparent);
+    backdrop-filter: blur(28px) saturate(1.05);
+    -webkit-backdrop-filter: blur(28px) saturate(1.05);
+}
+
+#interpret-overlay[hidden] { display: none !important; }
+
+.interpret-overlay-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.interpret-overlay-title {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+}
+
+.interpret-overlay-close {
+    appearance: none;
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    color: var(--ink-text);
+    border-radius: 5px;
+    padding: 5px 10px;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.interpret-overlay-close:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+/* ── Spread-prompt button to open overlay ───────────────── */
+
+#prompt-interpret {
+    appearance: none;
+    font: inherit;
+    font-size: 0.86rem;
+    padding: 6px 14px;
+    margin-left: 6px;
+    border: 1px solid var(--accent-line);
+    background: color-mix(in oklch, var(--accent) 12%, transparent);
+    color: var(--accent);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: var(--theme-transition);
+}
+
+#prompt-interpret:hover {
+    background: color-mix(in oklch, var(--accent) 22%, transparent);
+}
+
+/* ── Light-mode tweaks (consistent with existing palette) ─ */
+
+[data-theme="light"] .interpret-result {
+    background: #fffaf0;
+    border-color: #d2a96f;
+}
+
+[data-theme="light"] .interpretation-panel {
+    background: var(--panel-bg);
+    border-color: var(--panel-line);
+}
+
+[data-theme="light"] .interpret-error-cmd {
+    background: #fff5dd;
+    color: #5b2a14;
+    border-color: #7a3f1f;
+}

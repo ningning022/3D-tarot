@@ -1,11 +1,14 @@
 import json
 import mimetypes
 import sqlite3
+import threading
 from contextlib import closing
 from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
+
+import interpret_service
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -336,6 +339,116 @@ def clear_readings():
     return {"ok": True, "deleted": True}
 
 
+# ── Interpretation helpers ──────────────────────────────────
+# A small subset of interpret_service wiring that other request paths
+# (non-streaming) consume. The streaming path lives on TarotRequestHandler
+# because it needs raw access to self.wfile.
+
+# One in-flight interpretation per reading_id to avoid race-induced
+# duplicate persistence + thrash on the model.
+_INTERPRET_LOCKS: dict[int, threading.Lock] = {}
+_INTERPRET_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for_reading(reading_id: int) -> threading.Lock:
+    with _INTERPRET_LOCKS_GUARD:
+        lock = _INTERPRET_LOCKS.get(reading_id)
+        if lock is None:
+            lock = threading.Lock()
+            _INTERPRET_LOCKS[reading_id] = lock
+        return lock
+
+
+def interpret_health() -> dict:
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
+        settings = interpret_service.get_settings(conn)
+    url = settings.get("ollama_url", interpret_service.DEFAULT_OLLAMA_URL)
+    model = settings.get("ollama_model", interpret_service.DEFAULT_OLLAMA_MODEL)
+    api_key = settings.get("openrouter_api_key", "")
+    health = interpret_service.check_ollama_health(url, model)
+    return {
+        "ollama": health["status"],
+        "ollama_message": health.get("message"),
+        "model": model,
+        "backend": settings.get("backend", "ollama"),
+        "fallback_available": bool(api_key.strip()),
+    }
+
+
+def interpret_get_settings() -> dict:
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
+        raw = interpret_service.get_settings(conn)
+    # Mask API key — never return it to clients.
+    api_key = raw.get("openrouter_api_key", "")
+    return {
+        "backend": raw.get("backend", "ollama"),
+        "ollama_url": raw.get("ollama_url", interpret_service.DEFAULT_OLLAMA_URL),
+        "ollama_model": raw.get("ollama_model", interpret_service.DEFAULT_OLLAMA_MODEL),
+        "openrouter_model": raw.get(
+            "openrouter_model", interpret_service.DEFAULT_OPENROUTER_MODEL
+        ),
+        "default_style": raw.get("default_style", "traditional"),
+        "default_language": raw.get("default_language", "zh"),
+        "openrouter_api_key_set": bool(api_key.strip()),
+    }
+
+
+_ALLOWED_SETTING_KEYS = {
+    "backend",
+    "ollama_url",
+    "ollama_model",
+    "openrouter_url",
+    "openrouter_model",
+    "openrouter_api_key",
+    "default_style",
+    "default_language",
+}
+
+
+def interpret_update_settings(payload: dict) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError("Body must be a JSON object")
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
+        for key, value in payload.items():
+            if key not in _ALLOWED_SETTING_KEYS:
+                continue
+            interpret_service.set_setting(conn, key, "" if value is None else str(value))
+    return interpret_get_settings()
+
+
+def interpret_fetch(reading_id: int, *, all_rows: bool = False):
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
+        data = interpret_service.load_interpretation(conn, reading_id, all_rows=all_rows)
+    return data
+
+
+def _load_reading_for_interpret(reading_id: int) -> tuple[str, list[dict]] | None:
+    """Pull the reading row + its cards in slot order. Returns
+    (template_name, cards) where cards have the shape interpret_prompts
+    expects. None if no such reading.
+    """
+    reading = fetch_reading(reading_id)
+    if reading is None:
+        return None
+    cards = []
+    for c in reading.get("cards", []):
+        cards.append(
+            {
+                "slot": c["slot"],
+                "slot_label": c.get("slotLabel") or f"Slot {c['slot']}",
+                "zh": c.get("zh", ""),
+                "en": c.get("en", ""),
+                "is_reversed": bool(c.get("isReversed")),
+            }
+        )
+    template_name = reading.get("templateName") or "自由牌阵 / Free Spread"
+    return template_name, cards
+
+
 def handle_api_request(method, parsed_url, body=b""):
     init_db()
     path = parsed_url.path.rstrip("/") or "/"
@@ -343,6 +456,26 @@ def handle_api_request(method, parsed_url, body=b""):
     try:
         if method == "GET" and path == "/api/health":
             return json_response(200, {"ok": True, "database": "ready"})
+
+        # ── Interpretation: non-streaming endpoints ─────────────
+        if method == "GET" and path == "/api/interpret/health":
+            return json_response(200, interpret_health())
+
+        if method == "GET" and path == "/api/interpret/settings":
+            return json_response(200, interpret_get_settings())
+
+        if method == "POST" and path == "/api/interpret/settings":
+            return json_response(200, interpret_update_settings(parse_json_body(body)))
+
+        if method == "GET" and path.startswith("/api/interpret/"):
+            reading_id = int(path.rsplit("/", 1)[1])
+            all_rows = parse_qs(parsed_url.query).get("all", ["0"])[0] in ("1", "true")
+            data = interpret_fetch(reading_id, all_rows=all_rows)
+            if data is None:
+                return error_response(404, "No interpretation for this reading")
+            return json_response(200, data)
+        # POST /api/interpret/<id> is handled separately (streaming);
+        # it does NOT route through this function.
 
         if method == "POST" and path == "/api/readings":
             created = create_reading(parse_json_body(body))
@@ -414,9 +547,87 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
         if not self.path.startswith("/api/"):
             self.send_error(404, "Not found")
             return
+        # Streaming interpret endpoint bypasses the buffered handler so we
+        # can flush chunks to the client as the model emits them.
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/api/interpret/") and parsed.path != "/api/interpret/settings":
+            self._handle_interpret_stream(parsed)
+            return
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
         self.send_api_response(*handle_api_request("POST", urlparse(self.path), body))
+
+    def _handle_interpret_stream(self, parsed):
+        """SSE stream `/api/interpret/<reading_id>` → forward model chunks
+        to the client. Body may carry {style, language} overrides; missing
+        keys fall back to interpret_settings defaults."""
+        try:
+            reading_id = int(parsed.path.rsplit("/", 1)[1])
+        except (ValueError, IndexError):
+            self.send_api_response(*error_response(400, "Invalid reading id"))
+            return
+
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length) if length else b""
+        try:
+            overrides = parse_json_body(body) if body else {}
+        except ValueError as exc:
+            self.send_api_response(*error_response(400, str(exc)))
+            return
+
+        loaded = _load_reading_for_interpret(reading_id)
+        if loaded is None:
+            self.send_api_response(*error_response(404, "Reading not found"))
+            return
+        template_name, cards = loaded
+
+        # Concurrency guard: refuse if another interpret call is in
+        # flight for this same reading_id.
+        lock = _lock_for_reading(reading_id)
+        if not lock.acquire(blocking=False):
+            self.send_api_response(*error_response(409, "Interpretation already in progress"))
+            return
+
+        try:
+            with closing(get_connection()) as conn:
+                interpret_service.migrate(conn)
+                settings = interpret_service.get_settings(conn)
+                style = overrides.get("style") or settings.get("default_style", "traditional")
+                language = overrides.get("language") or settings.get("default_language", "zh")
+
+                # Open the SSE response now (any error past this point
+                # streams as a data:error frame, not an HTTP error code).
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache, no-transform")
+                self.send_header("X-Accel-Buffering", "no")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+
+                try:
+                    for chunk in interpret_service.interpret_reading_stream(
+                        conn,
+                        reading_id=reading_id,
+                        cards=cards,
+                        template_name=template_name,
+                        style=style,
+                        language=language,
+                    ):
+                        frame = "data: " + json.dumps(
+                            {"chunk": chunk}, ensure_ascii=False
+                        ) + "\n\n"
+                        self.wfile.write(frame.encode("utf-8"))
+                        self.wfile.flush()
+                    self.wfile.write(b"data: {\"done\": true}\n\n")
+                    self.wfile.flush()
+                except interpret_service.InterpretError as exc:
+                    err = {"error": exc.code, "message": str(exc)}
+                    self.wfile.write(("data: " + json.dumps(err) + "\n\n").encode("utf-8"))
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # client aborted; nothing to clean up
+        finally:
+            lock.release()
 
     def do_DELETE(self):
         if not self.path.startswith("/api/"):
@@ -436,6 +647,9 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
 
 def run(port=DEFAULT_PORT):
     init_db()
+    # Set up the interpretations + interpret_settings tables.
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
     mimetypes.add_type("application/javascript; charset=utf-8", ".js")
     server = ThreadingHTTPServer(("localhost", port), TarotRequestHandler)
     print(f"Akashic Tarot running at http://localhost:{port}/Three.html")

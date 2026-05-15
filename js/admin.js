@@ -237,8 +237,18 @@ const AdminChronicle = (() => {
                 ${renderReplayBoard(replayCards)}
             </section>
             ${renderInsightCards(reading, replayCards)}
+            <div id="interpretation-mount" class="interpretation-mount"></div>
             <div class="admin-card-grid">${renderCardDetails(replayCards)}</div>
         `;
+
+        // Mount the interpretation panel. Done after innerHTML so the
+        // container exists. Module is loaded via <script> tag above this.
+        const mount = el('interpretation-mount');
+        if (mount && window.AkashicInterpret) {
+            window.AkashicInterpret.mountPanel(mount, reading.id).catch(() => {
+                /* mount failure is non-fatal */
+            });
+        }
     }
 
     function renderDashboard() {
