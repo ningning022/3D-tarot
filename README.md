@@ -149,6 +149,104 @@ data/tarot.sqlite3
 }
 ```
 
+## AI 解读引擎 / Interpretation Engine
+
+应用可以为任何已保存的牌阵生成 120-220 字的中文（或英文）专业风格解读。**全部本地推理，记录不离开你的机器。** 无需账号、无需上传隐私问题。
+
+### 工作机制
+
+```
+admin/Three.html → POST /api/interpret/<reading_id>
+                       │
+                       │  策略：Ollama 优先；如检测不到本地服务且配了 OpenRouter key 则切云
+                       ▼
+                  Ollama (本地, qwen2.5:7b)
+                       │
+                       │  SSE 流式
+                       ▼
+                  写入 interpretations 表
+                       +
+                  实时推到 UI
+```
+
+- 三种解读风格：`traditional`（经典 Rider-Waite）/ `intuitive`（直觉派短诗）/ `psychological`（荣格原型视角）
+- 双语：中 / 英
+- 每次"重新生成"都新增一行历史记录，不覆盖
+- Ollama 未启动时显示带可复制启动命令的提示横幅，应用其他功能不受影响
+
+### 一次性安装（推荐用 D 盘部署，省 C 盘空间）
+
+```powershell
+# 1. 把模型存到 D 盘（必须先于安装设置）
+New-Item -ItemType Directory -Path "D:\Ollama\models" -Force | Out-Null
+[Environment]::SetEnvironmentVariable("OLLAMA_MODELS", "D:\Ollama\models", "User")
+$env:OLLAMA_MODELS = "D:\Ollama\models"
+
+# 2. 装 Ollama 到 D 盘（默认装 C，约 6.6GB；用 /DIR= 强制改到 D）
+# 下载安装器：
+Invoke-WebRequest "https://ollama.com/download/OllamaSetup.exe" -OutFile "D:\Programs\OllamaSetup.exe"
+Start-Process "D:\Programs\OllamaSetup.exe" -ArgumentList "/DIR=D:\Programs\Ollama","/SILENT","/NORESTART" -Wait
+
+# 3. 启动服务（在 D 盘里发现模型目录）
+& "D:\Programs\Ollama\ollama.exe" serve   # 单独终端跑着
+
+# 4. 拉默认模型（~4.5GB 下载到 D:）
+& "D:\Programs\Ollama\ollama.exe" pull qwen2.5:7b
+```
+
+### 模型选型
+
+| 显存 / GPU | 推荐 | 大概速度 | 拉取命令 |
+|---|---|---|---|
+| 6GB（笔记本 RTX 3060 类） | **qwen2.5:7b** ⭐ | 15-25 tok/s · 30s 一次 | `ollama pull qwen2.5:7b` |
+| 12GB+ | qwen2.5:14b | 5-10 tok/s · 60s 一次 | `ollama pull qwen2.5:14b` |
+| 纯 CPU 16GB RAM | qwen2.5:7b | 4-6 tok/s · 90s 一次 | 同上 |
+| 想要 72B 顶级输出 | 用 OpenRouter 云回退 | ~$0.0002 / 次 | 见下 |
+
+在 Admin → Settings 页面可以切换 `ollama_model`，例如改成 `qwen2.5:14b`。
+
+### 云端回退（可选）
+
+如果本地机器跑不动或者想要更高质量，可以配 OpenRouter 作为后备：
+
+1. 注册 [https://openrouter.ai/](https://openrouter.ai/) 拿一个 `sk-or-…` key
+2. 打开 `admin.html` → Settings → AI 解读引擎卡片
+3. 粘贴 key 到 **OpenRouter API Key**，保存
+4. 后端选 `openrouter`，模型选 `qwen/qwen-2.5-72b-instruct`（或其他）
+
+策略：选 `ollama` 时若 Ollama 检测不到，且 key 已配 → 自动切云。Key 仅存于本地 SQLite，不上传，UI 永不返回明文。
+
+### 不上传任何数据
+
+- Ollama 通信全部在 `localhost:11434`
+- API key 存在 `data/tarot.sqlite3` 的 `interpret_settings` 表，永不离开本机
+- OpenRouter 回退**仅在你配 key 且本地 Ollama 不可用时**才会使用
+- 解读历史存在 `interpretations` 表（`reading_id` 外键到 `readings`），删除 reading 会级联删除其解读
+
+### 自检 / 调试
+
+```bash
+# Ollama 健康检查（包含模型是否拉取）
+curl http://localhost:8080/api/interpret/health
+
+# 流式生成测试（假设有 reading_id=1）
+curl -N -X POST -H "Content-Type: application/json" \
+  --data-binary '{"style":"traditional","language":"zh"}' \
+  http://localhost:8080/api/interpret/1
+
+# 查看历史
+curl "http://localhost:8080/api/interpret/1?all=1"
+
+# 改配置
+curl -X POST -H "Content-Type: application/json" \
+  --data-binary '{"ollama_model":"qwen2.5:14b"}' \
+  http://localhost:8080/api/interpret/settings
+```
+
+### 范围限制
+
+当前 Phase 1 实现**不**包含：多轮对话追问、跨记录 RAG、用户自定义 prompt、解读评分。这些是后续迭代项。
+
 ## 测试
 
 运行 JavaScript 行为测试：
@@ -164,6 +262,14 @@ node tests/test_deck_order.js
 node tests/test_daily_draw.js
 node tests/test_input_mode.js
 node tests/test_reading_orientation.js
+node tests/test_interpret.js      # AI 解读 SSE 解析 + 错误态
+```
+
+运行 Python 测试：
+
+```bash
+python -m unittest tests.test_server -v
+python -m unittest tests.test_interpret_service -v  # 25 个解读 service 测试
 ```
 
 检查 JavaScript 语法：
@@ -172,11 +278,6 @@ node tests/test_reading_orientation.js
 Get-ChildItem js -Filter *.js | ForEach-Object { node --check $_.FullName }
 ```
 
-运行后端测试：
-
-```bash
-python -m unittest tests.test_server -v
-```
 
 ## 项目结构
 
@@ -184,7 +285,9 @@ python -m unittest tests.test_server -v
 taluo/
 ├── Three.html          # 主应用
 ├── admin.html          # 本地历史记录后台
-├── server.py           # 静态服务 + SQLite API
+├── server.py           # 静态服务 + SQLite API + 解读流式端点
+├── interpret_prompts.py  # 系统 prompt + 风格 overlay + slop 正则
+├── interpret_service.py  # Ollama / OpenRouter 客户端 + 策略 + 持久化
 ├── css/
 │   ├── tokens.css      # CSS 变量（按 [data-theme] 分组）
 │   ├── base.css        # html / body 基础样式
@@ -192,6 +295,7 @@ taluo/
 │   ├── theme.css       # 四角晕染、雾效层和白天模式样式覆盖
 │   ├── tarot.css       # 主页面专属
 │   ├── admin.css       # 后台页专属
+│   ├── interpret.css   # AI 解读面板 / 弹窗 / 错误横幅
 │   └── responsive.css  # 响应式补丁
 ├── assets/textures/    # 本地纹理素材
 ├── data/.gitkeep       # 运行时 SQLite 数据库目录
@@ -221,6 +325,7 @@ taluo/
 │   ├── spread_templates.js # 牌阵模板定义
 │   ├── state.js        # 共享运行时状态
 │   ├── theme.js        # 黑白主题控制 + 持久化
+│   ├── interpret.js    # AI 解读 SSE 消费 + mountPanel + 错误态
 │   ├── ui.js           # 每张卡的浮动标签池
 │   └── utils.js        # 纹理与清理工具
 └── tests/              # 前后端行为测试

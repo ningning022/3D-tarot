@@ -76,11 +76,16 @@ async function completeReadingHistory(spreadNumber) {
     const meta = { ...currentReadingMeta };
     resetReadingCapture();
     if (window.TarotAPI && cards.length > 0) {
-        await window.TarotAPI.saveReading(spreadNumber, {
+        const saved = await window.TarotAPI.saveReading(spreadNumber, {
             ...meta,
             spreadNumber,
             cards
         });
+        // Expose the saved row's id so the spread-prompt modal's
+        // Interpret button knows which reading to ask the model about.
+        if (saved && saved.id) {
+            window.lastSavedReadingId = saved.id;
+        }
     }
 }
 

@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/tarot.css">
+    <link rel="stylesheet" href="css/interpret.css">
     <link rel="stylesheet" href="css/responsive.css">
 </head>
 
@@ -141,7 +142,16 @@
         <div class="prompt-actions">
             <button id="prompt-next" type="button">下一阵 / Next</button>
             <button id="prompt-return" type="button">返回牌库 / Return</button>
+            <button id="prompt-interpret" type="button">解读 / Interpret</button>
         </div>
+    </div>
+
+    <div id="interpret-overlay" hidden>
+        <div class="interpret-overlay-head">
+            <h3 class="interpret-overlay-title">AI 解读 / Interpretation</h3>
+            <button id="interpret-overlay-close" class="interpret-overlay-close" type="button">关闭 / Close (Esc)</button>
+        </div>
+        <div id="interpret-overlay-mount"></div>
     </div>
 
     <div id="idle-card-label"></div>
@@ -156,6 +166,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
     <script src="js/theme.js"></script>
+    <script src="js/interpret.js"></script>
     <script src="js/deck.js"></script>
     <script src="js/state.js"></script>
     <script src="js/utils.js"></script>

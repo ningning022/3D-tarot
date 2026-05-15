@@ -237,8 +237,18 @@ const AdminChronicle = (() => {
                 ${renderReplayBoard(replayCards)}
             </section>
             ${renderInsightCards(reading, replayCards)}
+            <div id="interpretation-mount" class="interpretation-mount"></div>
             <div class="admin-card-grid">${renderCardDetails(replayCards)}</div>
         `;
+
+        // Mount the interpretation panel. Done after innerHTML so the
+        // container exists. Module is loaded via <script> tag above this.
+        const mount = el('interpretation-mount');
+        if (mount && window.AkashicInterpret) {
+            window.AkashicInterpret.mountPanel(mount, reading.id).catch(() => {
+                /* mount failure is non-fatal */
+            });
+        }
     }
 
     function renderDashboard() {
@@ -363,7 +373,119 @@ const AdminChronicle = (() => {
                     <button class="admin-link" data-detail-action="cancel-clear" type="button">取消 / Cancel</button>
                 </div>
             </div>
+            <div id="interpret-settings-mount" class="interpretation-panel" style="margin-top:24px"></div>
         `;
+        mountInterpretSettings();
+    }
+
+    /**
+     * Render the interpretation engine settings card (backend toggle +
+     * model fields + OpenRouter API key). The card is itself rendered
+     * inside #interpret-settings-mount so it picks up the panel-aware
+     * theme styling shared with the live interpret panel.
+     */
+    async function mountInterpretSettings() {
+        const root = el('interpret-settings-mount');
+        if (!root) return;
+        root.innerHTML = '<div class="empty-state">加载设置 / Loading settings…</div>';
+        let settings;
+        let health;
+        try {
+            [settings, health] = await Promise.all([
+                fetch('/api/interpret/settings', { cache: 'no-store' }).then(r => r.json()),
+                fetch('/api/interpret/health', { cache: 'no-store' }).then(r => r.json())
+            ]);
+        } catch (err) {
+            root.innerHTML = '<div class="empty-state">设置加载失败 / Failed to load settings</div>';
+            return;
+        }
+        const statusLabel = (() => {
+            if (health.ollama === 'ready') return '✓ Ollama 已就绪 / Ready · ' + escapeHtml(health.model || '');
+            if (health.ollama === 'model_missing') return '⚠ 模型未下载 / Model missing · 运行 `ollama pull qwen2.5:7b`';
+            return '✗ Ollama 未运行 / Down · ' + escapeHtml(health.ollama_message || '');
+        })();
+        root.innerHTML = `
+            <div class="reading-detail-head" style="border:0;padding:0">
+                <div>
+                    <p>AI 解读引擎 / Interpretation Engine</p>
+                    <h2 style="font-size:1.2rem">${statusLabel}</h2>
+                </div>
+            </div>
+            <div class="admin-info-grid" style="margin-top:8px">
+                <article class="admin-mini-panel">
+                    <h3>后端 / Backend</h3>
+                    <select id="settings-backend" class="interpret-style-select" style="width:100%">
+                        <option value="ollama">Ollama (本地 / Local)</option>
+                        <option value="openrouter">OpenRouter (云 / Cloud)</option>
+                    </select>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>Ollama Model</h3>
+                    <input id="settings-ollama-model" type="text" class="admin-search input" style="width:100%;min-height:34px;padding:6px 10px;border-radius:5px;border:1px solid var(--panel-line);background:color-mix(in oklch, var(--accent) 5%, transparent);color:var(--ink-text)" />
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>OpenRouter Model</h3>
+                    <input id="settings-openrouter-model" type="text" style="width:100%;min-height:34px;padding:6px 10px;border-radius:5px;border:1px solid var(--panel-line);background:color-mix(in oklch, var(--accent) 5%, transparent);color:var(--ink-text)" />
+                </article>
+                <article class="admin-mini-panel" style="grid-column: 1 / -1">
+                    <h3>OpenRouter API Key</h3>
+                    <input id="settings-openrouter-key" type="password" placeholder="${settings.openrouter_api_key_set ? '已配置 / Configured (留空保持不变)' : 'sk-or-…'}" style="width:100%;min-height:34px;padding:6px 10px;border-radius:5px;border:1px solid var(--panel-line);background:color-mix(in oklch, var(--accent) 5%, transparent);color:var(--ink-text)" />
+                    <span style="font-size:0.74rem;color:color-mix(in oklch, var(--ink-text) 60%, transparent)">本地存储，不上传 / Stored locally, never transmitted</span>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>默认风格 / Default Style</h3>
+                    <select id="settings-default-style" class="interpret-style-select" style="width:100%">
+                        <option value="traditional">经典 / Traditional</option>
+                        <option value="intuitive">直觉 / Intuitive</option>
+                        <option value="psychological">心理 / Psychological</option>
+                    </select>
+                </article>
+                <article class="admin-mini-panel">
+                    <h3>默认语言 / Default Language</h3>
+                    <select id="settings-default-language" class="interpret-style-select" style="width:100%">
+                        <option value="zh">中文 / Chinese</option>
+                        <option value="en">English</option>
+                    </select>
+                </article>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+                <button id="settings-save" class="interpret-btn">保存 / Save</button>
+                <span id="settings-save-status" class="interpret-status" style="margin-left:6px"></span>
+            </div>
+        `;
+        // Prime current values
+        el('settings-backend').value = settings.backend || 'ollama';
+        el('settings-ollama-model').value = settings.ollama_model || 'qwen2.5:7b';
+        el('settings-openrouter-model').value = settings.openrouter_model || 'qwen/qwen-2.5-72b-instruct';
+        el('settings-default-style').value = settings.default_style || 'traditional';
+        el('settings-default-language').value = settings.default_language || 'zh';
+
+        el('settings-save').addEventListener('click', async () => {
+            const payload = {
+                backend: el('settings-backend').value,
+                ollama_model: el('settings-ollama-model').value.trim(),
+                openrouter_model: el('settings-openrouter-model').value.trim(),
+                default_style: el('settings-default-style').value,
+                default_language: el('settings-default-language').value
+            };
+            const newKey = el('settings-openrouter-key').value;
+            if (newKey) payload.openrouter_api_key = newKey;
+            el('settings-save').disabled = true;
+            el('settings-save-status').textContent = '保存中… / Saving…';
+            try {
+                const r = await fetch('/api/interpret/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                el('settings-save-status').textContent = '✓ 已保存 / Saved';
+            } catch (err) {
+                el('settings-save-status').textContent = '✗ 保存失败 / Save failed';
+            } finally {
+                el('settings-save').disabled = false;
+            }
+        });
     }
 
     function renderSystem() {
