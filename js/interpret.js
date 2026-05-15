@@ -259,8 +259,11 @@
                 const rows = await fetchHistory(readingId);
                 if (!rows.length) {
                     historyList.innerHTML = '';
+                    genBtn.textContent = '生成解读 / Interpret';
                     return;
                 }
+                // Once history exists, the action is regeneration, not first-time generation.
+                genBtn.textContent = '重新生成 / Regenerate';
                 // First row = latest. Render it inline. Older entries become collapsed chips.
                 const latest = rows[0];
                 result.dataset.fromHistory = '1';
