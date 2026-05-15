@@ -52,6 +52,27 @@
     border-color: var(--accent);
 }
 
+/* <option> dropdown list items default to OS-controlled styling.
+   Chromium accepts background-color + color on <option> but only when
+   set explicitly. Forces readable contrast in both themes. */
+.interpret-style-select option,
+.interpret-lang-select option {
+    background-color: var(--surface);
+    color: var(--ink-text);
+}
+
+[data-theme="dark"] .interpret-style-select option,
+[data-theme="dark"] .interpret-lang-select option {
+    background-color: #16080a;
+    color: #f5e9d2;
+}
+
+[data-theme="light"] .interpret-style-select option,
+[data-theme="light"] .interpret-lang-select option {
+    background-color: #fffaf0;
+    color: #1a0f08;
+}
+
 .interpret-btn {
     display: inline-flex;
     align-items: center;
@@ -110,6 +131,88 @@
 /* ── Health banner slot ─────────────────────────────────── */
 .interpret-health-slot:empty { display: none; }
 .interpret-health-slot { margin-bottom: 10px; }
+
+/* ── Card preview strip (the cards being interpreted) ────
+   Inline gallery of all cards in the spread so the reader can
+   cross-reference the interpretation text without dismissing
+   the overlay. */
+.interpret-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin: 6px 0 12px;
+    padding: 10px 12px;
+    background: color-mix(in oklch, var(--surface) 38%, transparent);
+    border: 1px solid color-mix(in oklch, var(--panel-line) 70%, transparent);
+    border-radius: 6px;
+}
+
+.interpret-cards:empty { display: none; }
+
+.interpret-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 78px;
+    text-align: center;
+}
+
+.interpret-card-slot {
+    font-size: 0.66rem;
+    color: color-mix(in oklch, var(--ink-text) 65%, transparent);
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+}
+
+.interpret-card-img {
+    width: 64px;
+    height: 100px;
+    object-fit: cover;
+    object-position: center top;
+    border: 1px solid var(--accent-line, var(--accent));
+    border-radius: 4px;
+    background: var(--surface);
+    box-shadow: 0 4px 10px color-mix(in oklch, var(--surface) 60%, transparent);
+    transition: transform 0.25s ease;
+}
+
+.interpret-card-img.reversed {
+    transform: rotate(180deg);
+}
+
+.interpret-card-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--ink-text);
+    line-height: 1.25;
+    margin-top: 2px;
+}
+
+.interpret-card-en {
+    font-size: 0.66rem;
+    color: var(--accent);
+    font-style: italic;
+    line-height: 1.2;
+}
+
+.interpret-card-orient {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--accent) 22%, transparent);
+    color: var(--accent);
+    margin-top: 1px;
+    letter-spacing: 0.06em;
+}
+
+.interpret-card-orient.reversed {
+    background: color-mix(in oklch, var(--danger, #b03b1f) 24%, transparent);
+    color: var(--danger, #b03b1f);
+}
 
 /* ── Result (streaming text area) ───────────────────────── */
 

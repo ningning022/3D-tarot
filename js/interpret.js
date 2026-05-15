@@ -238,6 +238,7 @@
 
         const status = el('div', { class: 'interpret-status' }, []);
         const healthBanner = el('div', { class: 'interpret-health-slot' }, []);
+        const cardStrip = el('div', { class: 'interpret-cards' }, []);
         const result = el('div', { class: 'interpret-result' }, []);
         const historyList = el('div', { class: 'interpret-history' }, []);
 
@@ -248,11 +249,43 @@
             cancelBtn,
             status
         ]));
+        // Card preview strip — populated by loadReadingCards() below.
+        // Empty selector hides it via :empty in CSS.
+        container.appendChild(cardStrip);
         // Health banner sits between toolbar and result so it persists
         // even when loadHistory rewrites the result body.
         container.appendChild(healthBanner);
         container.appendChild(result);
         container.appendChild(historyList);
+
+        // ── Populate the card preview strip from the saved reading.
+        // This runs in parallel with loadHistory; both are non-blocking.
+        async function loadReadingCards() {
+            try {
+                const r = await fetch(`/api/readings/${readingId}`, { cache: 'no-store' });
+                if (!r.ok) return;
+                const reading = await r.json();
+                const cards = (reading && reading.cards) || [];
+                cardStrip.innerHTML = '';
+                for (const c of cards) {
+                    const reversed = !!c.isReversed;
+                    cardStrip.appendChild(el('div', { class: 'interpret-card' }, [
+                        c.slotLabel ? el('div', { class: 'interpret-card-slot' }, [c.slotLabel]) : null,
+                        el('img', {
+                            class: 'interpret-card-img' + (reversed ? ' reversed' : ''),
+                            src: `image2/${encodeURIComponent(c.imageFile || '')}`,
+                            alt: `${c.zh || c.en || ''} ${reversed ? '逆位' : '正位'}`,
+                            loading: 'lazy'
+                        }, []),
+                        el('div', { class: 'interpret-card-name' }, [c.zh || c.en || '?']),
+                        c.en ? el('div', { class: 'interpret-card-en' }, [c.en]) : null,
+                        el('span', {
+                            class: 'interpret-card-orient' + (reversed ? ' reversed' : '')
+                        }, [reversed ? '逆位' : '正位'])
+                    ]));
+                }
+            } catch (_) { /* non-fatal; panel still works without strip */ }
+        }
 
         async function loadHistory() {
             try {
@@ -356,7 +389,8 @@
 
         genBtn.addEventListener('click', runStream);
 
-        await loadHistory();
+        // Kick both off in parallel — they touch different DOM areas.
+        await Promise.all([loadHistory(), loadReadingCards()]);
 
         // Pre-flight health banner — rendered in its own slot above the
         // result body so loadHistory can't overwrite it.
