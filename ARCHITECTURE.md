@@ -240,3 +240,43 @@ Subsequent runs are no-ops (signature short-circuit).
 | Add a new agent step | new helper in `interpret_agent`, record between existing steps in `interpret_service.interpret_reading_stream` |
 | Add a new eval rubric axis | `evals/judge.RUBRIC_AXES` + `Score.total()` divisor |
 | Telemetry visualization | new admin tab consuming `/api/interpret/<id>/agent-trace` |
+
+---
+
+## 10 · Known gaps / follow-ups
+
+### 10.1 · Eval should exercise the production HTTP path, not the orchestrator directly
+
+`evals/runner.py` currently calls `interpret_service.interpret_reading_stream(...)`
+directly with cards it built itself via `build_cards_for_item()`. This bypasses
+`server._load_reading_for_interpret()` — the transform that turns a stored
+reading row into the dict shape the agent expects.
+
+The card-id regression (commit `a955083`) lived in exactly that transform.
+The eval reported 90% topic accuracy because eval-mode cards always had
+`card_id`. The production path didn't. The two pipelines diverged at the
+one layer the eval framework wasn't covering.
+
+**Fix shape (not done):** rework `run_one()` to POST against
+`/api/interpret/<id>` (synthesizing reading rows up-front), consume the SSE
+stream, and fetch the trace via `/agent-trace`. This costs eval runs an HTTP
+round-trip per item but guarantees:
+
+- The cards-loading transform is exercised
+- Concurrency lock behavior is exercised
+- Settings resolution is exercised
+- Any future server-layer change can't silently degrade RAG without the
+  eval going red
+
+Until that's done: treat eval numbers as upper bounds on what the
+production path can achieve, not necessarily what it currently does.
+The telemetry viewer (`telemetry.html`) is the production-path
+ground truth — when in doubt, check a real reading's trace there.
+
+### 10.2 · Health-probe latency caching
+
+`check_ollama_health()` runs on every stream start (5s timeout). With both
+qwen2.5:7b and nomic-embed-text installed, `/api/tags` takes ~2s and pays
+that on every interpret. A short-TTL cache (e.g. 10–30s) would cut p50
+stream-start latency from ~2s to <50ms on warm paths without making
+the "is Ollama still alive?" answer too stale to trust.
