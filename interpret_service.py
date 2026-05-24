@@ -43,7 +43,7 @@ DEFAULT_OPENROUTER_MODEL = "qwen/qwen-2.5-72b-instruct"
 DEFAULT_NUM_PREDICT = 600  # cap output tokens (Chinese ~300-500 chars target)
 DEFAULT_TEMPERATURE = 0.78  # warm enough for prose, not chaos
 
-OLLAMA_HEALTH_TIMEOUT_S = 2
+OLLAMA_HEALTH_TIMEOUT_S = 5   # /api/tags can take ~2s when models are loaded; 2s was race-y
 OLLAMA_GENERATE_TIMEOUT_S = 180
 
 

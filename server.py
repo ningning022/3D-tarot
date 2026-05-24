@@ -482,6 +482,11 @@ def _load_reading_for_interpret(reading_id: int) -> tuple[str, list[dict]] | Non
             {
                 "slot": c["slot"],
                 "slot_label": c.get("slotLabel") or f"Slot {c['slot']}",
+                # card_id MUST be threaded through: interpret_rag.retrieve_for_cards
+                # skips any card without one, which silently disables RAG injection
+                # for the production path while traces still show classify+generate
+                # as ok. The eval runner builds cards the same way and must too.
+                "card_id": c.get("cardId"),
                 "zh": c.get("zh", ""),
                 "en": c.get("en", ""),
                 "is_reversed": bool(c.get("isReversed")),
