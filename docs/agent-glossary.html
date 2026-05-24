@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Akashic Tarot · Agent 与 LLM 术语手册</title>
+<style>
+  :root {
+    --bg: #f7f4ed;
+    --ink: #202124;
+    --muted: #63615b;
+    --surface: #fffdf8;
+    --surface-2: #f0ebe1;
+    --line: #d8d1c3;
+    --accent: #b45309;
+    --accent-2: #0f766e;
+    --accent-3: #7c3aed;
+    --soft: #fff4d6;
+    --code-bg: #f4efe6;
+    --code: #1f2937;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      linear-gradient(180deg, rgba(180, 83, 9, .08), transparent 360px),
+      var(--bg);
+    color: var(--ink);
+    font: 16px/1.72 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", system-ui, sans-serif;
+  }
+  a { color: var(--accent-2); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { color: var(--accent); }
+
+  .page {
+    width: min(1120px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 44px 0 80px;
+  }
+
+  header.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(260px, .8fr);
+    gap: 28px;
+    align-items: end;
+    padding-bottom: 26px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 { margin: 0; font-size: clamp(30px, 5vw, 50px); font-weight: 800; line-height: 1.18; max-width: 760px; }
+  .lede { max-width: 760px; color: var(--muted); font-size: 17.5px; margin-top: 14px; }
+  .stamp {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 14px 40px rgba(33, 24, 10, .08);
+  }
+  .stamp b { color: var(--accent); }
+  .stamp p { margin: 4px 0; font-size: 14px; }
+  .mini { color: var(--muted); font-size: 13px; }
+
+  nav.toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 24px 0 0;
+  }
+  nav.toc a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 5px 11px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255,255,255,.5);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 13.5px;
+  }
+  nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  h2 {
+    margin: 56px 0 4px;
+    font-size: 26px;
+    color: var(--accent);
+    letter-spacing: -0.2px;
+  }
+  h2 .num {
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    color: var(--muted);
+    font-size: 18px;
+    margin-right: 8px;
+  }
+  h3 {
+    margin: 32px 0 8px;
+    font-size: 19px;
+    color: var(--accent-2);
+  }
+  h4 {
+    margin: 24px 0 6px;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  p, ul, ol { margin: 8px 0; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+
+  code {
+    color: var(--code);
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    font-size: .9em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13.5px;
+    color: var(--code);
+    margin: 12px 0;
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    line-height: 1.55;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 1em; }
+
+  .term {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+  .term .head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .term .head .zh {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .term .head .en {
+    color: var(--accent-2);
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    font-size: 13.5px;
+  }
+  .term .head .pron {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .term .one-liner {
+    color: var(--ink);
+    margin: 0 0 10px;
+    font-size: 16px;
+  }
+  .term .analogy {
+    background: var(--soft);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 14.5px;
+  }
+  .term .analogy b { color: #7c2d12; }
+  .term .in-project {
+    background: #e7f5f2;
+    border-left: 3px solid var(--accent-2);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin: 10px 0;
+    font-size: 14.5px;
+  }
+  .term .in-project b { color: #115e59; }
+  .term .deeper {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 8px 0 0;
+    font-style: italic;
+  }
+
+  .check {
+    background: #efe8ff;
+    border: 1px solid #d6c4ff;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 20px 0;
+  }
+  .check h4 {
+    color: #5b21b6;
+    margin: 0 0 6px;
+  }
+  .check ul { margin: 4px 0 0; }
+
+  .flow-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .flow-row .step {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .flow-row .arrow { color: var(--muted); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 14.5px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  tr:last-child td { border-bottom: none; }
+  th {
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .file-ref {
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    font-size: 12.5px;
+    color: var(--accent-2);
+  }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 760px) {
+    header.hero { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+<header class="hero">
+  <section>
+    <h1>Agent 与 LLM 术语手册</h1>
+    <p class="lede">
+      不是字典式罗列，而是教学顺序。每个词配一句话定义、一个生活类比，再标明
+      在这个塔罗项目里具体落在哪里、对应代码哪一行。读懂这些词，你就能读懂自己的代码。
+    </p>
+    <nav class="toc" aria-label="目录">
+      <a href="#part-1">① 你需要先理解的「软件世界」</a>
+      <a href="#part-2">② LLM 基础术语</a>
+      <a href="#part-3">③ RAG（检索增强生成）</a>
+      <a href="#part-4">④ Agent 系统</a>
+      <a href="#part-5">⑤ 评测与可观测性</a>
+      <a href="#part-6">⑥ 工程概念</a>
+      <a href="#glossary">字母索引</a>
+    </nav>
+  </section>
+  <aside class="stamp">
+    <p><b>读这份文档的人是：</b></p>
+    <p>已经跟我一起把这个项目做出来了，但对里面的术语还停留在"听过没真懂"。</p>
+    <p style="margin-top:10px"><b>读完之后你能：</b></p>
+    <p>用自己的话向别人解释「这个项目是什么、为什么有 RAG、Agent 是怎么跑的」。</p>
+    <p class="mini" style="margin-top:12px;">配套阅读：<br>
+      • <code>docs/agent-knowledge-recap.html</code>（学习路线）<br>
+      • <code>ARCHITECTURE.md</code>（架构细节）<br>
+      • <code>README.md</code>（功能与用法）
+    </p>
+  </aside>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PART 1 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2 id="part-1"><span class="num">01</span>你需要先理解的「软件世界」</h2>
+
+<p>在跳进 LLM 和 Agent 之前，先把这些词钉一下。它们是你看任何项目代码的前提。</p>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">前端 / 后端</span>
+    <span class="en">frontend / backend</span>
+  </div>
+  <p class="one-liner">前端 = 浏览器里看到的页面；后端 = 在服务器上跑的程序，负责数据和逻辑。</p>
+  <div class="analogy"><b>类比：</b>前端是餐厅里看到的菜单和服务员，后端是厨房。你点菜（点按钮）→ 服务员（前端）把订单传给厨房（后端）→ 厨房做完菜（处理数据）→ 服务员端上来（前端展示结果）。</div>
+  <div class="in-project"><b>这个项目里：</b>前端是 <code>Three.html</code>、<code>admin.html</code> 和 <code>js/*.js</code>；后端是 <code>server.py</code> 和它调用的 <code>interpret_*.py</code> 一堆。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">HTTP 请求</span>
+    <span class="en">HTTP request</span>
+  </div>
+  <p class="one-liner">前端向后端"提一个要求"的标准格式：方法（GET / POST...）+ 路径（/api/...）+ 可选 body。</p>
+  <div class="analogy"><b>类比：</b>寄一封挂号信。GET 像"问个问题"（取某个东西），POST 像"递交一份资料"（让对方处理一件事）。信封上的地址 = 路径，信里写的内容 = body。</div>
+  <div class="in-project"><b>这个项目里：</b>当你点"生成解读"按钮，前端就发出 <code>POST /api/interpret/6</code>，body 里塞 <code>{style, language, question}</code>。后端在 <code>server.py:_handle_interpret_stream()</code> 里接收。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">API 端点</span>
+    <span class="en">API endpoint</span>
+  </div>
+  <p class="one-liner">后端对外暴露的一个"门"，每个门对应一项服务。</p>
+  <div class="analogy"><b>类比：</b>邮局窗口。寄件、取件、换零钱、办护照各有一个窗口，门牌号就是端点 URL。</div>
+  <div class="in-project"><b>这个项目里所有的门：</b>
+    <ul>
+      <li><code>GET /api/readings</code> — 列出已保存的牌阵</li>
+      <li><code>POST /api/readings</code> — 保存一次新牌阵</li>
+      <li><code>POST /api/interpret/&lt;id&gt;</code> — 让 AI 解读某个牌阵</li>
+      <li><code>GET /api/interpret/&lt;id&gt;/agent-trace</code> — 看 Agent 推理过程</li>
+    </ul>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">JSON</span>
+    <span class="en">JavaScript Object Notation</span>
+    <span class="pron">读作 "Jay-Sun"</span>
+  </div>
+  <p class="one-liner">前后端之间通信用的统一文本格式，是所有现代 Web 服务的"通用语言"。</p>
+  <div class="analogy"><b>类比：</b>国际通用的快递单格式 — 谁都看得懂、谁都能填。<code>{}</code> 是大括号包起来的"对象"，<code>[]</code> 是方括号包起来的"列表"。</div>
+  <div class="in-project"><b>例子：</b>POST <code>/api/interpret/6</code> 的 body 就是 JSON：
+    <pre><code>{"style":"traditional","language":"zh","question":"我应该跳槽吗？"}</code></pre>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">数据库 / SQLite</span>
+    <span class="en">database / SQLite</span>
+  </div>
+  <p class="one-liner">数据库 = 结构化存数据的地方，能查询、能更新。SQLite 是其中最轻的一种：整个库就一个文件。</p>
+  <div class="analogy"><b>类比：</b>普通文件像便利贴一摞，找东西得翻；数据库像有索引的档案柜。SQLite 像随身带的小档案盒（不需要单独的服务器进程）。</div>
+  <div class="in-project"><b>这个项目里：</b><code>data/tarot.sqlite3</code> 一个文件存了所有 reading、interpretation、agent trace、设置。<code>server.py</code> 顶部用 <code>sqlite3</code> 这个 Python 自带模块连上去。</div>
+  <p class="deeper">为什么选 SQLite 而不是 PostgreSQL/MySQL？这是个"本地优先"应用 — 不需要联网、不需要账号、单机能跑。SQLite 零配置、零依赖。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">SSE 流式</span>
+    <span class="en">Server-Sent Events</span>
+  </div>
+  <p class="one-liner">服务器持续往前端推数据的简单协议。一次 HTTP 连接保持开着，服务器一段一段写。</p>
+  <div class="analogy"><b>类比：</b>普通 HTTP = 你点一份外卖等齐了再送来；SSE = 厨师做一道菜就先端一道，吃着等下一道。</div>
+  <div class="in-project"><b>关键体验：</b>AI 解读用 SSE — 你能看到字一个一个蹦出来，不用干等十几秒。每一帧长这样：
+    <pre><code>data: {"chunk": "在"}
+
+data: {"chunk": "过去"}
+
+data: {"chunk": "你"}</code></pre>
+    实现在 <span class="file-ref">server.py:_handle_interpret_stream</span>。
+  </div>
+</div>
+
+<div class="check">
+  <h4>🎯 自查：到这里你应该能回答</h4>
+  <ul>
+    <li>"用户点解读按钮"之后到"第一个字蹦出来"之间，至少经过了哪三步？</li>
+    <li>如果数据库文件被删了，重启后还能登录吗？为什么这个项目这个问题不成立？</li>
+    <li>SSE 跟普通 HTTP 的区别在用户体感上是什么？</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PART 2 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2 id="part-2"><span class="num">02</span>LLM 基础术语</h2>
+
+<p>LLM = Large Language Model，大语言模型。这一节把围绕它的核心词全部理清。</p>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">大语言模型</span>
+    <span class="en">Large Language Model (LLM)</span>
+  </div>
+  <p class="one-liner">一个超大的神经网络，输入一段文字，输出"接下来最可能的文字"。</p>
+  <div class="analogy"><b>类比：</b>极其博学的接龙游戏选手。给它"今天天气真好，我想"，它会接"出去散步"或"睡个懒觉"。它不"理解"任何东西，只是把见过的海量文字的统计规律记住了。</div>
+  <div class="in-project"><b>项目里用了两个 LLM：</b>
+    <ul>
+      <li><code>qwen2.5:7b</code> — 千问 7B 模型，跑在你本机 Ollama 上，做主力解读</li>
+      <li><code>nomic-embed-text</code> — 嵌入模型，把文本变成向量（下面会讲）</li>
+    </ul>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">参数 / 7B</span>
+    <span class="en">parameters / 7B</span>
+  </div>
+  <p class="one-liner">"7B" = 7 Billion = 70 亿。指这个神经网络里有 70 亿个可调旋钮。</p>
+  <div class="analogy"><b>类比：</b>你脑袋里大概 860 亿个神经元 + 100 万亿个突触。LLM 的"参数"接近这个突触的概念 — 越多通常越聪明，但跑起来越费内存。</div>
+  <div class="in-project"><b>为什么选 7B：</b>14B 跑不动你的 6GB 显存（RTX 3060），3B 又太蠢。7B 在 Q4_K_M 量化后约 4.5GB，刚好塞得下。</div>
+  <p class="deeper">同一个家族常见尺寸：1.5B / 3B / 7B / 14B / 32B / 72B。商业大模型像 GPT-4 估计在 1T（1 万亿）量级，但官方没公布。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">量化</span>
+    <span class="en">quantization / Q4_K_M</span>
+  </div>
+  <p class="one-liner">把模型参数从高精度（float32 / 4 字节）压缩到低精度（int4 / 0.5 字节）的过程，体积小 8 倍，速度快好几倍，质量略降。</p>
+  <div class="analogy"><b>类比：</b>JPEG 压缩照片 — 文件小很多、人眼几乎看不出区别。Q4_K_M 是种特定算法（K-quants Medium）。</div>
+  <div class="in-project"><b>实例：</b>原版 qwen2.5:7b 大约 15GB，Q4_K_M 量化版只有 4.5GB，6GB 显存能跑。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Token / Tokenization</span>
+    <span class="en">token</span>
+  </div>
+  <p class="one-liner">模型处理文本的最小单位，不是字也不是词，而是"被切分算法切出来的片段"。</p>
+  <div class="analogy"><b>类比：</b>把整本书撕成不规则的小纸条 — 常用词一片一张纸，罕见词被切成几片。"hello"通常是 1 个 token；"reinforcement"可能切成 "rein" + "force" + "ment"。中文常常一个汉字一个 token。</div>
+  <div class="in-project"><b>具体数字：</b>项目里 <code>DEFAULT_NUM_PREDICT = 600</code> 意思是"最多让模型生成 600 个 token"。中文一般 1 字 ≈ 1 token，所以约 300-500 字的解读够用。</div>
+  <p class="deeper">为什么不直接按字符？因为按 token 模型对常见词更敏感，对罕见词又能拆开处理，是个权衡好的折中。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">提示词</span>
+    <span class="en">prompt</span>
+  </div>
+  <p class="one-liner">你给模型的输入文本。LLM 看到 prompt 接下去生成下文 — 改 prompt 就是改模型的输出方向。</p>
+  <div class="analogy"><b>类比：</b>给作家一个开头，让他续写。你给的开头不同，故事走向就完全不同 — 这就是 "prompt engineering" 的本质。</div>
+  <div class="in-project"><b>看看长啥样：</b><span class="file-ref">interpret_prompts.py</span> 整个模块就是在拼 prompt。一次解读的完整 prompt 包含：
+    <ol>
+      <li>System prompt — "你是一个塔罗解读师..."</li>
+      <li>Few-shot — 一个手写的高质量例子（参考样本）</li>
+      <li>检索块 — RAG 拉来的 3 张牌的标准牌义（【参考资料】）</li>
+      <li>用户的问题（如果有）</li>
+      <li>当前牌阵的牌名 + 位置</li>
+    </ol>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">System / User / Assistant 角色</span>
+    <span class="en">system / user / assistant role</span>
+  </div>
+  <p class="one-liner">现代 chat-style LLM 把对话拆成"几个角色"，按顺序排好。模型只在 assistant 角色处生成。</p>
+  <div class="analogy"><b>类比：</b>剧本里的角色标签。System 是导演给演员的总指令，user 是观众递上来的提问，assistant 是演员的台词。</div>
+  <div class="in-project"><b>看代码：</b>
+    <pre><code>messages = [
+    {"role": "system", "content": "你是一个塔罗解读师..."},
+    {"role": "user",   "content": "我抽到了隐士、世界逆位、死神逆位..."}
+]</code></pre>
+    这就是发给 Ollama 的 <code>messages</code> 数组。Ollama 自动补一个 assistant 角色，开始生成。
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">温度</span>
+    <span class="en">temperature</span>
+  </div>
+  <p class="one-liner">控制生成随机性的旋钮。0 = 永远选最可能的下一个 token（呆板）；1+ = 更随机有创意（也更容易跑偏）。</p>
+  <div class="analogy"><b>类比：</b>厨师做菜的"敢不敢加非常规调料"。低温 = 教科书操作；高温 = 即兴发挥。</div>
+  <div class="in-project"><b>项目里两套设定：</b>
+    <ul>
+      <li>解读生成（要散文感）：<code>temperature = 0.78</code></li>
+      <li>JSON 模式分类/审查（要稳定）：<code>temperature = 0.2</code></li>
+    </ul>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">流式生成 vs 批量生成</span>
+    <span class="en">streaming vs non-streaming</span>
+  </div>
+  <p class="one-liner">流式 = 模型生成一个 token 就吐一个；批量 = 全部生成完才一次性返回。</p>
+  <div class="in-project"><b>项目里同时用了两种：</b>
+    <ul>
+      <li>解读生成 → 流式（用户能边看边读）</li>
+      <li>classify / critique → 批量（要的是结构化 JSON，必须完整才能解析）</li>
+    </ul>
+    见 <span class="file-ref">interpret_service.stream_ollama</span> 和 <span class="file-ref">interpret_agent.call_ollama_json</span>。
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">JSON 模式</span>
+    <span class="en">JSON mode / structured output</span>
+  </div>
+  <p class="one-liner">告诉 LLM"你的输出必须是合法的 JSON 对象"，模型在内部约束自己只生成合法 JSON。</p>
+  <div class="analogy"><b>类比：</b>跟人对话时说"用是/否回答"，然后他真的只说"是"或"否"，不会自由发挥。</div>
+  <div class="in-project"><b>关键调用：</b><span class="file-ref">interpret_agent.py:call_ollama_json</span>，body 里加 <code>"format": "json"</code>。
+    <pre><code>body = {
+    "model": model,
+    "stream": False,
+    "format": "json",          # ← 这一行
+    "messages": messages,
+    "options": {"temperature": 0.2, "num_predict": 120}
+}</code></pre>
+  </div>
+  <p class="deeper">为什么仍然需要容错解析？因为 JSON 模式不是 100% 可靠 — 偶尔模型会在 JSON 前面加一句"Sure, here you go:"。所以我们有一段正则兜底，提取出第一个 <code>{...}</code> 块。</p>
+</div>
+
+<div class="check">
+  <h4>🎯 自查</h4>
+  <ul>
+    <li>你能用一句话解释为什么解读用 temperature=0.78 但分类器用 0.2 吗？</li>
+    <li>如果模型的 JSON 输出前面多了一行解释文字，项目里的哪个机制会兜住？</li>
+    <li>token 跟"字"不一样，那"600 token"对中文文章大约多少字？</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PART 3 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2 id="part-3"><span class="num">03</span>RAG（检索增强生成）</h2>
+
+<p>这是 Agent 项目的核心技能之一。RAG = Retrieval-Augmented Generation。先讲组件，再讲为什么需要。</p>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">向量 / Embedding</span>
+    <span class="en">embedding / vector</span>
+  </div>
+  <p class="one-liner">把一段文字变成一串数字（一个向量）。语义接近的文字，向量也接近。</p>
+  <div class="analogy"><b>类比：</b>给每个词一组 GPS 坐标。"苹果"和"梨"的坐标接近（都是水果），"苹果"和"汽车"离得远。LLM 内部就是用类似的坐标体系运作的。</div>
+  <div class="in-project"><b>具体细节：</b>项目用 <code>nomic-embed-text</code> 模型，输出 <b>768 维</b>向量（768 个浮点数）。一句话"我应该跳槽吗"会变成 [0.123, -0.456, 0.789, ...] 这样 768 个数字。</div>
+  <p class="deeper">为什么 768？是这个模型训练好的固定输出大小。不同模型不同维度，比如 OpenAI 的 text-embedding-3-small 是 1536 维。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">余弦相似度</span>
+    <span class="en">cosine similarity</span>
+  </div>
+  <p class="one-liner">衡量两个向量"指向同一方向"的程度。值在 -1 到 1 之间，越接近 1 越相似。</p>
+  <div class="analogy"><b>类比：</b>两个箭头夹角越小，余弦越接近 1（一个方向）；垂直 = 0（无关）；反方向 = -1（相反）。</div>
+  <div class="in-project"><b>看代码：</b><span class="file-ref">interpret_rag.py:_cosine</span> 算的就是 <code>(A·B) / (|A| · |B|)</code>。用户问"我应该跳槽吗" → 嵌入成向量 → 跟语料库里 3 张牌的向量逐一求余弦 → 排序。
+    <p>实际项目里你看到过这个数字：</p>
+    <pre><code>retrieve: count=3 topic_bias=career
+  - card_id=21 orient=reversed score=0.6089  ← 世界逆位
+  - card_id=9  orient=upright score=0.5756  ← 隐士
+  - card_id=13 orient=reversed score=0.5554  ← 死神逆位</code></pre>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">语料库</span>
+    <span class="en">corpus</span>
+  </div>
+  <p class="one-liner">用于检索的预先准备好的文本集合。RAG 时刻不需要现场生成，而是从语料库里捞最相关的几条。</p>
+  <div class="in-project"><b>这个项目的语料库：</b><span class="file-ref">data/tarot_corpus.json</span>，156 条 = 78 张牌 × 正/逆位。每条结构：
+    <pre><code>{
+  "card_id": 18,
+  "zh": "月亮",
+  "en": "The Moon",
+  "orientation": "reversed",
+  "themes": ["clarity", "release of fear"],
+  "imagery": "灰暗的月光下，犬狼狂吠...",
+  "situations": {
+    "career": "迷雾散去，看清同事关系的真相",
+    "relationship": "误会得以澄清",
+    ...
+  },
+  "keywords": ["释放", "澄清", "看穿幻象"]
+}</code></pre>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">向量数据库</span>
+    <span class="en">vector database / vector store</span>
+  </div>
+  <p class="one-liner">专门存储向量、快速找最近邻的存储系统。常见有 Pinecone / Chroma / Qdrant 等。</p>
+  <div class="in-project"><b>项目没用第三方：</b>156 条这个规模太小了，自建 SQLite 里存 BLOB（二进制 float32）+ 全表余弦遍历比引入向量数据库还快。
+    <p>表结构：</p>
+    <pre><code>CREATE TABLE corpus_embeddings (
+    entry_key TEXT,        -- "18:reversed"
+    model TEXT,            -- "nomic-embed-text"
+    corpus_sig TEXT,       -- 语料的指纹
+    dim INTEGER,           -- 768
+    vector BLOB,           -- 768 × 4 字节
+    text_hash TEXT,
+    created_at TEXT
+);</code></pre>
+  </div>
+  <p class="deeper">156 条规模下，全表余弦计算每次 &lt; 50ms。如果语料涨到 10 万条以上，就该上 Chroma/Qdrant 之类专门库了 — 它们用 HNSW 等近似算法把查找做到 O(log n)。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">RAG</span>
+    <span class="en">Retrieval-Augmented Generation</span>
+  </div>
+  <p class="one-liner">在让 LLM 生成前，先从语料库捞几条最相关的资料拼进 prompt，让模型有"参考书"可以引用。</p>
+  <div class="analogy"><b>类比：</b>考试时不准开卷的学生 vs 半开卷的学生。开卷的会先翻找相关章节，再下笔回答 — RAG 就是给 LLM 半开卷的能力。</div>
+  <div class="in-project"><b>完整流程：</b>
+    <ol>
+      <li>用户抽到 3 张牌，问"我应该跳槽吗"</li>
+      <li><b>Retrieve</b>：从语料库找这 3 张牌对应的解释 + 按问题排序</li>
+      <li>把找到的解释作为【参考资料】拼进 prompt</li>
+      <li><b>Generate</b>：LLM 看着参考资料 + 问题 + 牌名生成解读</li>
+    </ol>
+    实现：<span class="file-ref">interpret_rag.py:retrieve_for_cards</span>
+  </div>
+  <p class="deeper">没 RAG 会怎样？LLM 凭训练时"模糊记忆"瞎编 — 大概率说得过去，但会编造塔罗书里不存在的细节（俗称"幻觉" hallucination）。有 RAG 的输出更"言之有据"。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">两阶段过滤</span>
+    <span class="en">two-stage filter</span>
+  </div>
+  <p class="one-liner">先做便宜的精确过滤，再做贵的语义排序。</p>
+  <div class="in-project"><b>这是本项目 RAG 的关键设计：</b>
+    <ol>
+      <li><b>阶段一（确定性）</b>：根据 card_id + 正逆位精确匹配 — 抽到隐士正位就只取"9:upright"那一条。<b>不用调嵌入模型，零成本</b>。</li>
+      <li><b>阶段二（语义重排）</b>：只有用户提供了问题时才跑 — 把问题嵌入成 768 维向量，跟阶段一的候选向量求余弦，排序。</li>
+    </ol>
+    没问题 → 直接走阶段一（快路径）。有问题 → 阶段一过滤 + 阶段二排序。
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">嵌入缓存 / 幂等构建</span>
+    <span class="en">embedding cache / idempotent build</span>
+  </div>
+  <p class="one-liner">嵌入算一次就存起来，下次不用再算。幂等 = 反复跑同一操作结果不变。</p>
+  <div class="in-project"><b>项目实现：</b>缓存键是 <code>(corpus_signature, model, text_hash)</code>。语料没改就跳过；改了任一条文本就重新嵌入那一条。
+    <p>第一次构建 156 条要 5-6 分钟（每条调一次 Ollama embed），之后只要语料不动，零开销。看 <span class="file-ref">interpret_rag.py:build_index</span>。</p>
+  </div>
+</div>
+
+<div class="check">
+  <h4>🎯 自查</h4>
+  <ul>
+    <li>"幻觉"（hallucination）是什么意思？RAG 怎么减少它？</li>
+    <li>项目里如果用户不提问题，RAG 还跑吗？跑哪一阶段？</li>
+    <li>把语料从 156 涨到 100 万条，为什么这套实现就该换成 Chroma/Qdrant？</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PART 4 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2 id="part-4"><span class="num">04</span>Agent 系统</h2>
+
+<p>RAG 只是 Agent 的一个组件。Agent 整体是一条"多步推理管道"。</p>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Agent</span>
+    <span class="en">agent</span>
+  </div>
+  <p class="one-liner">能在多个工具/步骤之间编排的 LLM 应用。不是单次问答，而是规划 → 工具调用 → 评估的循环。</p>
+  <div class="analogy"><b>类比：</b>普通 LLM 像"一句问一句答"的接线员。Agent 像项目经理：接到任务后先想要做哪几步，调几个外部工具（搜索/数据库/计算器），最后整合结果交付。</div>
+  <div class="in-project"><b>本项目的 Agent 管道：</b>
+    <div class="flow-row">
+      <span class="step">classify</span>
+      <span class="arrow">→</span>
+      <span class="step">retrieve</span>
+      <span class="arrow">→</span>
+      <span class="step">generate</span>
+      <span class="arrow">→</span>
+      <span class="step">critique</span>
+    </div>
+    每一步都是一次独立的 LLM 调用，结果存到 <code>agent_steps</code> 表。
+  </div>
+  <p class="deeper">注意：Agent ≠ 多轮对话。Agent 强调"内部多步"，而多轮对话强调"对话历史"。一个 Agent 可以是单轮触发的（像这个项目）。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Classify（分类）</span>
+    <span class="en">classify</span>
+  </div>
+  <p class="one-liner">第一步：用 LLM 把用户问题归到一个事先定好的标签集合里。</p>
+  <div class="in-project"><b>项目里分三个维度：</b>
+    <ul>
+      <li><b>topic</b>：career / relationship / health / growth / general</li>
+      <li><b>intent</b>：decision / clarity / timing / perspective</li>
+      <li><b>tone</b>：anxious / curious / grieving / hopeful / neutral</li>
+    </ul>
+    输出严格 JSON。看 <span class="file-ref">interpret_agent.py:classify</span>。
+    <p>为什么这一步有价值？拿到 topic 可以给检索器"主题提示"，也是后续观察/评测的基础数据。</p>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">闭集词汇</span>
+    <span class="en">closed-vocab / enum constraint</span>
+  </div>
+  <p class="one-liner">事先定好的有限标签集合，模型必须从里头选，不能自创。</p>
+  <div class="analogy"><b>类比：</b>选择题 vs 简答题。闭集就是选择题 — 答案在四个选项里，不会冒出第五个。</div>
+  <div class="in-project"><b>实现细节：</b>JSON 模式只是"格式正确"，<b>不保证标签合法</b>。所以代码里有 <code>_coerce_enum()</code> 做后处理：模型返回 "career-decision" 也会被映射回 "career"；返回 "astrology" 这种不在表里的，会回退到默认 "general"。
+    <p>核心代码：</p>
+    <pre><code>def _coerce_enum(value, allowed, fallback):
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in allowed:
+            return v
+        # 容忍简单别名
+        for opt in allowed:
+            if v.startswith(opt) or opt in v:
+                return opt
+    return fallback</code></pre>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Critique（自我审查）</span>
+    <span class="en">critique / self-critique</span>
+  </div>
+  <p class="one-liner">让另一个 LLM 调用扮演"批改老师"，给已生成的内容打分、指出问题。</p>
+  <div class="analogy"><b>类比：</b>写完作文交给同事看一眼再寄出去。同事不会重写，只会标"这段太空、这段没回应问题"。</div>
+  <div class="in-project"><b>实现：</b><span class="file-ref">interpret_agent.py:critique</span> 让 qwen2.5:7b 看着生成结果 + 用户问题 + 抽到的牌，输出：
+    <pre><code>{
+  "score": 0..10,
+  "issues": ["off_topic", "missing_card", "slop_phrase", ...],
+  "needs_retry": false,
+  "summary": "一句话总结"
+}</code></pre>
+    实测出 8.17/10 的平均分。
+    <p><b>关键设计</b>：critique 在 stream 完之后跑（finally 块里），用户看完结果它才开始 — <b>不增加用户感知延迟</b>。</p>
+  </div>
+  <p class="deeper">为什么不让 critique 触发重写？因为 critique 自己也可能错。当前设计是先把信号收集起来（写进 agent_steps），后面如果发现某类问题反复出现，再决定要不要加重写逻辑。这是工程上"宁可观察不可乱动"的原则。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">优雅降级</span>
+    <span class="en">graceful degradation</span>
+  </div>
+  <p class="one-liner">某个组件挂了不让整个系统挂，而是降级运行。</p>
+  <div class="in-project"><b>项目里的降级链：</b>
+    <table>
+      <tr><th>挂了什么</th><th>降级行为</th></tr>
+      <tr><td>Ollama 本机服务</td><td>切到 OpenRouter（如果配了 key），否则报错给前端</td></tr>
+      <tr><td>嵌入模型缺失</td><td>跳过语义重排，只走 card_id 精确匹配</td></tr>
+      <tr><td>分类器失败</td><td>用默认 (general / clarity / neutral)，主流程不停</td></tr>
+      <tr><td>审查员失败</td><td>用户已经看到答案了，只是少了一条审查日志</td></tr>
+    </table>
+    核心原则：<b>Agent 链路上任何一环都不能阻塞用户感知</b>。
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Trace（推理链路）</span>
+    <span class="en">trace</span>
+  </div>
+  <p class="one-liner">一次 Agent 运行从头到尾每一步的完整记录。可回放、可分析、可调试。</p>
+  <div class="in-project"><b>实现：</b><code>agent_steps</code> 表，每次运行一个 <code>trace_id</code>（UUID hex），把 4 步全量记下来：输入摘要 / 输出 JSON / 调用了什么模型 / 耗时 / 成功标志。
+    <p>查看方式：</p>
+    <ul>
+      <li>API：<code>GET /api/interpret/&lt;id&gt;/agent-trace</code></li>
+      <li>可视化：浏览器打开 <code>http://localhost:8080/telemetry.html?rid=6</code></li>
+    </ul>
+  </div>
+  <p class="deeper">为什么 trace 重要？没 trace 你只看到"AI 输出了一段话"，黑盒。有 trace 你能看到分类对没对、检索拉到哪些牌、生成多久、审查打几分。这是 Agent 工程跟普通 LLM 调用最大的差异之一。</p>
+</div>
+
+<div class="check">
+  <h4>🎯 自查</h4>
+  <ul>
+    <li>"Agent" 和 "聊天机器人" 的核心区别是什么？</li>
+    <li>项目的 4 步管道里，哪一步在 stream 开始前跑？哪一步在 stream 结束后跑？为什么？</li>
+    <li>如果嵌入模型挂了但本机 LLM 还活着，用户能看到解读吗？质量会差在哪？</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PART 5 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2 id="part-5"><span class="num">05</span>评测与可观测性</h2>
+
+<p>这一组词是 Agent 项目跟玩具项目最大的差距。</p>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Golden Set（黄金集）</span>
+    <span class="en">golden set / eval set</span>
+  </div>
+  <p class="one-liner">手工准备的一批"标准考题"，每道题有期望答案。每次系统改动跑一遍这套题看分数变化。</p>
+  <div class="in-project"><b>项目里：</b><span class="file-ref">evals/golden_set.json</span> 30 道，5 个 topic 各 6 题：
+    <pre><code>{"id": "career-01",
+ "topic": "career",
+ "question_zh": "我应该跳槽吗？",
+ "question_en": "Should I change jobs?",
+ "cards": [{"card_id": 9, "is_reversed": false}, ...]}</code></pre>
+  </div>
+  <p class="deeper">为什么不靠"我自己点几下感觉看看"？因为人测试不一致、不可重复、规模小。Golden set 是工业级模型开发的标准做法。</p>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">LM-as-judge（LM 当评委）</span>
+    <span class="en">LLM-as-judge</span>
+  </div>
+  <p class="one-liner">用一个（通常更强的）LLM 给被测 LLM 的输出打分。</p>
+  <div class="analogy"><b>类比：</b>新人翻译的稿子让资深翻译审一遍。资深翻译不重新译，只评估。</div>
+  <div class="in-project"><b>实现：</b><span class="file-ref">evals/judge.py</span> 用 OpenRouter 上的 qwen-2.5-72b-instruct（72B 大模型）当评委，5 个维度各打 0-5 分：
+    <ul>
+      <li>relevance — 是否答了用户的问题</li>
+      <li>card_grounding — 是否真正用了抽到的牌</li>
+      <li>coherence — 是否自然散文（而非列表）</li>
+      <li>specificity — 是否具体而非空话</li>
+      <li>style_match — 是否符合所选风格</li>
+    </ul>
+    <p>核心设计：<b>评委用比生成器更强的模型 + 不同来源（云端 vs 本地）</b>，避免"自己改自己卷子"。</p>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Rubric（评分表）</span>
+    <span class="en">rubric</span>
+  </div>
+  <p class="one-liner">事先定好的"打分维度 + 各维度怎么打分"的明文规则。让评测可复现。</p>
+  <div class="in-project"><b>例：</b>项目的 rubric 在 <span class="file-ref">evals/judge.py:RUBRIC_AXES</span>。5 维 × 各 5 分 = 25 总分，标准化到 /10。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">分类准确率</span>
+    <span class="en">classification accuracy</span>
+  </div>
+  <p class="one-liner">分类器预测对的数量 / 总数量。</p>
+  <div class="in-project"><b>项目实测：</b>27 / 30 = <b>90.0%</b>。健康类 6 题对 4 题（66.7%）是最差的 — 心理咨询 / 焦虑被分到了 general。这是真实可改进的信号，写进了 ARCHITECTURE 的"已知缺口"。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">可观测性</span>
+    <span class="en">observability</span>
+  </div>
+  <p class="one-liner">系统出问题时，你能多快/多容易看清"内部发生了什么"。可观测性强 = 调试和监控容易。</p>
+  <div class="in-project"><b>项目里的可观测性栈：</b>
+    <ul>
+      <li><code>agent_steps</code> 表 — 每次推理 4 步全记下</li>
+      <li><code>telemetry.html</code> — 用浏览器看任一 reading 的 trace 时间线</li>
+      <li><code>docs/evals/eval-*.md</code> — 每次跑评测自动生成的报告</li>
+    </ul>
+    <p>跟它对比的反例：黑盒 — 用户报告"AI 答非所问"，你只能干瞪眼。</p>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">Mock（模拟）</span>
+    <span class="en">mock</span>
+  </div>
+  <p class="one-liner">测试时把外部依赖替换成假的，让测试不需要真的网络/模型/数据库。</p>
+  <div class="in-project"><b>关键技巧：</b>项目里 92 个 Python 测试，<b>零个真的调 Ollama</b>。所有 LLM 调用都被 <code>unittest.mock.patch</code> 替换：
+    <pre><code>with mock.patch.object(interpret_agent, "call_ollama_json",
+                       return_value={"topic": "career", ...}):
+    step, result = interpret_agent.classify(...)</code></pre>
+    这样 CI 在无 GPU 的小机器上也能跑测试。
+  </div>
+</div>
+
+<div class="check">
+  <h4>🎯 自查</h4>
+  <ul>
+    <li>为什么不能让被测的本地 7B 模型自己给自己打分？</li>
+    <li>"健康类准确率 66.7%" 这个数字是什么含义？怎么算出来的？</li>
+    <li>如果你不写 mock，测试会出什么问题？</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- PART 6 -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2 id="part-6"><span class="num">06</span>工程概念（不是 AI 专属，但读项目必备）</h2>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">幂等</span>
+    <span class="en">idempotent</span>
+  </div>
+  <p class="one-liner">同一操作执行多次跟执行一次效果一样。</p>
+  <div class="analogy"><b>类比：</b>电梯按钮 — 你按 10 下跟按 1 下结果一样（电梯只会来一次）。"删除文件 X"是幂等的；"账户余额减 100" 不是。</div>
+  <div class="in-project"><b>例：</b><code>build_index()</code> 是幂等的 — 跑 100 次和跑 1 次都是 156 条嵌入。第二次开始它直接短路返回，0 成本。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">UTF-8</span>
+    <span class="en">UTF-8</span>
+  </div>
+  <p class="one-liner">世界上最通用的字符编码。中文、英文、emoji 全部能正确表达。</p>
+  <div class="in-project"><b>项目踩过的坑（写在 CLAUDE.md）：</b>
+    <ol>
+      <li>Windows 上 Python 默认 HTTP body 可能丢中文 → 手动 <code>json.dumps(..., ensure_ascii=False).encode("utf-8")</code></li>
+      <li><code>python -m json.tool</code> 在 Windows 控制台用 cp936 重解码 UTF-8 → 看起来乱码但数据本身没坏</li>
+    </ol>
+  </div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">本地优先</span>
+    <span class="en">local-first</span>
+  </div>
+  <p class="one-liner">数据和计算优先在用户本机完成，云端只是补充。</p>
+  <div class="in-project"><b>体现：</b>Ollama 跑在你本机，SQLite 也在本机，OpenRouter 只在 Ollama 挂了或显式选 backend 时才用。<b>没账号没注册没上传</b>。这也是为什么项目能"断网继续用"。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">单元测试 / 集成测试 / E2E</span>
+    <span class="en">unit / integration / e2e test</span>
+  </div>
+  <table>
+    <tr><th>层级</th><th>测什么</th><th>例子</th></tr>
+    <tr><td>Unit</td><td>单个函数</td><td><code>_cosine([1,0,0], [0,1,0]) == 0</code></td></tr>
+    <tr><td>Integration</td><td>几个组件协作</td><td>分类器→检索器→prompt builder，mock LLM</td></tr>
+    <tr><td>E2E</td><td>跑完整真实路径</td><td>启动服务器，浏览器自动点按钮，看输出</td></tr>
+  </table>
+  <div class="in-project">项目主要在 Unit + Integration 层（92 个 Python 测试 + 6 个 JS 测试），E2E 用手工 + Playwright（截图验证）。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">回归测试</span>
+    <span class="en">regression test</span>
+  </div>
+  <p class="one-liner">为已知 bug 写一个测试，防止它再回来。</p>
+  <div class="in-project"><b>实例：</b>card_id 字段被漏的那次 bug 修复后，我加了 <code>test_load_reading_for_interpret_preserves_card_id</code> — 任何人未来再动那段 transform 都会让这个测试挂。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">并发 / 锁</span>
+    <span class="en">concurrency / lock</span>
+  </div>
+  <p class="one-liner">多个请求同时跑时怎么协调。锁 = "这把活儿一次只能一个人干"。</p>
+  <div class="in-project"><b>实例：</b>同一个 reading 不允许两个解读同时跑（避免数据库错乱）。<span class="file-ref">server.py:_INTERPRET_LOCKS</span> 用 <code>threading.Lock()</code> 一把锁一个 reading_id，撞上返 HTTP 409。</div>
+</div>
+
+<div class="term">
+  <div class="head">
+    <span class="zh">优雅降级 vs 快速失败</span>
+    <span class="en">graceful degradation vs fail-fast</span>
+  </div>
+  <p class="one-liner">用户路径上 → 优雅降级（部分功能可用胜过完全挂掉）。开发/启动阶段 → 快速失败（早暴露问题胜过隐藏）。</p>
+  <div class="in-project"><b>对比：</b>
+    <ul>
+      <li>解读流里嵌入器挂了 → <b>优雅降级</b>到 canonical 检索（部分功能）</li>
+      <li>启动时数据库连不上 → <b>快速失败</b>，根本起不来（早暴露）</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- GLOSSARY -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2 id="glossary"><span class="num">📖</span>字母索引（快速查）</h2>
+
+<table>
+  <tr><th>术语</th><th>一句话</th><th>本文位置</th></tr>
+  <tr><td>Agent</td><td>能多步推理 + 调工具的 LLM 应用</td><td><a href="#part-4">§4</a></td></tr>
+  <tr><td>API endpoint</td><td>后端对外的服务"门"</td><td><a href="#part-1">§1</a></td></tr>
+  <tr><td>Backend</td><td>服务器上跑的程序</td><td><a href="#part-1">§1</a></td></tr>
+  <tr><td>Classify</td><td>把问题归到事先定好的标签</td><td><a href="#part-4">§4</a></td></tr>
+  <tr><td>Closed vocab</td><td>选择题式的有限标签集合</td><td><a href="#part-4">§4</a></td></tr>
+  <tr><td>Concurrency / Lock</td><td>多请求并发协调</td><td><a href="#part-6">§6</a></td></tr>
+  <tr><td>Corpus</td><td>RAG 用的预备语料库</td><td><a href="#part-3">§3</a></td></tr>
+  <tr><td>Cosine similarity</td><td>向量相似度衡量方法</td><td><a href="#part-3">§3</a></td></tr>
+  <tr><td>Critique</td><td>让 LLM 当批改老师审查输出</td><td><a href="#part-4">§4</a></td></tr>
+  <tr><td>E2E test</td><td>跑完整真实路径的测试</td><td><a href="#part-6">§6</a></td></tr>
+  <tr><td>Embedding</td><td>把文字变成数值向量</td><td><a href="#part-3">§3</a></td></tr>
+  <tr><td>Frontend</td><td>浏览器里看到的页面</td><td><a href="#part-1">§1</a></td></tr>
+  <tr><td>Golden set</td><td>评测用的标准考题集合</td><td><a href="#part-5">§5</a></td></tr>
+  <tr><td>Graceful degradation</td><td>部分挂不让整体挂</td><td><a href="#part-4">§4</a> · <a href="#part-6">§6</a></td></tr>
+  <tr><td>Hallucination</td><td>LLM 编造不存在的事</td><td><a href="#part-3">§3</a></td></tr>
+  <tr><td>HTTP request</td><td>前端对后端的标准请求格式</td><td><a href="#part-1">§1</a></td></tr>
+  <tr><td>Idempotent</td><td>跑多次跟跑一次效果一样</td><td><a href="#part-6">§6</a></td></tr>
+  <tr><td>JSON</td><td>前后端通信用的文本格式</td><td><a href="#part-1">§1</a></td></tr>
+  <tr><td>JSON mode</td><td>强制 LLM 输出合法 JSON</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>LLM</td><td>大语言模型</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>LM-as-judge</td><td>用强 LLM 给弱 LLM 输出打分</td><td><a href="#part-5">§5</a></td></tr>
+  <tr><td>Local-first</td><td>数据/计算优先本机</td><td><a href="#part-6">§6</a></td></tr>
+  <tr><td>Mock</td><td>测试时用假实现替代真依赖</td><td><a href="#part-5">§5</a></td></tr>
+  <tr><td>Observability</td><td>看清系统内部发生了什么的能力</td><td><a href="#part-5">§5</a></td></tr>
+  <tr><td>Parameters / 7B</td><td>神经网络里参数数量</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>Prompt</td><td>给 LLM 的输入文本</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>Quantization</td><td>把高精度参数压缩到低精度</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>RAG</td><td>检索增强生成</td><td><a href="#part-3">§3</a></td></tr>
+  <tr><td>Regression test</td><td>为已修 bug 写的防回归测试</td><td><a href="#part-6">§6</a></td></tr>
+  <tr><td>Rubric</td><td>明文打分规则</td><td><a href="#part-5">§5</a></td></tr>
+  <tr><td>SQLite</td><td>单文件嵌入式数据库</td><td><a href="#part-1">§1</a></td></tr>
+  <tr><td>SSE</td><td>服务器推送式 HTTP</td><td><a href="#part-1">§1</a></td></tr>
+  <tr><td>Streaming</td><td>边生成边返回</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>System / User role</td><td>chat 模型的角色标签</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>Temperature</td><td>生成随机性旋钮</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>Token</td><td>模型处理的最小文本单位</td><td><a href="#part-2">§2</a></td></tr>
+  <tr><td>Trace</td><td>Agent 推理过程的完整记录</td><td><a href="#part-4">§4</a></td></tr>
+  <tr><td>Two-stage filter</td><td>先精确过滤再语义排序</td><td><a href="#part-3">§3</a></td></tr>
+  <tr><td>UTF-8</td><td>通用字符编码</td><td><a href="#part-6">§6</a></td></tr>
+  <tr><td>Vector database</td><td>专存向量、快速找最近邻</td><td><a href="#part-3">§3</a></td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- HOW TO USE THIS DOC -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+
+<h2><span class="num">🧭</span>怎么用这份文档</h2>
+
+<ol>
+  <li><b>不要从头读到尾。</b>按 §1 顺序过完，建立直觉就够。后面的当字典用 — 看代码碰到生词就回来查。</li>
+  <li><b>每章结尾的"自查"先尝试用自己的话回答</b>。说不出来 = 没真懂，回头重读。</li>
+  <li><b>读完一章去看对应代码</b>。比如读完 §3 RAG，去打开 <span class="file-ref">interpret_rag.py</span>，对照每个术语找到代码里的具体位置。</li>
+  <li><b>遇到一个新词先来这查</b>。查不到的话考虑：是上层概念？还是项目里专门起的名字？</li>
+  <li><b>读完所有六节后</b>，搭配 <code>docs/agent-knowledge-recap.html</code>（你已经改过的学习路线）开始 8 周计划。</li>
+</ol>
+
+<footer>
+  生成于 2026-05-24 · 分支 <code>claude/figma-light</code> · PR #6 ·
+  配套阅读 <a href="../ARCHITECTURE.md">ARCHITECTURE.md</a> ·
+  <a href="agent-knowledge-recap.html">学习路线</a> ·
+  <a href="../README.md">README.md</a>
+</footer>
+
+</main>
+</body>
+</html>

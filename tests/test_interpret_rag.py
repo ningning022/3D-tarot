@@ -197,22 +197,49 @@ class TestRetrieve(unittest.TestCase):
         for r in results:
             self.assertEqual(r.score, 1.0)
 
-    def test_with_question_calls_embedder_and_ranks(self):
+    def test_with_question_scores_but_preserves_spread_order(self):
+        """Question-aware retrieval scores chunks by cosine but MUST NOT
+        reorder them. Spread order encodes narrative position
+        (past/present/future, Celtic cross slots) that the LLM reads as
+        implicit context — relevance ranking belongs in the score field,
+        not in the listing order."""
         cards = [
-            {"card_id": 0, "is_reversed": False},
-            {"card_id": 77, "is_reversed": False},  # King of Pents (career)
+            # Slot 0 = past, Slot 1 = future — order is the test subject.
+            {"card_id": 0, "is_reversed": False},   # Fool (low relevance)
+            {"card_id": 77, "is_reversed": False},  # King of Pents (high relevance)
         ]
-        # Stub _post_embed to return a vector close to King of Pents
-        target = fake_vector(0.77)
+        target = fake_vector(0.77)  # Matches King of Pents stub exactly
         with mock.patch.object(interpret_rag, "_post_embed", return_value=target):
             results = interpret_rag.retrieve_for_cards(
                 self.conn, cards=cards, question="career"
             )
         self.assertEqual(len(results), 2)
-        # King of Pents should rank above Fool because its stub vector
-        # was identical to the question stub.
-        self.assertEqual(results[0].entry.card_id, 77)
-        self.assertGreater(results[0].score, results[1].score)
+        # Spread order preserved — Fool (slot 0) still first, King second.
+        self.assertEqual(results[0].entry.card_id, 0)
+        self.assertEqual(results[1].entry.card_id, 77)
+        # But the score field still reflects relevance ranking — King
+        # outscores Fool because its vector matched the question stub.
+        self.assertGreater(results[1].score, results[0].score)
+
+    def test_three_card_timeline_order_survives_with_question(self):
+        """Regression guard for the 'past/present/future' shape. If the
+        retriever sorts by relevance, the reference block in the prompt
+        would list the chunks in score order, dissolving the temporal
+        narrative the LLM uses as implicit anchor."""
+        cards = [
+            {"card_id": 22, "is_reversed": False},  # past
+            {"card_id": 3,  "is_reversed": False},  # present
+            {"card_id": 7,  "is_reversed": False},  # future
+        ]
+        # Pick a question vector that should rank middle card highest
+        # if the retriever were to sort — and verify it doesn't.
+        target = fake_vector(0.03)  # closest to card_id=3 by construction
+        with mock.patch.object(interpret_rag, "_post_embed", return_value=target):
+            results = interpret_rag.retrieve_for_cards(
+                self.conn, cards=cards, question="任何问题",
+            )
+        self.assertEqual([r.entry.card_id for r in results], [22, 3, 7],
+                         "spread order must survive question-aware retrieval")
 
     def test_missing_embeddings_degrades_gracefully(self):
         # Wipe the embedding rows; retrieval should still return

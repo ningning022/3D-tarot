@@ -407,13 +407,17 @@ def retrieve_for_cards(
             continue
         scored.append(RetrievedChunk(entry=entry, score=_cosine(q_vec, vec)))
 
-    # Stable secondary sort by spread order so equal scores keep the
-    # natural slot sequence the reader expects.
-    scored.sort(key=lambda r: (-r.score, candidates.index(r.entry)))
-
-    # top_k_per_card == 1 by design: each card contributes its single
-    # most-relevant chunk. The caller (prompt builder) injects them in
-    # the original slot order, not the score order.
+    # IMPORTANT: do NOT sort by relevance. Spread order carries narrative
+    # meaning (past/present/future, Celtic cross slot positions) that the
+    # LLM uses as implicit context. Reordering the reference block by
+    # cosine score would put the chunks in a different sequence from the
+    # card list elsewhere in the prompt, biasing attention toward the
+    # "most relevant" card and dissolving the spread's temporal/structural
+    # semantics.
+    #
+    # Score is still recorded per-chunk so traces, telemetry, and any
+    # future top-k filter can read relevance — the prompt just shows the
+    # chunks in slot order. See evaluation note in ARCHITECTURE §10.
     if top_k_per_card != 1:
         # Future-proofing — for now we never collect more than 1 per
         # card since we only have 1 entry per (card, orientation).
