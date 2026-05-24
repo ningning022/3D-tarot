@@ -52,6 +52,30 @@
     border-color: var(--accent);
 }
 
+/* Optional question field — drives the agent loop when filled. */
+.interpret-question {
+    width: 100%;
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    background: color-mix(in oklch, var(--accent) 3%, transparent);
+    color: var(--ink-text);
+    border: 1px solid var(--panel-line);
+    border-radius: 5px;
+    font: inherit;
+    font-size: 0.88rem;
+    resize: vertical;
+    min-height: 44px;
+    line-height: 1.5;
+}
+.interpret-question:focus {
+    outline: 2px solid color-mix(in oklch, var(--accent) 35%, transparent);
+    outline-offset: 1px;
+    border-color: var(--accent);
+}
+.interpret-question::placeholder {
+    color: color-mix(in oklch, var(--ink-text) 50%, transparent);
+}
+
 /* <option> dropdown list items default to OS-controlled styling.
    Chromium accepts background-color + color on <option> but only when
    set explicitly. Forces readable contrast in both themes. */

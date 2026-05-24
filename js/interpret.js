@@ -45,11 +45,17 @@
      * The optional AbortSignal lets the caller cancel the stream early.
      */
     async function* streamInterpretation(readingId, opts = {}) {
-        const { style, language, signal } = opts;
+        const { style, language, question, signal } = opts;
+        // Only include `question` when non-empty — empty/whitespace
+        // skips the agent loop on the server (fast path).
+        const body = { style, language };
+        if (question && String(question).trim()) {
+            body.question = String(question).trim();
+        }
         const resp = await fetch(`/api/interpret/${readingId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            body: JSON.stringify({ style, language }),
+            body: JSON.stringify(body),
             signal
         });
 
@@ -236,6 +242,17 @@
         const cancelBtn = el('button', { type: 'button', class: 'interpret-btn interpret-cancel', hidden: '' },
             ['取消 / Cancel']);
 
+        // Optional question input — when filled, triggers the agent loop
+        // (classify → retrieve → generate → critique) and the model
+        // answers the question through the cards. Leave blank for the
+        // fast path.
+        const questionInput = el('textarea', {
+            class: 'interpret-question',
+            rows: '2',
+            placeholder: '可选：输入你的问题，让解读直接回应这个问题 / Optional: ask a question…',
+            'aria-label': '可选问题 / Optional question'
+        }, []);
+
         const status = el('div', { class: 'interpret-status' }, []);
         const healthBanner = el('div', { class: 'interpret-health-slot' }, []);
         const cardStrip = el('div', { class: 'interpret-cards' }, []);
@@ -249,6 +266,9 @@
             cancelBtn,
             status
         ]));
+        // Question input sits on its own row below the toolbar — it's
+        // wider than a single-line field and shouldn't crowd the button row.
+        container.appendChild(questionInput);
         // Card preview strip — populated by loadReadingCards() below.
         // Empty selector hides it via :empty in CSS.
         container.appendChild(cardStrip);
@@ -348,8 +368,10 @@
             let sawError = false;
 
             try {
+                const question = questionInput && questionInput.value
+                    ? questionInput.value : '';
                 for await (const event of streamInterpretation(readingId, {
-                    style, language, signal: controller.signal
+                    style, language, question, signal: controller.signal
                 })) {
                     if (event.error) {
                         sawError = true;

@@ -247,6 +247,62 @@ curl -X POST -H "Content-Type: application/json" \
 
 当前 Phase 1 实现**不**包含：多轮对话追问、跨记录 RAG、用户自定义 prompt、解读评分。这些是后续迭代项。
 
+## Agent 系统 / Agent System
+
+Phase 2 在上面 Interpretation Engine 之上叠了一个**带检索增强与自我审查的小型 Agent 管道**。当用户在解读时附带具体问题（如 "我应该跳槽吗？"），系统会完整跑完 **classify → retrieve → generate → critique** 四步，并把每一步持久化进 `agent_steps` 表。没有问题时直接走快路径 (`retrieve → generate`)，没有任何额外延迟。
+
+完整设计、API、失败模式与性能数字见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
+
+### 关键能力
+
+- **结构化分类器**：JSON-mode Ollama 调用，闭集词汇约束（`topic ∈ {career, relationship, health, growth, general}`），多层容错解析，单次调用失败不阻塞主流程。
+- **向量 RAG**：156 条中英双语领域语料，`nomic-embed-text` 768 维，SQLite float32 BLOB 存储，幂等构建（`corpus_signature` 短路）。两阶段过滤：确定性 card_id 匹配 → question 余弦重排。
+- **流式生成 + 后置审查**：generate 走 SSE 流式直接给到用户（首 token < 1s），critique 在 `finally` 里跑，结果只入库不返流 — **审查不影响用户感知延迟**。
+- **完整 trace**：每次运行一个 `trace_id`，4 步全量记录（输入摘要 / 完整 JSON 输出 / 模型 / 耗时 / 成功标志），可按 `/api/interpret/<id>/agent-trace` 端点查看。
+- **优雅降级**：embedder 不可达时自动 fall back 到 canonical lookup；classifier 失败时使用安全默认值；critic 在 OpenRouter 后端下跳过避免双倍云端开销。
+
+### 端点
+
+| Method | Path | 用途 |
+|---|---|---|
+| POST | `/api/interpret/<id>` | SSE 流式，body 加 `question` 触发 Agent 模式 |
+| GET | `/api/interpret/<id>/agent-trace` | 该 reading 最近一次 trace |
+| GET | `/api/interpret/rag-status` | 嵌入索引状态 |
+| POST | `/api/interpret/rag-build` | 触发 / 刷新索引（幂等） |
+
+### 可视化
+
+浏览器打开 `http://localhost:8080/telemetry.html?rid=<reading_id>` 查看任一 reading 的 Agent 推理时间线 — 4 步颜色分类、耗时占比条、完整输入 / 输出 JSON。
+
+### 评测 / Evals
+
+```bash
+# 30 题 golden set，本地 critique 打分，跑完写 docs/evals/eval-*.md
+python -m evals
+
+# 启用 OpenRouter 72B 作为独立第三方 LM-judge
+python -m evals --judge
+
+# 快速 smoke
+python -m evals --limit 3
+```
+
+评测覆盖：分类器 topic 准确率、本地 critique 平均分（/10）、LM-judge 5 轴打分（relevance / card_grounding / coherence / specificity / style_match）、各步骤耗时、每条样本回看。报告写入 `docs/evals/`。
+
+**最近一次 30 题全量评测**（`qwen2.5:7b` + RTX 3060 6GB，traditional 风格，中文）：
+
+| 指标 | 值 |
+|---|---|
+| 分类器 topic 准确率 | **90.0%** (27/30) |
+| 本地 critique 平均分 (/10) | **8.17** |
+| 单题平均总耗时 | 26.8 s |
+| 其中 generate 流式（首 token < 1s） | 11.7 s |
+| classify | 4.6 s |
+| critique（后置，用户不感知） | 6.3 s |
+| 错误数 | 0 / 30 |
+
+各 topic 分项准确率：`relationship 100%`、`growth 100%`、`general 100%`、`career 83.3%`、`health 66.7%`。完整报告：[`docs/evals/eval-20260524T082210Z.md`](docs/evals/eval-20260524T082210Z.md)。
+
 ## 测试
 
 运行 JavaScript 行为测试：

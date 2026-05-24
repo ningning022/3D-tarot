@@ -30,6 +30,8 @@ from interpret_prompts import (
     build_messages,
     detect_slop,
 )
+import interpret_agent
+import interpret_rag
 
 
 # ── Configuration ──────────────────────────────────────────────
@@ -380,6 +382,62 @@ def migrate(conn: sqlite3.Connection) -> None:
     """Idempotent schema setup. Call once on server boot."""
     with conn:
         conn.executescript(MIGRATION_SQL)
+    # RAG + agent_steps tables live in the same DB; co-migrate so a
+    # single boot path initializes everything an interpretation needs.
+    interpret_rag.migrate(conn)
+    interpret_agent.migrate(conn)
+
+
+# ── RAG retrieval helper ─────────────────────────────────────────
+
+
+def _retrieve_chunks(
+    conn: sqlite3.Connection,
+    cards: list[dict],
+    question: str | None,
+    settings: dict[str, str],
+) -> tuple[list[dict], int]:
+    """Pull RAG chunks for the current spread.
+
+    Returns ``(chunks, duration_ms)``. Degrades gracefully:
+      - If the embedding index isn't built yet, returns canonical
+        entries (deterministic card-id match, no embedder call).
+      - If the embed backend is down + a question is supplied, falls
+        back to canonical entries rather than failing the whole stream.
+    """
+    embed_model = settings.get("embed_model", interpret_rag.DEFAULT_EMBED_MODEL)
+    ollama_url = settings.get("ollama_url", DEFAULT_OLLAMA_URL)
+    started = time.monotonic()
+    try:
+        results = interpret_rag.retrieve_for_cards(
+            conn, cards=cards, question=question,
+            model=embed_model, ollama_url=ollama_url,
+        )
+    except interpret_rag.RagError:
+        # Embedder unreachable / model missing — fall back to canonical
+        # by retrying without the question argument.
+        try:
+            results = interpret_rag.retrieve_for_cards(
+                conn, cards=cards, question=None,
+                model=embed_model, ollama_url=ollama_url,
+            )
+        except interpret_rag.RagError:
+            return [], int((time.monotonic() - started) * 1000)
+    duration_ms = int((time.monotonic() - started) * 1000)
+    # Translate dataclasses into plain dicts the prompt builder expects.
+    out = []
+    for chunk in results:
+        e = chunk.entry
+        out.append({
+            "card_id": e.card_id,
+            "zh": e.zh, "en": e.en,
+            "orientation": e.orientation,
+            "imagery": e.imagery,
+            "situations": e.situations,
+            "keywords": e.keywords,
+            "score": chunk.score,
+        })
+    return out, duration_ms
 
 
 # ── Public orchestration entry-point ───────────────────────────
@@ -393,17 +451,74 @@ def interpret_reading_stream(
     template_name: str,
     style: str = DEFAULT_STYLE,
     language: str = "zh",
+    question: str | None = None,
     persist: bool = True,
+    enable_rag: bool = True,
+    enable_agent: bool = True,
 ) -> Iterator[str]:
     """High-level: build prompt, resolve strategy, stream output,
     accumulate into a buffer, persist on completion.
 
     Yields each content chunk as it arrives so callers can forward to
     SSE clients.
+
+    When ``question`` is provided, the user's question is folded into
+    the prompt and the model is steered to answer it through the cards.
+
+    When ``enable_rag`` is True (default), retrieves canonical card
+    meanings + optional question-relevance ranking from the corpus and
+    injects them as a reference block in the prompt.
+
+    When ``enable_agent`` is True AND a question is provided, runs the
+    full agent loop: classify → retrieve → generate → critique. Each
+    step is persisted to ``agent_steps``. Without a question, the loop
+    is skipped (classify/critique are meaningless without one) and the
+    fast path runs unchanged.
     """
     settings = get_settings(conn)
     strategy = resolve_strategy(settings)
-    messages = build_messages(cards, template_name, language=language, style=style)
+
+    # Agent mode only kicks in when there's a question to reason about.
+    run_agent = bool(enable_agent and question and question.strip())
+    trace_id = interpret_agent.new_trace_id() if run_agent else None
+    step_index = 0
+
+    # 1) CLASSIFY (agent mode only) — biases retrieval + future telemetry
+    classification: dict = {}
+    if run_agent:
+        clf_step, classification = interpret_agent.classify(
+            question, model=strategy.model,
+            url=settings.get("ollama_url", DEFAULT_OLLAMA_URL),
+            language=language,
+        )
+        interpret_agent.record_step(
+            conn, reading_id=reading_id, trace_id=trace_id,
+            step_index=step_index, step=clf_step,
+        )
+        step_index += 1
+
+    # 2) RETRIEVE — RAG is unchanged; we just timestamp it for the trace
+    retrieved: list[dict] = []
+    retrieve_ms = 0
+    if enable_rag:
+        retrieved, retrieve_ms = _retrieve_chunks(conn, cards, question, settings)
+    if run_agent:
+        rstep = interpret_agent.retrieve_step(
+            retrieved=retrieved, duration_ms=retrieve_ms,
+            topic_bias=classification.get("topic"),
+        )
+        interpret_agent.record_step(
+            conn, reading_id=reading_id, trace_id=trace_id,
+            step_index=step_index, step=rstep,
+        )
+        step_index += 1
+
+    # 3) GENERATE — stream tokens to the caller as they arrive
+    messages = build_messages(
+        cards, template_name,
+        language=language, style=style,
+        question=question, retrieved_chunks=retrieved,
+    )
     prompt_hash = compute_prompt_hash(messages)
 
     started = time.monotonic()
@@ -428,3 +543,30 @@ def interpret_reading_stream(
                 duration_ms=duration_ms,
                 created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
             )
+
+        # 4) Trace generation + run critique (agent mode only). All
+        # post-stream work happens in finally so a client disconnect
+        # doesn't lose the steps recorded so far.
+        if run_agent and full:
+            gstep = interpret_agent.generate_step(
+                model=f"{strategy.backend}:{strategy.model}",
+                duration_ms=duration_ms, answer=full, prompt_hash=prompt_hash,
+            )
+            interpret_agent.record_step(
+                conn, reading_id=reading_id, trace_id=trace_id,
+                step_index=step_index, step=gstep,
+            )
+            step_index += 1
+            # Critic runs only against the local Ollama (avoid double
+            # OpenRouter spend); skip if the local backend isn't there.
+            if strategy.backend == "ollama":
+                cstep, _crit = interpret_agent.critique(
+                    full, question=question, cards=cards,
+                    model=strategy.model,
+                    url=settings.get("ollama_url", DEFAULT_OLLAMA_URL),
+                    language=language,
+                )
+                interpret_agent.record_step(
+                    conn, reading_id=reading_id, trace_id=trace_id,
+                    step_index=step_index, step=cstep,
+                )

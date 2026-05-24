@@ -376,6 +376,48 @@ def interpret_health() -> dict:
     }
 
 
+def interpret_rag_status() -> dict:
+    """Snapshot of the RAG embedding index for the admin telemetry tab."""
+    import interpret_rag  # local import keeps the cold-start path lean
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
+        settings = interpret_service.get_settings(conn)
+    ollama_url = settings.get("ollama_url", interpret_service.DEFAULT_OLLAMA_URL)
+    embed_model = settings.get("embed_model", interpret_rag.DEFAULT_EMBED_MODEL)
+    with closing(get_connection()) as conn:
+        return interpret_rag.rag_status(conn, model=embed_model, ollama_url=ollama_url)
+
+
+def interpret_rag_build() -> dict:
+    """Trigger (or refresh) the embedding index. Idempotent — skips
+    entries already embedded under the current corpus signature.
+    Returns the build statistics dict from interpret_rag.build_index.
+    """
+    import interpret_rag
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
+        settings = interpret_service.get_settings(conn)
+        ollama_url = settings.get("ollama_url", interpret_service.DEFAULT_OLLAMA_URL)
+        embed_model = settings.get("embed_model", interpret_rag.DEFAULT_EMBED_MODEL)
+        try:
+            return interpret_rag.build_index(
+                conn, model=embed_model, ollama_url=ollama_url
+            )
+        except interpret_rag.RagError as exc:
+            return {"error": exc.code, "message": str(exc)}
+
+
+def interpret_agent_trace(reading_id: int) -> dict:
+    """Return the most recent agent trace for a reading. Empty steps
+    list when no trace has been recorded yet (e.g. interpretation was
+    run without a question)."""
+    import interpret_agent
+    with closing(get_connection()) as conn:
+        interpret_service.migrate(conn)
+        steps = interpret_agent.load_trace(conn, reading_id)
+    return {"reading_id": reading_id, "steps": steps}
+
+
 def interpret_get_settings() -> dict:
     with closing(get_connection()) as conn:
         interpret_service.migrate(conn)
@@ -461,11 +503,26 @@ def handle_api_request(method, parsed_url, body=b""):
         if method == "GET" and path == "/api/interpret/health":
             return json_response(200, interpret_health())
 
+        if method == "GET" and path == "/api/interpret/rag-status":
+            return json_response(200, interpret_rag_status())
+
+        if method == "POST" and path == "/api/interpret/rag-build":
+            return json_response(200, interpret_rag_build())
+
         if method == "GET" and path == "/api/interpret/settings":
             return json_response(200, interpret_get_settings())
 
         if method == "POST" and path == "/api/interpret/settings":
             return json_response(200, interpret_update_settings(parse_json_body(body)))
+
+        # /api/interpret/<id>/agent-trace — must come before the
+        # catch-all below or "<id>" would swallow "agent-trace".
+        if method == "GET" and path.startswith("/api/interpret/") and path.endswith("/agent-trace"):
+            try:
+                reading_id = int(path.split("/")[3])
+            except (ValueError, IndexError):
+                return error_response(400, "Invalid reading id")
+            return json_response(200, interpret_agent_trace(reading_id))
 
         if method == "GET" and path.startswith("/api/interpret/"):
             reading_id = int(path.rsplit("/", 1)[1])
@@ -594,6 +651,14 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                 settings = interpret_service.get_settings(conn)
                 style = overrides.get("style") or settings.get("default_style", "traditional")
                 language = overrides.get("language") or settings.get("default_language", "zh")
+                # User question is optional — when supplied, the prompt
+                # builder folds it in and the RAG retriever uses it to
+                # rank corpus chunks by relevance.
+                raw_q = overrides.get("question")
+                question = str(raw_q).strip() if raw_q else None
+                # Agent mode is on by default when a question is
+                # present; clients can opt out with enable_agent=false.
+                enable_agent = bool(overrides.get("enable_agent", True))
 
                 # Open the SSE response now (any error past this point
                 # streams as a data:error frame, not an HTTP error code).
@@ -612,6 +677,8 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                         template_name=template_name,
                         style=style,
                         language=language,
+                        question=question,
+                        enable_agent=enable_agent,
                     ):
                         frame = "data: " + json.dumps(
                             {"chunk": chunk}, ensure_ascii=False

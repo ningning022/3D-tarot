@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Akashic Tarot Agent 与 LLM 学习路线</title>
+<style>
+  :root {
+    --bg: #f7f4ed;
+    --ink: #202124;
+    --muted: #63615b;
+    --surface: #fffdf8;
+    --surface-2: #f0ebe1;
+    --line: #d8d1c3;
+    --accent: #b45309;
+    --accent-2: #0f766e;
+    --accent-3: #7c3aed;
+    --soft: #fff4d6;
+    --code: #1f2937;
+    --code-bg: #f4efe6;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background:
+      linear-gradient(180deg, rgba(180, 83, 9, .08), transparent 360px),
+      var(--bg);
+    color: var(--ink);
+    font: 16px/1.72 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", system-ui, sans-serif;
+  }
+
+  a { color: var(--accent-2); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { color: var(--accent); }
+
+  .page {
+    width: min(1120px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 44px 0 72px;
+  }
+
+  header {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(260px, .8fr);
+    gap: 28px;
+    align-items: end;
+    padding-bottom: 26px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h1, h2, h3 { line-height: 1.22; letter-spacing: 0; }
+  h1 {
+    margin: 0;
+    max-width: 780px;
+    font-size: clamp(30px, 5vw, 54px);
+    font-weight: 800;
+  }
+  h2 {
+    margin: 48px 0 16px;
+    font-size: 25px;
+    color: var(--accent);
+  }
+  h3 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    color: var(--accent-2);
+  }
+  p { margin: 8px 0; }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  code {
+    color: var(--code);
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    font-size: .9em;
+  }
+
+  .lede {
+    max-width: 780px;
+    color: var(--muted);
+    font-size: 18px;
+    margin-top: 16px;
+  }
+
+  .stamp {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 14px 40px rgba(33, 24, 10, .08);
+  }
+  .stamp b { color: var(--accent); }
+
+  .toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
+  }
+  .toc a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255,255,255,.45);
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+  .band {
+    margin-top: 24px;
+    padding: 22px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 17px;
+  }
+
+  .mini {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .tag {
+    display: inline-block;
+    margin: 0 6px 8px 0;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--soft);
+    color: #7c2d12;
+    border: 1px solid #f0d799;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .tag.alt { background: #e7f5f2; color: #115e59; border-color: #b6ddd6; }
+  .tag.deep { background: #efe8ff; color: #5b21b6; border-color: #d6c4ff; }
+
+  .map {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .map + .map {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line);
+  }
+  .map strong { color: var(--accent); }
+
+  .timeline {
+    display: grid;
+    gap: 14px;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .week {
+    color: var(--accent);
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .stage h3 { color: var(--ink); }
+
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 0;
+  }
+  .flow span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    font-size: 13px;
+  }
+  .flow i {
+    font-style: normal;
+    color: var(--muted);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 4px;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  th {
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  .task {
+    border-left: 4px solid var(--accent-2);
+    background: #edf7f5;
+    padding: 12px 14px;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .warn {
+    border-left: 4px solid var(--accent);
+    background: var(--soft);
+    padding: 12px 14px;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  .linkbox {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: rgba(255,255,255,.5);
+  }
+  .linkbox a { font-weight: 700; }
+
+  footer {
+    margin-top: 44px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 760px) {
+    .page { width: min(100% - 28px, 1120px); padding-top: 28px; }
+    header, .stage, .map { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <section>
+      <h1>从零开始学 Agent、LLM 和这个 3D 塔罗项目</h1>
+      <p class="lede">
+        这不是一份“把术语背下来”的清单，而是一条能把 Akashic Tarot 项目拆开、看懂、改动、再扩展的基础学习路线。你可以按 8 到 10 周慢慢走，也可以把它当成索引，遇到代码里不懂的地方就回来查。
+      </p>
+      <nav class="toc" aria-label="目录">
+        <a href="#map">项目知识地图</a>
+        <a href="#roadmap">学习路线</a>
+        <a href="#agent">Agent 与 RAG</a>
+        <a href="#practice">练习任务</a>
+        <a href="#links">推荐链接</a>
+      </nav>
+    </section>
+    <aside class="stamp">
+      <p><b>适合起点：</b>几乎零基础，只知道“这个项目能抽牌、保存、让 AI 解读”。</p>
+      <p><b>最终目标：</b>能解释项目怎么运行，能改 UI、API、数据库和 AI 解读流程，能继续学习更通用的 Agent 应用开发。</p>
+      <p class="mini">更新日期：2026-05-24</p>
+    </aside>
+  </header>
+
+  <section id="map">
+    <h2>一眼看懂：这个项目用了哪些知识</h2>
+    <div class="band">
+      <div class="map">
+        <strong>前端界面</strong>
+        <div>
+          <span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">JavaScript</span>
+          <p>页面结构、按钮、面板、主题切换、保存记录、调用后端接口。对应文件：<code>Three.html</code>、<code>admin.html</code>、<code>js/*.js</code>、<code>css/*.css</code>。</p>
+        </div>
+      </div>
+      <div class="map">
+        <strong>3D 交互</strong>
+        <div>
+          <span class="tag alt">Three.js</span><span class="tag alt">纹理</span><span class="tag alt">动画循环</span><span class="tag alt">Raycasting</span>
+          <p>78 张牌在 3D 场景中排列、滚动、悬停、翻面。核心是场景、相机、灯光、材质、贴图和每帧渲染。</p>
+        </div>
+      </div>
+      <div class="map">
+        <strong>手势识别</strong>
+        <div>
+          <span class="tag alt">MediaPipe Hands</span><span class="tag alt">摄像头</span><span class="tag alt">状态机</span>
+          <p>摄像头检测手部关键点，再把 OPEN、POINT、PINCH、FIST、TWO_FINGER 映射成“开始牌阵、指向、拿牌、确认、滚动”。</p>
+        </div>
+      </div>
+      <div class="map">
+        <strong>后端与数据</strong>
+        <div>
+          <span class="tag">Python</span><span class="tag">HTTP API</span><span class="tag">SQLite</span><span class="tag">JSON</span>
+          <p><code>server.py</code> 提供本地接口，<code>data/tarot.sqlite3</code> 保存历史记录、卡牌、AI 解读、设置和 Agent trace。</p>
+        </div>
+      </div>
+      <div class="map">
+        <strong>LLM 解读</strong>
+        <div>
+          <span class="tag deep">Ollama</span><span class="tag deep">OpenRouter 回退</span><span class="tag deep">Prompt</span><span class="tag deep">SSE 流式输出</span>
+          <p><code>interpret_service.py</code> 把牌阵变成提示词，调用本地或云端模型，边生成边推给页面，并把结果存入数据库。</p>
+        </div>
+      </div>
+      <div class="map">
+        <strong>RAG 与 Agent</strong>
+        <div>
+          <span class="tag deep">Embedding</span><span class="tag deep">向量相似度</span><span class="tag deep">结构化输出</span><span class="tag deep">Trace</span>
+          <p><code>interpret_rag.py</code> 从牌义语料中检索相关内容；<code>interpret_agent.py</code> 做 classify、retrieve、generate、critique，并把每一步写进 <code>agent_steps</code>。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="roadmap">
+    <h2>基础学习路线：8 到 10 周</h2>
+    <div class="timeline">
+      <article class="stage">
+        <div class="week">第 0 周</div>
+        <div>
+          <h3>先把项目跑起来，建立“整体感”</h3>
+          <p>目标不是马上理解全部代码，而是知道一个用户动作怎样从浏览器进入后端，再回到页面。</p>
+          <ul>
+            <li>运行 <code>python server.py</code>，打开 <code>http://localhost:8080/Three.html</code> 和 <code>/admin.html</code>。</li>
+            <li>完成一次抽牌、保存、到后台查看记录。</li>
+            <li>打开浏览器开发者工具，看 Network 里出现的 <code>/api/readings</code> 请求。</li>
+          </ul>
+          <p class="task">小练习：在 README 里画一条自己的流程线：点击保存按钮 -> 前端发 JSON -> 后端写 SQLite -> 后台读出来。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 1 周</div>
+        <div>
+          <h3>Web 基础：HTML、CSS、JavaScript</h3>
+          <p>你先要能看懂按钮、下拉框、事件监听、DOM 更新和样式变量。这个项目没有复杂前端框架，所以很适合从原生 Web 入门。</p>
+          <ul>
+            <li>HTML：元素、表单、按钮、图片、脚本加载。</li>
+            <li>CSS：选择器、布局、主题变量、响应式宽度。</li>
+            <li>JavaScript：变量、函数、数组对象、事件、<code>fetch()</code>、<code>localStorage</code>。</li>
+          </ul>
+          <p class="task">小练习：给主页面加一个“当前控制模式”的小状态文本，并让它随鼠标/摄像头模式变化。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 2 周</div>
+        <div>
+          <h3>Three.js：为什么卡牌能在网页里“立起来”</h3>
+          <p>Three.js 的核心模型是：Scene 放物体，Camera 看场景，Renderer 把它画到 canvas。卡牌就是带图片纹理的平面或薄盒子。</p>
+          <ul>
+            <li>先理解 <code>Scene</code>、<code>Camera</code>、<code>Renderer</code>、<code>Mesh</code>、<code>Material</code>、<code>Texture</code>。</li>
+            <li>再看动画循环：每一帧更新位置、旋转、缩放，然后渲染。</li>
+            <li>最后看交互：鼠标指向哪张牌，通常靠 raycaster 判断。</li>
+          </ul>
+          <p class="task">小练习：让某张被悬停的牌除了放大，还轻微发光或上浮。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 3 周</div>
+        <div>
+          <h3>后端 API 与 SQLite：保存记录是怎么发生的</h3>
+          <p>这个项目的后端很朴素：Python 标准库处理 HTTP，SQLite 做本地数据库。学它能帮你理解绝大多数小型本地应用。</p>
+          <ul>
+            <li>HTTP 方法：<code>GET</code> 读取，<code>POST</code> 创建，<code>DELETE</code> 删除。</li>
+            <li>JSON：前后端交换数据的格式。</li>
+            <li>SQLite：表、主键、外键、索引、查询。</li>
+          </ul>
+          <p class="task">小练习：给 <code>readings</code> 增加一个备注字段，从前端保存到后台显示。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 4 周</div>
+        <div>
+          <h3>LLM 基础：模型不是“懂项目”，它是在按上下文生成</h3>
+          <p>你要掌握的不是神秘概念，而是几个工程问题：给什么上下文、要求什么格式、失败时怎么办、如何把生成过程流式显示。</p>
+          <ul>
+            <li>Prompt：系统指令、用户问题、项目上下文、输出风格。</li>
+            <li>Token：模型读写文本的单位，影响成本、速度和长度。</li>
+            <li>Temperature：低温更稳定，高温更发散。</li>
+            <li>JSON mode：让模型输出机器可解析的结构，而不是随口一段话。</li>
+          </ul>
+          <p class="task">小练习：复制一次 AI 解读请求，把 prompt 中的风格改成“更简洁”，观察输出怎么变。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 5 周</div>
+        <div>
+          <h3>Ollama 与流式输出：本地模型怎样接进项目</h3>
+          <p>项目优先使用本地 Ollama，这意味着用户的牌阵和问题可以留在自己的机器上。浏览器看到的逐字生成效果来自 SSE 或类似流式协议。</p>
+          <ul>
+            <li>理解 <code>localhost:11434</code> 是本地模型服务。</li>
+            <li>理解 <code>/api/chat</code> 的 streaming JSON 行。</li>
+            <li>理解后端如何把模型生成的片段继续推给前端。</li>
+          </ul>
+          <p class="task">小练习：在解读面板显示“本次使用模型：ollama:qwen2.5:7b”或云端模型名。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 6 周</div>
+        <div>
+          <h3>RAG：让模型先查资料，再回答</h3>
+          <p>RAG 的核心是“不要只靠模型记忆”。这个项目把 78 张牌的正逆位含义做成语料，再按抽到的牌和用户问题检索相关内容，塞进 prompt。</p>
+          <div class="flow">
+            <span>牌义语料</span><i>-></i><span>Embedding</span><i>-></i><span>SQLite 向量缓存</span><i>-></i><span>按牌过滤</span><i>-></i><span>按问题相似度排序</span><i>-></i><span>注入 Prompt</span>
+          </div>
+          <ul>
+            <li>Embedding：把文本变成一串数字向量。</li>
+            <li>Cosine similarity：比较两个向量方向是否接近。</li>
+            <li>两阶段检索：先确保牌是对的，再让问题决定角度。</li>
+          </ul>
+          <p class="task">小练习：给语料增加一个“金钱/财务”场景字段，再让解读在财务问题中优先引用它。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 7 周</div>
+        <div>
+          <h3>Agent：不只是一次模型调用，而是一条可检查的工作流</h3>
+          <p>这个项目的 Agent 很适合作为入门，因为它没有一上来做复杂多智能体，而是四步稳定流程。</p>
+          <div class="flow">
+            <span>classify</span><i>-></i><span>retrieve</span><i>-></i><span>generate</span><i>-></i><span>critique</span><i>-></i><span>persist trace</span>
+          </div>
+          <ul>
+            <li><code>classify</code>：把问题归类成 career、relationship、growth 等。</li>
+            <li><code>retrieve</code>：根据牌和问题取回参考资料。</li>
+            <li><code>generate</code>：真正生成解读，并流式返回。</li>
+            <li><code>critique</code>：让模型自检是否跑题、漏牌、太空泛。</li>
+            <li><code>agent_steps</code>：把每一步输入摘要、输出 JSON、耗时、错误都存下来。</li>
+          </ul>
+          <p class="task">小练习：在 Admin 页面加一个 Trace 面板，展示 classify 的 topic、retrieve 的条数、critique 的 score。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 8 周</div>
+        <div>
+          <h3>测试、可观测性与工程习惯</h3>
+          <p>会调用 LLM 不等于会做可靠产品。你需要知道怎么验证 API、数据库迁移、降级逻辑、编码问题和用户取消请求。</p>
+          <ul>
+            <li>单元测试：已有 <code>tests/test_server.py</code> 可以作为入口。</li>
+            <li>Trace：出问题时看每一步，而不是猜模型在想什么。</li>
+            <li>降级：Ollama 不在、embedding 模型缺失、JSON 解析失败时，主流程不能崩。</li>
+            <li>编码：中文在 Python、SQLite、HTTP、PowerShell 中要坚持 UTF-8。</li>
+          </ul>
+          <p class="task">小练习：写一个测试，模拟 classify 失败，确认解读流程仍然能继续。</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="week">第 9+ 周</div>
+        <div>
+          <h3>扩展方向：从这个项目走向通用 Agent 应用</h3>
+          <p>当你能看懂这套流程，再学 LangChain、LlamaIndex、OpenAI Agents SDK 或向量数据库会轻松很多，因为你已经知道这些框架在帮你封装什么。</p>
+          <ul>
+            <li>把 SQLite 向量缓存换成 Qdrant、Chroma 或 pgvector。</li>
+            <li>把 critique 结果用于自动重试或提示词优化。</li>
+            <li>增加工具调用：例如“查历史牌阵”“统计某张牌出现频率”。</li>
+            <li>做评估集：固定 20 个问题和牌阵，对比不同 prompt、模型、RAG 策略。</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="agent">
+    <h2>Agent 和 RAG 的最小理解模型</h2>
+    <div class="grid">
+      <article class="card">
+        <h3>普通 LLM 调用</h3>
+        <p>把牌阵和问题直接塞给模型，模型生成一段文本。简单，但容易漏牌、跑题、风格不稳定。</p>
+      </article>
+      <article class="card">
+        <h3>RAG 调用</h3>
+        <p>先从牌义语料中检索相关内容，再让模型基于资料回答。优点是更稳、更可控，也更容易解释“答案从哪里来”。</p>
+      </article>
+      <article class="card">
+        <h3>Agent 工作流</h3>
+        <p>把一次回答拆成多个可记录步骤。模型有时负责分类，有时负责生成，有时负责审查；系统负责流程、存储和失败处理。</p>
+      </article>
+    </div>
+
+    <div class="band">
+      <h3>这个项目的 Agent 为什么适合作为入门</h3>
+      <table>
+        <tr><th>设计点</th><th>项目里的做法</th><th>你要学到的通用能力</th></tr>
+        <tr>
+          <td>按需启用</td>
+          <td>只有用户写了问题，才跑完整 Agent；没有问题就走快速路径。</td>
+          <td>不要为了“像 Agent”而浪费模型调用。流程要服务用户任务。</td>
+        </tr>
+        <tr>
+          <td>结构化输出</td>
+          <td>classify 和 critique 要求 JSON，并把 topic、intent、score 等字段规范化。</td>
+          <td>让 LLM 输出能被程序消费的数据，而不只是自然语言。</td>
+        </tr>
+        <tr>
+          <td>可观测性</td>
+          <td>每一步写入 <code>agent_steps</code>，包括耗时、输入摘要、输出、是否成功。</td>
+          <td>调试 Agent 要看 trace，不要只看最终答案。</td>
+        </tr>
+        <tr>
+          <td>优雅降级</td>
+          <td>分类器失败给默认分类，embedding 不可用回退到牌义匹配，critic 失败不影响用户看到答案。</td>
+          <td>AI 组件会失败，产品不应该跟着崩。</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="practice">
+    <h2>按难度递进的项目练习</h2>
+    <div class="grid">
+      <article class="card">
+        <h3>入门级</h3>
+        <ul>
+          <li>改一个主题色，并确认主页面和后台都生效。</li>
+          <li>给后台记录列表增加“解读次数”。</li>
+          <li>把每日一牌页面的文案改得更清楚。</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>进阶级</h3>
+        <ul>
+          <li>给 AI 解读增加第三种语言或新的风格。</li>
+          <li>把 RAG 状态显示到 Admin 设置页。</li>
+          <li>为 <code>/api/interpret/&lt;id&gt;/agent-trace</code> 做一个可视化面板。</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>挑战级</h3>
+        <ul>
+          <li>做一个 20 条固定问题的评估集，比较不同模型和 prompt。</li>
+          <li>让 critic 分数太低时自动重试一次，并把两次 trace 都保存。</li>
+          <li>把用户历史牌阵作为可选记忆，做“最近 30 天主题趋势”。</li>
+        </ul>
+      </article>
+    </div>
+    <p class="warn">学习顺序建议：先能改 UI 和 API，再碰 RAG 和 Agent。否则很容易被“模型术语”压住，其实很多问题只是普通工程问题。</p>
+  </section>
+
+  <section id="links">
+    <h2>适合这条路线的学习链接</h2>
+    <div class="links">
+      <div class="linkbox">
+        <a href="https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting/What_is_JavaScript" target="_blank" rel="noopener">MDN：What is JavaScript?</a>
+        <p class="mini">零基础理解 JavaScript 能做什么，适合第 1 周。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://threejs.org/manual/en/fundamentals.html" target="_blank" rel="noopener">Three.js Fundamentals</a>
+        <p class="mini">Three.js 官方入门，适合理解场景、相机、材质和渲染循环。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker" target="_blank" rel="noopener">MediaPipe Hand Landmarker</a>
+        <p class="mini">Google 官方手部关键点文档，对应项目的摄像头手势。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://docs.python.org/3/library/sqlite3.html" target="_blank" rel="noopener">Python sqlite3 官方文档</a>
+        <p class="mini">理解本地数据库、表、查询和 Python 如何读写 SQLite。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://docs.ollama.com/api" target="_blank" rel="noopener">Ollama API 文档</a>
+        <p class="mini">理解本地模型服务、chat、streaming 和 embedding 接口。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://platform.openai.com/docs/guides/prompt-engineering/improving-prompts" target="_blank" rel="noopener">OpenAI Prompt Engineering Guide</a>
+        <p class="mini">学习怎样写清晰指令、给上下文、约束输出格式。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://huggingface.co/learn/nlp-course/chapter1/1" target="_blank" rel="noopener">Hugging Face NLP Course</a>
+        <p class="mini">想补 Transformer、tokenizer、embedding 背景时看。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://docs.llamaindex.ai/en/stable/understanding/rag/" target="_blank" rel="noopener">LlamaIndex：Introduction to RAG</a>
+        <p class="mini">用框架视角理解 RAG 的数据、索引、检索、生成。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://huggingface.co/learn/agents-course/unit1" target="_blank" rel="noopener">Hugging Face Agents Course</a>
+        <p class="mini">从 Thought、Action、Observation 理解 Agent 的基本循环。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://openai.github.io/openai-agents-python/tracing/" target="_blank" rel="noopener">OpenAI Agents SDK：Tracing</a>
+        <p class="mini">学习为什么 Agent 需要 trace，以及如何记录每一步。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://www.deeplearning.ai/courses/building-evaluating-advanced-rag" target="_blank" rel="noopener">DeepLearning.AI：Building and Evaluating Advanced RAG</a>
+        <p class="mini">有基础后学习 RAG 评估、groundedness 和迭代优化。</p>
+      </div>
+      <div class="linkbox">
+        <a href="https://www.langchain.com/langchain" target="_blank" rel="noopener">LangChain</a>
+        <p class="mini">等你理解本项目的手写流程后，再看框架会更有感觉。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>哪些暂时不用急着学</h2>
+    <div class="band">
+      <ul>
+        <li><b>从零训练大模型：</b>这个项目是调用已有模型，不需要先学预训练。</li>
+        <li><b>复杂多 Agent 协作：</b>先理解单条 Agent workflow，再看多 Agent。</li>
+        <li><b>微调 fine-tuning：</b>当前更需要 prompt、RAG、评估和数据质量。</li>
+        <li><b>大型云架构：</b>项目优先本地运行，先学清楚浏览器、Python、SQLite、Ollama 的闭环。</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    建议使用方式：每学一周，就回到项目里做一个小改动。只看课程不碰代码，很快会忘；只改代码不补概念，又会不知道自己在改什么。
+  </footer>
+</main>
+</body>
+</html>

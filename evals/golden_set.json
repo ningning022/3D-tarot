@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "description": "Golden set for Akashic Tarot interpretation eval. 30 questions covering 5 topics. Each entry specifies a 3-card spread and the expected classifier topic.",
+  "items": [
+    {"id": "career-01", "topic": "career", "question_zh": "我应该跳槽吗？", "question_en": "Should I change jobs?", "cards": [{"card_id": 9, "is_reversed": false}, {"card_id": 21, "is_reversed": true}, {"card_id": 13, "is_reversed": true}]},
+    {"id": "career-02", "topic": "career", "question_zh": "我适合创业还是打工？", "question_en": "Am I better suited for entrepreneurship or steady employment?", "cards": [{"card_id": 0, "is_reversed": false}, {"card_id": 1, "is_reversed": false}, {"card_id": 4, "is_reversed": false}]},
+    {"id": "career-03", "topic": "career", "question_zh": "这次升职机会值得争取吗？", "question_en": "Is this promotion opportunity worth pursuing?", "cards": [{"card_id": 7, "is_reversed": false}, {"card_id": 11, "is_reversed": false}, {"card_id": 19, "is_reversed": false}]},
+    {"id": "career-04", "topic": "career", "question_zh": "我应该选择稳定还是冒险？", "question_en": "Should I choose stability or take a risk?", "cards": [{"card_id": 14, "is_reversed": false}, {"card_id": 16, "is_reversed": false}, {"card_id": 17, "is_reversed": false}]},
+    {"id": "career-05", "topic": "career", "question_zh": "与同事的冲突应该如何化解？", "question_en": "How should I resolve a conflict with a colleague?", "cards": [{"card_id": 7, "is_reversed": true}, {"card_id": 11, "is_reversed": true}, {"card_id": 8, "is_reversed": false}]},
+    {"id": "career-06", "topic": "career", "question_zh": "我的职业方向对吗？", "question_en": "Am I on the right career path?", "cards": [{"card_id": 9, "is_reversed": false}, {"card_id": 5, "is_reversed": false}, {"card_id": 21, "is_reversed": false}]},
+
+    {"id": "relationship-01", "topic": "relationship", "question_zh": "这段感情还有未来吗？", "question_en": "Does this relationship have a future?", "cards": [{"card_id": 6, "is_reversed": false}, {"card_id": 18, "is_reversed": true}, {"card_id": 19, "is_reversed": true}]},
+    {"id": "relationship-02", "topic": "relationship", "question_zh": "我应该原谅他吗？", "question_en": "Should I forgive him?", "cards": [{"card_id": 20, "is_reversed": false}, {"card_id": 13, "is_reversed": false}, {"card_id": 17, "is_reversed": false}]},
+    {"id": "relationship-03", "topic": "relationship", "question_zh": "如何修复与父母的关系？", "question_en": "How do I mend the relationship with my parents?", "cards": [{"card_id": 4, "is_reversed": true}, {"card_id": 3, "is_reversed": true}, {"card_id": 17, "is_reversed": false}]},
+    {"id": "relationship-04", "topic": "relationship", "question_zh": "我会遇到对的人吗？", "question_en": "Will I meet the right person?", "cards": [{"card_id": 2, "is_reversed": false}, {"card_id": 6, "is_reversed": false}, {"card_id": 10, "is_reversed": false}]},
+    {"id": "relationship-05", "topic": "relationship", "question_zh": "这段暧昧值得继续吗？", "question_en": "Is this ambiguous relationship worth continuing?", "cards": [{"card_id": 18, "is_reversed": false}, {"card_id": 6, "is_reversed": true}, {"card_id": 15, "is_reversed": false}]},
+    {"id": "relationship-06", "topic": "relationship", "question_zh": "我应该结束这段关系吗？", "question_en": "Should I end this relationship?", "cards": [{"card_id": 13, "is_reversed": true}, {"card_id": 15, "is_reversed": true}, {"card_id": 14, "is_reversed": false}]},
+
+    {"id": "health-01", "topic": "health", "question_zh": "我的身体最近为什么这么疲惫？", "question_en": "Why has my body felt so exhausted recently?", "cards": [{"card_id": 9, "is_reversed": true}, {"card_id": 18, "is_reversed": false}, {"card_id": 14, "is_reversed": true}]},
+    {"id": "health-02", "topic": "health", "question_zh": "我应该如何调整作息？", "question_en": "How should I adjust my daily routine?", "cards": [{"card_id": 14, "is_reversed": false}, {"card_id": 8, "is_reversed": false}, {"card_id": 19, "is_reversed": false}]},
+    {"id": "health-03", "topic": "health", "question_zh": "心理咨询会帮助我吗？", "question_en": "Will therapy help me?", "cards": [{"card_id": 2, "is_reversed": false}, {"card_id": 5, "is_reversed": false}, {"card_id": 17, "is_reversed": false}]},
+    {"id": "health-04", "topic": "health", "question_zh": "这种焦虑何时会缓解？", "question_en": "When will this anxiety subside?", "cards": [{"card_id": 18, "is_reversed": false}, {"card_id": 16, "is_reversed": true}, {"card_id": 17, "is_reversed": false}]},
+    {"id": "health-05", "topic": "health", "question_zh": "我能从失眠中走出来吗？", "question_en": "Can I overcome my insomnia?", "cards": [{"card_id": 18, "is_reversed": false}, {"card_id": 9, "is_reversed": false}, {"card_id": 19, "is_reversed": false}]},
+    {"id": "health-06", "topic": "health", "question_zh": "慢性疼痛背后藏着什么？", "question_en": "What lies behind this chronic pain?", "cards": [{"card_id": 12, "is_reversed": false}, {"card_id": 15, "is_reversed": false}, {"card_id": 20, "is_reversed": false}]},
+
+    {"id": "growth-01", "topic": "growth", "question_zh": "我现在最需要学习什么？", "question_en": "What do I most need to learn right now?", "cards": [{"card_id": 1, "is_reversed": false}, {"card_id": 5, "is_reversed": false}, {"card_id": 9, "is_reversed": false}]},
+    {"id": "growth-02", "topic": "growth", "question_zh": "这次失败教会了我什么？", "question_en": "What did this failure teach me?", "cards": [{"card_id": 16, "is_reversed": false}, {"card_id": 13, "is_reversed": false}, {"card_id": 17, "is_reversed": false}]},
+    {"id": "growth-03", "topic": "growth", "question_zh": "我应该追随热情还是理性？", "question_en": "Should I follow my passion or stay rational?", "cards": [{"card_id": 0, "is_reversed": false}, {"card_id": 4, "is_reversed": false}, {"card_id": 14, "is_reversed": false}]},
+    {"id": "growth-04", "topic": "growth", "question_zh": "如何走出舒适区？", "question_en": "How do I step out of my comfort zone?", "cards": [{"card_id": 4, "is_reversed": true}, {"card_id": 8, "is_reversed": false}, {"card_id": 0, "is_reversed": false}]},
+    {"id": "growth-05", "topic": "growth", "question_zh": "我的下一个突破在哪里？", "question_en": "Where is my next breakthrough?", "cards": [{"card_id": 7, "is_reversed": false}, {"card_id": 16, "is_reversed": true}, {"card_id": 19, "is_reversed": false}]},
+    {"id": "growth-06", "topic": "growth", "question_zh": "内心的恐惧来自哪里？", "question_en": "Where does this inner fear come from?", "cards": [{"card_id": 15, "is_reversed": false}, {"card_id": 18, "is_reversed": false}, {"card_id": 20, "is_reversed": false}]},
+
+    {"id": "general-01", "topic": "general", "question_zh": "接下来三个月会发生什么？", "question_en": "What will happen in the next three months?", "cards": [{"card_id": 10, "is_reversed": false}, {"card_id": 11, "is_reversed": false}, {"card_id": 21, "is_reversed": false}]},
+    {"id": "general-02", "topic": "general", "question_zh": "我现在的生活缺少什么？", "question_en": "What is missing from my life right now?", "cards": [{"card_id": 4, "is_reversed": true}, {"card_id": 17, "is_reversed": true}, {"card_id": 19, "is_reversed": true}]},
+    {"id": "general-03", "topic": "general", "question_zh": "这个决定的关键是什么？", "question_en": "What is the key to this decision?", "cards": [{"card_id": 2, "is_reversed": false}, {"card_id": 11, "is_reversed": false}, {"card_id": 20, "is_reversed": false}]},
+    {"id": "general-04", "topic": "general", "question_zh": "我应该相信直觉吗？", "question_en": "Should I trust my intuition?", "cards": [{"card_id": 2, "is_reversed": false}, {"card_id": 18, "is_reversed": false}, {"card_id": 17, "is_reversed": false}]},
+    {"id": "general-05", "topic": "general", "question_zh": "命运给我的信号是什么？", "question_en": "What signal is fate giving me?", "cards": [{"card_id": 10, "is_reversed": false}, {"card_id": 20, "is_reversed": false}, {"card_id": 21, "is_reversed": false}]},
+    {"id": "general-06", "topic": "general", "question_zh": "我现在最需要明白什么？", "question_en": "What do I most need to understand right now?", "cards": [{"card_id": 5, "is_reversed": false}, {"card_id": 12, "is_reversed": false}, {"card_id": 17, "is_reversed": false}]}
+  ]
+}
