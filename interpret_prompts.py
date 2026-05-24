@@ -148,6 +148,8 @@ def build_messages(
     *,
     language: str = "zh",
     style: str = DEFAULT_STYLE,
+    question: str | None = None,
+    retrieved_chunks: list[dict] | None = None,
 ) -> list[dict]:
     """Compose the full message array sent to the LLM.
 
@@ -161,6 +163,14 @@ def build_messages(
         Output language; selects system prompt + few-shot anchor.
     style : key into STYLES
         Voice / depth overlay.
+    question : optional str
+        The user's spoken question. When supplied, the model is asked
+        to answer it specifically through the cards.
+    retrieved_chunks : optional list of {zh, en, orientation, imagery,
+        situations: {career, relationship, health, growth}, keywords}
+        RAG-retrieved corpus entries. Injected as a "参考资料" block so
+        the model has authoritative meanings for each card without
+        having to recall them from training data.
 
     Returns
     -------
@@ -177,7 +187,10 @@ def build_messages(
 
     few_shot = FEW_SHOT_ZH if language == "zh" else FEW_SHOT_EN
 
-    user_content = _format_user_prompt(cards, template_name, language=language)
+    user_content = _format_user_prompt(
+        cards, template_name,
+        language=language, question=question, retrieved_chunks=retrieved_chunks,
+    )
 
     return [
         {"role": "system", "content": system_content},
@@ -186,8 +199,56 @@ def build_messages(
     ]
 
 
-def _format_user_prompt(cards: list[dict], template_name: str, *, language: str) -> str:
+def _format_retrieved_block(retrieved_chunks: list[dict], *, language: str) -> str:
+    """Render the RAG-retrieved corpus entries as a reference block."""
+    if not retrieved_chunks:
+        return ""
+    if language == "zh":
+        lines = ["【参考资料 — 与本次牌阵对应的牌义】"]
+        for chunk in retrieved_chunks:
+            zh = chunk.get("zh", "?")
+            en = chunk.get("en", "")
+            orient = "逆位" if chunk.get("orientation") == "reversed" else "正位"
+            imagery = chunk.get("imagery", "")
+            sits = chunk.get("situations") or {}
+            line = f"\n- {zh} ({en}) · {orient}"
+            if imagery:
+                line += f"\n  画面：{imagery}"
+            for slot, txt in sits.items():
+                if txt:
+                    line += f"\n  {slot}: {txt}"
+            lines.append(line)
+        lines.append("\n【参考资料结束】请把上述要点融入你的解读，不要逐项罗列。")
+        return "\n".join(lines)
+    # English
+    lines = ["[Reference — canonical meanings for the cards in this spread]"]
+    for chunk in retrieved_chunks:
+        en = chunk.get("en", "?")
+        orient = "Reversed" if chunk.get("orientation") == "reversed" else "Upright"
+        imagery = chunk.get("imagery", "")
+        sits = chunk.get("situations") or {}
+        line = f"\n- {en} · {orient}"
+        if imagery:
+            line += f"\n  Imagery: {imagery}"
+        for slot, txt in sits.items():
+            if txt:
+                line += f"\n  {slot}: {txt}"
+        lines.append(line)
+    lines.append("\n[End reference] Weave these points into the reading; do not list them.")
+    return "\n".join(lines)
+
+
+def _format_user_prompt(
+    cards: list[dict],
+    template_name: str,
+    *,
+    language: str,
+    question: str | None = None,
+    retrieved_chunks: list[dict] | None = None,
+) -> str:
     """Format the structured spread input as a single user message."""
+    rag_block = _format_retrieved_block(retrieved_chunks or [], language=language)
+
     if language == "zh":
         header = f"牌阵：{template_name}\n"
         rows = []
@@ -198,8 +259,23 @@ def _format_user_prompt(cards: list[dict], template_name: str, *, language: str)
             en_name = card.get("en") or ""
             rows.append(f"位置：{slot_label}\n牌：{zh_name} ({en_name})\n正逆位：{orient}")
         body = "\n---\n".join(rows)
-        return f"{header}\n{body}\n\n请给出整体解读（综合所有位置的关系，不要逐张分点）。"
+        question_block = ""
+        instruction = "请给出整体解读（综合所有位置的关系，不要逐张分点）。"
+        if question and question.strip():
+            question_block = f"\n【用户问题】{question.strip()}\n"
+            instruction = (
+                "请通过这三张牌的组合，针对用户的问题给出整体回应。"
+                "解读要直接回应问题、与牌面对应，不要逐张罗列。"
+            )
+        sections = [header, body]
+        if rag_block:
+            sections.append("\n" + rag_block)
+        if question_block:
+            sections.append(question_block)
+        sections.append("\n" + instruction)
+        return "\n".join(sections)
 
+    # English
     header = f"Spread: {template_name}\n"
     rows = []
     for card in cards:
@@ -208,11 +284,25 @@ def _format_user_prompt(cards: list[dict], template_name: str, *, language: str)
         en_name = card.get("en") or card.get("zh") or "?"
         rows.append(f"Slot: {slot_label}\nCard: {en_name}\nOrientation: {orient}")
     body = "\n---\n".join(rows)
-    return (
-        f"{header}\n{body}\n\n"
+    question_block = ""
+    instruction = (
         "Write the interpretation as one cohesive paragraph relating the slots "
         "to each other; do not break it into a per-card list."
     )
+    if question and question.strip():
+        question_block = f"\n[User question] {question.strip()}\n"
+        instruction = (
+            "Answer the user's question through the combined reading of these cards. "
+            "Address the question directly and ground your response in the imagery; "
+            "do not list each card separately."
+        )
+    sections = [header, body]
+    if rag_block:
+        sections.append("\n" + rag_block)
+    if question_block:
+        sections.append(question_block)
+    sections.append("\n" + instruction)
+    return "\n".join(sections)
 
 
 # ── Output sanitization ──────────────────────────────────────

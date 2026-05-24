@@ -12,6 +12,10 @@ __pycache__/
 tests/.tmp/
 .pytest_cache/
 
+# Browser-automation sweep snapshots (root-level scratch)
+.snap-*.jpeg
+.snap-*.png
+
 # OS/editor files
 .DS_Store
 Thumbs.db

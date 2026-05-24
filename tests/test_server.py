@@ -292,5 +292,46 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(daily["templateKey"], "daily_draw")
 
 
+    def test_load_reading_for_interpret_preserves_card_id(self):
+        """Regression guard: _load_reading_for_interpret used to drop the
+        ``cardId`` field, which silently disabled RAG retrieval on the
+        production path (eval runner builds cards independently, so eval
+        results stayed clean while live traces showed retrieve.count=0).
+
+        Surfaced via the agent-trace telemetry viewer; the fix is one
+        line in server.py — this test pins it.
+        """
+        payload = {
+            "spreadNumber": 3,
+            "templateKey": "three_timeline",
+            "templateName": "三张牌 / Past Present Future",
+            "cards": [
+                {"slot": 1, "slotLabel": "过去 / Past",
+                 "cardId": 9, "zh": "隐士", "en": "The Hermit",
+                 "imageFile": "RWS_Tarot_09_Hermit.jpg", "isReversed": False},
+                {"slot": 2, "slotLabel": "现在 / Present",
+                 "cardId": 21, "zh": "世界", "en": "The World",
+                 "imageFile": "RWS_Tarot_21_The_World.jpg", "isReversed": True},
+                {"slot": 3, "slotLabel": "未来 / Future",
+                 "cardId": 13, "zh": "死神", "en": "Death",
+                 "imageFile": "RWS_Tarot_13_Death.jpg", "isReversed": True},
+            ],
+        }
+        self.request_json("POST", "/api/readings", payload)
+
+        loaded = server._load_reading_for_interpret(1)
+        self.assertIsNotNone(loaded)
+        _template_name, cards = loaded
+        self.assertEqual(len(cards), 3)
+        # Every card MUST carry the card_id field that the RAG retriever
+        # uses to look up canonical entries.
+        for c, expected_id in zip(cards, [9, 21, 13]):
+            self.assertIn("card_id", c, f"card_id missing on slot {c['slot']}")
+            self.assertEqual(c["card_id"], expected_id)
+        # Other fields the prompt builder needs survived the transform.
+        self.assertEqual(cards[0]["zh"], "隐士")
+        self.assertEqual(cards[1]["is_reversed"], True)
+
+
 if __name__ == "__main__":
     unittest.main()

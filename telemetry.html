@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Telemetry — Akashic Tarot</title>
+<style>
+  :root {
+    --bg: #0e0f13;
+    --surface: #15171d;
+    --surface-2: #1b1e26;
+    --text: #e7e9ee;
+    --muted: #9aa0ad;
+    --accent: #f5c451;
+    --good: #6dd58c;
+    --bad: #ef5b5b;
+    --line: #262932;
+    --classify: #6aa7ff;
+    --retrieve: #f5c451;
+    --generate: #6dd58c;
+    --critique: #d291ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    max-width: 960px; margin: 0 auto; padding: 28px 22px 64px;
+  }
+  h1 {
+    margin: 0 0 6px; font-size: 22px;
+    border-bottom: 2px solid var(--accent); padding-bottom: 10px; display: inline-block;
+  }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 22px; }
+  .controls {
+    display: flex; gap: 10px; align-items: center; margin: 16px 0 28px;
+    flex-wrap: wrap;
+  }
+  input[type=number] {
+    background: var(--surface); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 12px; font-size: 14px; width: 120px;
+  }
+  button {
+    background: var(--accent); color: #1a1602; border: none; border-radius: 6px;
+    padding: 8px 14px; font-weight: 600; cursor: pointer; font-size: 13.5px;
+  }
+  button:hover { filter: brightness(1.08); }
+  button.secondary {
+    background: var(--surface); color: var(--text); border: 1px solid var(--line);
+  }
+  .status { color: var(--muted); font-size: 13px; }
+  .status.ok { color: var(--good); }
+  .status.err { color: var(--bad); }
+  .timeline {
+    display: grid; gap: 14px; margin-top: 12px;
+  }
+  .step {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .step header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; margin-bottom: 10px;
+  }
+  .step .name { font-weight: 700; font-size: 15px; }
+  .step .name.classify { color: var(--classify); }
+  .step .name.retrieve { color: var(--retrieve); }
+  .step .name.generate { color: var(--generate); }
+  .step .name.critique { color: var(--critique); }
+  .meta { color: var(--muted); font-size: 12px; }
+  .pill {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    background: rgba(109,213,140,0.12); color: var(--good);
+    font-size: 11px; font-weight: 600; margin-left: 8px;
+  }
+  .pill.bad { background: rgba(239,91,91,0.12); color: var(--bad); }
+  .summary {
+    background: var(--surface-2); border-radius: 6px; padding: 8px 10px;
+    color: var(--muted); font-size: 13px; margin-bottom: 8px;
+    word-break: break-word;
+  }
+  pre {
+    margin: 0; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 10px 12px;
+    color: #d4d6db; font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 12.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .empty {
+    color: var(--muted); padding: 22px; text-align: center; font-size: 14px;
+    border: 1px dashed var(--line); border-radius: 8px;
+  }
+  .bar {
+    height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden;
+    margin-top: 6px;
+  }
+  .bar > i {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--accent), #f59e0b);
+  }
+  footer {
+    margin-top: 40px; color: var(--muted); font-size: 12px; text-align: center;
+  }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Agent Telemetry</h1>
+<p class="sub">查看任一 reading 的 Agent 推理链路 — classify → retrieve → generate → critique</p>
+
+<div class="controls">
+  <label class="status" for="rid">Reading ID</label>
+  <input id="rid" type="number" min="1" placeholder="e.g. 6">
+  <button id="load">加载 trace</button>
+  <button id="latest" class="secondary">最新一次</button>
+  <span id="status" class="status"></span>
+</div>
+
+<div id="timeline" class="timeline"></div>
+
+<footer>
+  数据来源：<code>GET /api/interpret/&lt;id&gt;/agent-trace</code> · 仅显示该 reading 最近一次 trace
+</footer>
+
+<script>
+  const tl = document.getElementById("timeline");
+  const status = document.getElementById("status");
+  const ridInput = document.getElementById("rid");
+
+  // Pre-fill from ?rid=… query param (shareable links).
+  const params = new URLSearchParams(location.search);
+  if (params.get("rid")) {
+    ridInput.value = params.get("rid");
+    load();
+  }
+
+  document.getElementById("load").addEventListener("click", load);
+  document.getElementById("latest").addEventListener("click", loadLatest);
+  ridInput.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
+
+  async function load() {
+    const rid = parseInt(ridInput.value, 10);
+    if (!rid) { setStatus("先输入一个 reading_id", "err"); return; }
+    setStatus("加载中…", "");
+    try {
+      const r = await fetch(`/api/interpret/${rid}/agent-trace`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      render(data);
+      history.replaceState(null, "", `?rid=${rid}`);
+    } catch (err) {
+      setStatus("加载失败: " + err.message, "err");
+      tl.innerHTML = "";
+    }
+  }
+
+  async function loadLatest() {
+    // Best-effort: fetch /api/readings, pick first reading_id, load its trace.
+    setStatus("查找最新 reading…", "");
+    try {
+      const r = await fetch("/api/readings?limit=1");
+      const rows = await r.json();
+      const list = Array.isArray(rows) ? rows : (rows.readings || rows.items || []);
+      if (!list.length) { setStatus("没有任何 reading", "err"); return; }
+      ridInput.value = list[0].id;
+      await load();
+    } catch (err) {
+      setStatus("查询 reading 列表失败: " + err.message, "err");
+    }
+  }
+
+  function setStatus(msg, cls) {
+    status.textContent = msg;
+    status.className = "status" + (cls ? " " + cls : "");
+  }
+
+  function render(data) {
+    tl.innerHTML = "";
+    const steps = data.steps || [];
+    if (!steps.length) {
+      tl.innerHTML = `<div class="empty">reading_id=${data.reading_id} 还没有 agent trace — 这条 reading 没有带 question，或还未触发 Agent 模式。</div>`;
+      setStatus(`reading_id=${data.reading_id} · 0 steps`, "");
+      return;
+    }
+    const totalMs = steps.reduce((s, x) => s + (x.duration_ms || 0), 0);
+    setStatus(`reading_id=${data.reading_id} · ${steps.length} steps · 总耗时 ${totalMs} ms`, "ok");
+
+    for (const s of steps) {
+      const node = document.createElement("div");
+      node.className = "step";
+      const pct = totalMs > 0 ? Math.round((s.duration_ms / totalMs) * 100) : 0;
+      const okPill = s.ok
+        ? '<span class="pill">ok</span>'
+        : '<span class="pill bad">failed</span>';
+      node.innerHTML = `
+        <header>
+          <div>
+            <span class="name ${s.step}">${s.step}</span>
+            ${okPill}
+          </div>
+          <div class="meta">${s.duration_ms} ms · ${pct}% · ${s.model || "—"}</div>
+        </header>
+        ${s.input_summary ? `<div class="summary">${escapeHtml(s.input_summary)}</div>` : ""}
+        <pre>${escapeHtml(JSON.stringify(s.output, null, 2))}</pre>
+        ${s.error ? `<div class="summary" style="color:var(--bad)">error: ${escapeHtml(s.error)}</div>` : ""}
+        <div class="bar"><i style="width:${pct}%"></i></div>
+      `;
+      tl.appendChild(node);
+    }
+  }
+
+  function escapeHtml(s) {
+    if (s == null) return "";
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+</script>
+
+</body>
+</html>
