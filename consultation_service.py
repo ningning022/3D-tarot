@@ -200,3 +200,28 @@ def load_by_reading_id(conn: sqlite3.Connection, reading_id: int) -> dict | None
         "SELECT * FROM consultations WHERE reading_id = ?", (reading_id,)
     ).fetchone()
     return _row_to_consultation(row) if row else None
+
+
+def list_consultations(
+    conn: sqlite3.Connection,
+    *,
+    limit: int = 20,
+    module_type: str | None = None,
+) -> list[dict]:
+    limit = max(1, min(int(limit), 100))
+    if module_type:
+        rows = conn.execute(
+            """
+            SELECT * FROM consultations
+            WHERE module_type = ?
+            ORDER BY created_at DESC, id DESC LIMIT ?
+            """,
+            (module_type, limit),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM consultations "
+            "ORDER BY created_at DESC, id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [_row_to_consultation(row) for row in rows]

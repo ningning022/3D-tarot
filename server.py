@@ -8,6 +8,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import consultation_service
 import interpret_service
 
 
@@ -96,6 +97,8 @@ def init_db():
                     WHERE kind = 'daily' AND template_key = 'daily_draw'
                 """
             )
+        interpret_service.migrate(conn)
+        consultation_service.migrate(conn)
 
 
 def ensure_column(conn, table, column, definition):
@@ -138,7 +141,7 @@ def normalize_card(raw_card):
     }
 
 
-def create_reading(payload):
+def normalize_reading_payload(payload: dict) -> dict:
     cards = payload.get("cards")
     if not isinstance(cards, list) or not cards:
         raise ValueError("cards must be a non-empty list")
@@ -148,52 +151,96 @@ def create_reading(payload):
     kind = str(payload.get("kind") or "spread")
     if kind not in {"spread", "daily"}:
         raise ValueError("kind must be spread or daily")
-    template_key = str(payload.get("templateKey") or ("daily_draw" if kind == "daily" else "free"))
+    template_key = str(
+        payload.get("templateKey")
+        or ("daily_draw" if kind == "daily" else "free")
+    )
     template_name = str(
         payload.get("templateName")
         or ("每日一牌 / Daily Draw" if kind == "daily" else "自由牌阵 / Free Spread")
     )
     reading_date = payload.get("readingDate")
-    reading_date = str(reading_date) if reading_date else None
+    return {
+        "spread_number": spread_number,
+        "kind": kind,
+        "template_key": template_key,
+        "template_name": template_name,
+        "reading_date": str(reading_date) if reading_date else None,
+        "cards": [normalize_card(card) for card in cards],
+    }
 
-    normalized_cards = [normalize_card(card) for card in cards]
+
+def insert_reading(conn, normalized: dict, created_at: str) -> int:
+    cursor = conn.execute(
+        """
+        INSERT INTO readings
+            (spread_number, created_at, kind, template_key, template_name, reading_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            normalized["spread_number"],
+            created_at,
+            normalized["kind"],
+            normalized["template_key"],
+            normalized["template_name"],
+            normalized["reading_date"],
+        ),
+    )
+    reading_id = int(cursor.lastrowid)
+    conn.executemany(
+        """
+        INSERT INTO reading_cards
+            (reading_id, slot, slot_label, card_id, zh, en, image_file, is_reversed)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                reading_id,
+                card["slot"],
+                card["slot_label"],
+                card["card_id"],
+                card["zh"],
+                card["en"],
+                card["image_file"],
+                card["is_reversed"],
+            )
+            for card in normalized["cards"]
+        ],
+    )
+    return reading_id
+
+
+def create_reading(payload: dict) -> dict:
+    normalized = normalize_reading_payload(payload)
     created_at = utc_now_iso()
-
     with closing(get_connection()) as conn:
         with conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO readings
-                    (spread_number, created_at, kind, template_key, template_name, reading_date)
-                VALUES
-                    (?, ?, ?, ?, ?, ?)
-                """,
-                (spread_number, created_at, kind, template_key, template_name, reading_date),
-            )
-            reading_id = cursor.lastrowid
-            conn.executemany(
-                """
-                INSERT INTO reading_cards
-                    (reading_id, slot, slot_label, card_id, zh, en, image_file, is_reversed)
-                VALUES
-                    (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    (
-                        reading_id,
-                        card["slot"],
-                        card["slot_label"],
-                        card["card_id"],
-                        card["zh"],
-                        card["en"],
-                        card["image_file"],
-                        card["is_reversed"],
-                    )
-                    for card in normalized_cards
-                ],
-            )
+            reading_id = insert_reading(conn, normalized, created_at)
 
     return {"id": reading_id, "createdAt": created_at}
+
+
+def create_consultation(payload: dict) -> dict:
+    values = consultation_service.normalize_consultation_input(payload)
+    if values["input_mode"] != "manual":
+        raise ValueError("POST /api/consultations requires inputMode=manual")
+    consultation_service.validate_manual_cards(
+        payload.get("cards"),
+        template_key=str(payload.get("templateKey") or "free"),
+    )
+    reading = normalize_reading_payload(payload)
+    created_at = utc_now_iso()
+    with closing(get_connection()) as conn:
+        with conn:
+            reading_id = insert_reading(conn, reading, created_at)
+            consultation_id = consultation_service.insert_consultation(
+                conn,
+                reading_id=reading_id,
+                values=values,
+                created_at=created_at,
+            )
+        result = consultation_service.load_consultation(conn, consultation_id)
+    return result
 
 
 def row_to_card(row):
@@ -277,6 +324,26 @@ def fetch_reading(reading_id):
         "readingDate": reading["reading_date"],
         "cards": [row_to_card(row) for row in card_rows],
     }
+
+
+def fetch_consultation(consultation_id: int) -> dict | None:
+    with closing(get_connection()) as conn:
+        consultation = consultation_service.load_consultation(
+            conn, consultation_id
+        )
+    if consultation is None:
+        return None
+    consultation["reading"] = fetch_reading(consultation["readingId"])
+    return consultation
+
+
+def fetch_consultations(
+    limit: int, module_type: str | None = None
+) -> list[dict]:
+    with closing(get_connection()) as conn:
+        return consultation_service.list_consultations(
+            conn, limit=limit, module_type=module_type
+        )
 
 
 def fetch_daily_draw(reading_date):
@@ -538,6 +605,25 @@ def handle_api_request(method, parsed_url, body=b""):
             return json_response(200, data)
         # POST /api/interpret/<id> is handled separately (streaming);
         # it does NOT route through this function.
+
+        if method == "POST" and path == "/api/consultations":
+            created = create_consultation(parse_json_body(body))
+            return json_response(201, created)
+
+        if method == "GET" and path == "/api/consultations":
+            query = parse_qs(parsed_url.query)
+            limit = int(query.get("limit", ["20"])[0])
+            module_type = query.get("module_type", [None])[0]
+            return json_response(
+                200, fetch_consultations(limit, module_type)
+            )
+
+        if method == "GET" and path.startswith("/api/consultations/"):
+            consultation_id = int(path.rsplit("/", 1)[1])
+            consultation = fetch_consultation(consultation_id)
+            if consultation is None:
+                return error_response(404, "Consultation not found")
+            return json_response(200, consultation)
 
         if method == "POST" and path == "/api/readings":
             created = create_reading(parse_json_body(body))

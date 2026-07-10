@@ -24,6 +24,48 @@ class TarotServerTest(unittest.TestCase):
         body = json.dumps(payload).encode("utf-8") if payload is not None else b""
         return server.handle_api_request(method, urlparse(path), body)
 
+    def manual_consultation_payload(self):
+        return {
+            "language": "zh",
+            "moduleType": "general_reading",
+            "inputMode": "manual",
+            "userQuery": "我应该如何看待这次工作机会？",
+            "userContext": "目前工作稳定，但成长空间有限。",
+            "modulePayload": {},
+            "spreadNumber": 1,
+            "templateKey": "three_timeline",
+            "templateName": "三张牌时间线",
+            "cards": [
+                {
+                    "slot": 1,
+                    "slotLabel": "过去",
+                    "cardId": 9,
+                    "zh": "隐者",
+                    "en": "The Hermit",
+                    "imageFile": "RWS_Tarot_09_Hermit.jpg",
+                    "isReversed": False,
+                },
+                {
+                    "slot": 2,
+                    "slotLabel": "现在",
+                    "cardId": 10,
+                    "zh": "命运之轮",
+                    "en": "Wheel of Fortune",
+                    "imageFile": "RWS_Tarot_10_Wheel_of_Fortune.jpg",
+                    "isReversed": False,
+                },
+                {
+                    "slot": 3,
+                    "slotLabel": "未来",
+                    "cardId": 8,
+                    "zh": "力量",
+                    "en": "Strength",
+                    "imageFile": "RWS_Tarot_08_Strength.jpg",
+                    "isReversed": False,
+                },
+            ],
+        }
+
     def test_health_reports_ready_database(self):
         status, headers, body = self.request_json("GET", "/api/health")
 
@@ -331,6 +373,52 @@ class TarotServerTest(unittest.TestCase):
         # Other fields the prompt builder needs survived the transform.
         self.assertEqual(cards[0]["zh"], "隐士")
         self.assertEqual(cards[1]["is_reversed"], True)
+
+    def test_create_and_fetch_manual_consultation(self):
+        status, _, body = self.request_json(
+            "POST", "/api/consultations", self.manual_consultation_payload()
+        )
+        created = json.loads(body)
+        self.assertEqual(status, 201)
+        self.assertEqual(created["readingId"], 1)
+        self.assertEqual(len(created["publicId"]), 32)
+
+        get_status, _, get_body = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
+        detail = json.loads(get_body)
+        self.assertEqual(get_status, 200)
+        self.assertEqual(
+            detail["userQuery"], "我应该如何看待这次工作机会？"
+        )
+        self.assertEqual(
+            [card["cardId"] for card in detail["reading"]["cards"]],
+            [9, 10, 8],
+        )
+
+        list_status, _, list_body = self.request_json(
+            "GET", "/api/consultations?limit=10"
+        )
+        items = json.loads(list_body)
+        self.assertEqual(list_status, 200)
+        self.assertEqual([item["id"] for item in items], [created["id"]])
+
+    def test_invalid_consultation_rolls_back_reading(self):
+        payload = self.manual_consultation_payload()
+        payload["userQuery"] = "短"
+        status, _, _ = self.request_json("POST", "/api/consultations", payload)
+        self.assertEqual(status, 400)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM readings").fetchone()[0], 0
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM consultations").fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
 
 
 if __name__ == "__main__":
