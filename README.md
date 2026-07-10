@@ -105,10 +105,14 @@ python server.py
 data/tarot.sqlite3
 ```
 
-数据库包含两类核心数据：
+数据库会保存以下核心数据：
 
 - `readings`：每次牌阵或每日一牌的记录，包括类型、牌阵名称、日期和创建时间。
 - `reading_cards`：每条记录中的卡牌，包括位置、位置含义、中文名、英文名、图片文件和正逆位。
+- `consultations`：中文咨询问题、补充背景、输入来源和模块参数；与 reading 一对一。
+- `interpretations`：每次模型生成的版本化解读及输入、RAG、Prompt 和 Agent 追踪快照。
+- `interpretation_reviews`：人工结论、评分、问题标签、修订文本和隐私确认。
+- `agent_steps`：一次 Agent 解读中的分类、检索、生成和审查轨迹。
 
 后台页面 `admin.html` 可以查看最近记录、视觉回放已保存牌阵（每张回放卡下面带名字 + 正/逆字幕，列表每行带 chips），并提供清空数据库功能。清空操作需要输入 `CLEAR` 二次确认；该操作只影响本地 SQLite 文件。
 
@@ -123,6 +127,10 @@ data/tarot.sqlite3
 | `GET` | `/api/readings?limit=20` | 获取最近记录。 |
 | `GET` | `/api/readings/{id}` | 获取单条记录和卡牌详情。 |
 | `DELETE` | `/api/readings` | 清空本地记录并重置 id。 |
+| `POST` | `/api/consultations` | 原子保存中文咨询、牌阵和手动录入的卡牌。 |
+| `GET` | `/api/consultations?limit=20` | 获取最近咨询。 |
+| `GET` | `/api/consultations/{id}` | 获取咨询、牌阵、全部解读版本和人工审核。 |
+| `PUT` | `/api/interpretations/{id}/review` | 新增或更新某个解读版本的人工审核。 |
 | `GET` | `/api/daily-draw?date=YYYY-MM-DD` | 获取指定日期的每日一牌。 |
 | `POST` | `/api/daily-draw` | 创建或返回指定日期的每日一牌。 |
 
@@ -243,9 +251,63 @@ curl -X POST -H "Content-Type: application/json" \
   http://localhost:8080/api/interpret/settings
 ```
 
+### 中文咨询数据接口
+
+手动录牌使用独立的咨询记录保存问题、背景和输入来源。创建操作会在一个 SQLite 事务中同时写入 reading、cards 和 consultation；任一步校验或写入失败都会整体回滚。
+
+```json
+POST /api/consultations
+{
+  "language": "zh",
+  "moduleType": "general_reading",
+  "inputMode": "manual",
+  "userQuery": "我应该如何看待这次工作机会？",
+  "userContext": "目前稳定，但成长空间有限。",
+  "modulePayload": {},
+  "templateKey": "three_timeline",
+  "templateName": "三张牌时间线",
+  "cards": [
+    {
+      "slot": 1,
+      "slotLabel": "过去",
+      "cardId": 9,
+      "zh": "隐者",
+      "en": "The Hermit",
+      "imageFile": "RWS_Tarot_09_Hermit.jpg",
+      "isReversed": false
+    },
+    {
+      "slot": 2,
+      "slotLabel": "现在",
+      "cardId": 10,
+      "zh": "命运之轮",
+      "en": "Wheel of Fortune",
+      "imageFile": "RWS_Tarot_10_Wheel_of_Fortune.jpg",
+      "isReversed": false
+    },
+    {
+      "slot": 3,
+      "slotLabel": "未来",
+      "cardId": 8,
+      "zh": "力量",
+      "en": "Strength",
+      "imageFile": "RWS_Tarot_08_Strength.jpg",
+      "isReversed": false
+    }
+  ]
+}
+```
+
+- `GET /api/consultations?limit=20`：列出最近咨询，可用 `module_type` 筛选。
+- `GET /api/consultations/<id>`：返回问题、牌阵、全部解读版本及人工审核。
+- `POST /api/interpret/<readingId>`：使用已保存的问题和背景进行 SSE 流式解读；不能用请求参数覆盖已保存问题。
+- `PUT /api/interpretations/<id>/review`：保存 `accepted`、`needs_work`、`rejected` 或 `edited` 审核。
+
+模型生成文本默认不是训练数据。只有人工结论为 `accepted` 或 `edited`、确认本地隐私状态且通过后续安全过滤的版本，才具备导出候选资格。
+
 ### 范围限制
 
-当前 Phase 1 实现**不**包含：多轮对话追问、跨记录 RAG、用户自定义 prompt、解读评分。这些是后续迭代项。
+当前阶段仍**不**包含：多轮对话追问、跨记录 RAG、用户自定义 prompt、数据集导出和模型微调。这些是后续迭代项；本阶段只建立可追溯、可人工审核的数据基础。
 
 ## Agent 系统 / Agent System
 

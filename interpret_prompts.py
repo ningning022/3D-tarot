@@ -149,6 +149,7 @@ def build_messages(
     language: str = "zh",
     style: str = DEFAULT_STYLE,
     question: str | None = None,
+    user_context: str | None = None,
     retrieved_chunks: list[dict] | None = None,
 ) -> list[dict]:
     """Compose the full message array sent to the LLM.
@@ -189,7 +190,10 @@ def build_messages(
 
     user_content = _format_user_prompt(
         cards, template_name,
-        language=language, question=question, retrieved_chunks=retrieved_chunks,
+        language=language,
+        question=question,
+        user_context=user_context,
+        retrieved_chunks=retrieved_chunks,
     )
 
     return [
@@ -244,6 +248,7 @@ def _format_user_prompt(
     *,
     language: str,
     question: str | None = None,
+    user_context: str | None = None,
     retrieved_chunks: list[dict] | None = None,
 ) -> str:
     """Format the structured spread input as a single user message."""
@@ -260,18 +265,23 @@ def _format_user_prompt(
             rows.append(f"位置：{slot_label}\n牌：{zh_name} ({en_name})\n正逆位：{orient}")
         body = "\n---\n".join(rows)
         question_block = ""
+        context_block = ""
         instruction = "请给出整体解读（综合所有位置的关系，不要逐张分点）。"
         if question and question.strip():
             question_block = f"\n【用户问题】{question.strip()}\n"
             instruction = (
-                "请通过这三张牌的组合，针对用户的问题给出整体回应。"
+                "请通过这些牌的组合，针对用户的问题给出整体回应。"
                 "解读要直接回应问题、与牌面对应，不要逐张罗列。"
             )
+        if user_context and user_context.strip():
+            context_block = f"\n【背景】{user_context.strip()}\n"
         sections = [header, body]
         if rag_block:
             sections.append("\n" + rag_block)
         if question_block:
             sections.append(question_block)
+        if context_block:
+            sections.append(context_block)
         sections.append("\n" + instruction)
         return "\n".join(sections)
 
@@ -285,6 +295,7 @@ def _format_user_prompt(
         rows.append(f"Slot: {slot_label}\nCard: {en_name}\nOrientation: {orient}")
     body = "\n---\n".join(rows)
     question_block = ""
+    context_block = ""
     instruction = (
         "Write the interpretation as one cohesive paragraph relating the slots "
         "to each other; do not break it into a per-card list."
@@ -296,11 +307,15 @@ def _format_user_prompt(
             "Address the question directly and ground your response in the imagery; "
             "do not list each card separately."
         )
+    if user_context and user_context.strip():
+        context_block = f"\n[Context] {user_context.strip()}\n"
     sections = [header, body]
     if rag_block:
         sections.append("\n" + rag_block)
     if question_block:
         sections.append(question_block)
+    if context_block:
+        sections.append(context_block)
     sections.append("\n" + instruction)
     return "\n".join(sections)
 

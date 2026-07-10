@@ -8,6 +8,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import consultation_service
 import interpret_service
 
 
@@ -96,6 +97,8 @@ def init_db():
                     WHERE kind = 'daily' AND template_key = 'daily_draw'
                 """
             )
+        interpret_service.migrate(conn)
+        consultation_service.migrate(conn)
 
 
 def ensure_column(conn, table, column, definition):
@@ -138,7 +141,7 @@ def normalize_card(raw_card):
     }
 
 
-def create_reading(payload):
+def normalize_reading_payload(payload: dict) -> dict:
     cards = payload.get("cards")
     if not isinstance(cards, list) or not cards:
         raise ValueError("cards must be a non-empty list")
@@ -148,52 +151,96 @@ def create_reading(payload):
     kind = str(payload.get("kind") or "spread")
     if kind not in {"spread", "daily"}:
         raise ValueError("kind must be spread or daily")
-    template_key = str(payload.get("templateKey") or ("daily_draw" if kind == "daily" else "free"))
+    template_key = str(
+        payload.get("templateKey")
+        or ("daily_draw" if kind == "daily" else "free")
+    )
     template_name = str(
         payload.get("templateName")
         or ("每日一牌 / Daily Draw" if kind == "daily" else "自由牌阵 / Free Spread")
     )
     reading_date = payload.get("readingDate")
-    reading_date = str(reading_date) if reading_date else None
+    return {
+        "spread_number": spread_number,
+        "kind": kind,
+        "template_key": template_key,
+        "template_name": template_name,
+        "reading_date": str(reading_date) if reading_date else None,
+        "cards": [normalize_card(card) for card in cards],
+    }
 
-    normalized_cards = [normalize_card(card) for card in cards]
+
+def insert_reading(conn, normalized: dict, created_at: str) -> int:
+    cursor = conn.execute(
+        """
+        INSERT INTO readings
+            (spread_number, created_at, kind, template_key, template_name, reading_date)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            normalized["spread_number"],
+            created_at,
+            normalized["kind"],
+            normalized["template_key"],
+            normalized["template_name"],
+            normalized["reading_date"],
+        ),
+    )
+    reading_id = int(cursor.lastrowid)
+    conn.executemany(
+        """
+        INSERT INTO reading_cards
+            (reading_id, slot, slot_label, card_id, zh, en, image_file, is_reversed)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (
+                reading_id,
+                card["slot"],
+                card["slot_label"],
+                card["card_id"],
+                card["zh"],
+                card["en"],
+                card["image_file"],
+                card["is_reversed"],
+            )
+            for card in normalized["cards"]
+        ],
+    )
+    return reading_id
+
+
+def create_reading(payload: dict) -> dict:
+    normalized = normalize_reading_payload(payload)
     created_at = utc_now_iso()
-
     with closing(get_connection()) as conn:
         with conn:
-            cursor = conn.execute(
-                """
-                INSERT INTO readings
-                    (spread_number, created_at, kind, template_key, template_name, reading_date)
-                VALUES
-                    (?, ?, ?, ?, ?, ?)
-                """,
-                (spread_number, created_at, kind, template_key, template_name, reading_date),
-            )
-            reading_id = cursor.lastrowid
-            conn.executemany(
-                """
-                INSERT INTO reading_cards
-                    (reading_id, slot, slot_label, card_id, zh, en, image_file, is_reversed)
-                VALUES
-                    (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    (
-                        reading_id,
-                        card["slot"],
-                        card["slot_label"],
-                        card["card_id"],
-                        card["zh"],
-                        card["en"],
-                        card["image_file"],
-                        card["is_reversed"],
-                    )
-                    for card in normalized_cards
-                ],
-            )
+            reading_id = insert_reading(conn, normalized, created_at)
 
     return {"id": reading_id, "createdAt": created_at}
+
+
+def create_consultation(payload: dict) -> dict:
+    values = consultation_service.normalize_consultation_input(payload)
+    if values["input_mode"] != "manual":
+        raise ValueError("POST /api/consultations requires inputMode=manual")
+    consultation_service.validate_manual_cards(
+        payload.get("cards"),
+        template_key=str(payload.get("templateKey") or "free"),
+    )
+    reading = normalize_reading_payload(payload)
+    created_at = utc_now_iso()
+    with closing(get_connection()) as conn:
+        with conn:
+            reading_id = insert_reading(conn, reading, created_at)
+            consultation_id = consultation_service.insert_consultation(
+                conn,
+                reading_id=reading_id,
+                values=values,
+                created_at=created_at,
+            )
+        result = consultation_service.load_consultation(conn, consultation_id)
+    return result
 
 
 def row_to_card(row):
@@ -279,6 +326,34 @@ def fetch_reading(reading_id):
     }
 
 
+def fetch_consultation(consultation_id: int) -> dict | None:
+    with closing(get_connection()) as conn:
+        consultation = consultation_service.load_consultation(
+            conn, consultation_id
+        )
+        if consultation is None:
+            return None
+        interpretations = interpret_service.load_interpretation(
+            conn, consultation["readingId"], all_rows=True
+        )
+        for interpretation in interpretations:
+            interpretation["review"] = consultation_service.load_review(
+                conn, interpretation["id"]
+            )
+    consultation["reading"] = fetch_reading(consultation["readingId"])
+    consultation["interpretations"] = interpretations
+    return consultation
+
+
+def fetch_consultations(
+    limit: int, module_type: str | None = None
+) -> list[dict]:
+    with closing(get_connection()) as conn:
+        return consultation_service.list_consultations(
+            conn, limit=limit, module_type=module_type
+        )
+
+
 def fetch_daily_draw(reading_date):
     if not reading_date:
         raise ValueError("date is required")
@@ -331,10 +406,15 @@ def create_daily_draw(payload):
 def clear_readings():
     with closing(get_connection()) as conn:
         with conn:
+            # agent_steps predates the consultation schema and intentionally
+            # has no foreign key, so it must be cleared before its readings.
+            conn.execute("DELETE FROM agent_steps")
             conn.execute("DELETE FROM reading_cards")
             conn.execute("DELETE FROM readings")
             conn.execute(
-                "DELETE FROM sqlite_sequence WHERE name IN ('readings', 'reading_cards')"
+                "DELETE FROM sqlite_sequence WHERE name IN "
+                "('readings', 'reading_cards', 'consultations', "
+                "'interpretations', 'interpretation_reviews', 'agent_steps')"
             )
     return {"ok": True, "deleted": True}
 
@@ -539,6 +619,43 @@ def handle_api_request(method, parsed_url, body=b""):
         # POST /api/interpret/<id> is handled separately (streaming);
         # it does NOT route through this function.
 
+        if (
+            method == "PUT"
+            and path.startswith("/api/interpretations/")
+            and path.endswith("/review")
+        ):
+            try:
+                interpretation_id = int(path.split("/")[3])
+            except (ValueError, IndexError):
+                return error_response(400, "Invalid interpretation id")
+            with closing(get_connection()) as conn:
+                review = consultation_service.upsert_review(
+                    conn,
+                    interpretation_id=interpretation_id,
+                    payload=parse_json_body(body),
+                    reviewed_at=utc_now_iso(),
+                )
+            return json_response(200, review)
+
+        if method == "POST" and path == "/api/consultations":
+            created = create_consultation(parse_json_body(body))
+            return json_response(201, created)
+
+        if method == "GET" and path == "/api/consultations":
+            query = parse_qs(parsed_url.query)
+            limit = int(query.get("limit", ["20"])[0])
+            module_type = query.get("module_type", [None])[0]
+            return json_response(
+                200, fetch_consultations(limit, module_type)
+            )
+
+        if method == "GET" and path.startswith("/api/consultations/"):
+            consultation_id = int(path.rsplit("/", 1)[1])
+            consultation = fetch_consultation(consultation_id)
+            if consultation is None:
+                return error_response(404, "Consultation not found")
+            return json_response(200, consultation)
+
         if method == "POST" and path == "/api/readings":
             created = create_reading(parse_json_body(body))
             return json_response(201, created)
@@ -595,7 +712,9 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        self.send_header(
+            "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"
+        )
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
@@ -618,6 +737,16 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
         self.send_api_response(*handle_api_request("POST", urlparse(self.path), body))
+
+    def do_PUT(self):
+        if not self.path.startswith("/api/"):
+            self.send_error(404, "Not found")
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length)
+        self.send_api_response(
+            *handle_api_request("PUT", urlparse(self.path), body)
+        )
 
     def _handle_interpret_stream(self, parsed):
         """SSE stream `/api/interpret/<reading_id>` → forward model chunks
@@ -656,11 +785,29 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                 settings = interpret_service.get_settings(conn)
                 style = overrides.get("style") or settings.get("default_style", "traditional")
                 language = overrides.get("language") or settings.get("default_language", "zh")
-                # User question is optional — when supplied, the prompt
-                # builder folds it in and the RAG retriever uses it to
-                # rank corpus chunks by relevance.
                 raw_q = overrides.get("question")
-                question = str(raw_q).strip() if raw_q else None
+                request_question = str(raw_q).strip() if raw_q else None
+                try:
+                    question, consultation = (
+                        consultation_service.resolve_interpret_context(
+                            conn,
+                            reading_id=reading_id,
+                            request_question=request_question,
+                            created_at=utc_now_iso(),
+                        )
+                    )
+                except ValueError as exc:
+                    self.send_api_response(*error_response(400, str(exc)))
+                    return
+                conn.commit()
+                input_snapshot = consultation_service.build_input_snapshot(
+                    consultation=consultation,
+                    reading_id=reading_id,
+                    template_name=template_name,
+                    cards=cards,
+                    style=style,
+                    language=language,
+                )
                 # Agent mode is on by default when a question is
                 # present; clients can opt out with enable_agent=false.
                 enable_agent = bool(overrides.get("enable_agent", True))
@@ -683,7 +830,14 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                         style=style,
                         language=language,
                         question=question,
+                        user_context=(
+                            consultation["userContext"]
+                            if consultation
+                            else None
+                        ),
                         enable_agent=enable_agent,
+                        input_snapshot=input_snapshot,
+                        prompt_version="general-v1",
                     ):
                         frame = "data: " + json.dumps(
                             {"chunk": chunk}, ensure_ascii=False

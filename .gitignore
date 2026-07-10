@@ -24,6 +24,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Local Git worktrees
+.worktrees/
+
 # Local environment files
 .env
 .env.*

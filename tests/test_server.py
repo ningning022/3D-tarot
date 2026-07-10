@@ -6,15 +6,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import server
-
-
-TEST_TMP_ROOT = Path(__file__).resolve().parent / ".tmp"
+import consultation_service
+import interpret_agent
+import interpret_service
 
 
 class TarotServerTest(unittest.TestCase):
     def setUp(self):
-        TEST_TMP_ROOT.mkdir(exist_ok=True)
-        self.tmpdir = tempfile.TemporaryDirectory(dir=TEST_TMP_ROOT)
+        self.tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmpdir.cleanup)
         self.db_path = Path(self.tmpdir.name) / "tarot.sqlite3"
         server.DB_PATH = self.db_path
@@ -23,6 +22,48 @@ class TarotServerTest(unittest.TestCase):
     def request_json(self, method, path, payload=None):
         body = json.dumps(payload).encode("utf-8") if payload is not None else b""
         return server.handle_api_request(method, urlparse(path), body)
+
+    def manual_consultation_payload(self):
+        return {
+            "language": "zh",
+            "moduleType": "general_reading",
+            "inputMode": "manual",
+            "userQuery": "我应该如何看待这次工作机会？",
+            "userContext": "目前工作稳定，但成长空间有限。",
+            "modulePayload": {},
+            "spreadNumber": 1,
+            "templateKey": "three_timeline",
+            "templateName": "三张牌时间线",
+            "cards": [
+                {
+                    "slot": 1,
+                    "slotLabel": "过去",
+                    "cardId": 9,
+                    "zh": "隐者",
+                    "en": "The Hermit",
+                    "imageFile": "RWS_Tarot_09_Hermit.jpg",
+                    "isReversed": False,
+                },
+                {
+                    "slot": 2,
+                    "slotLabel": "现在",
+                    "cardId": 10,
+                    "zh": "命运之轮",
+                    "en": "Wheel of Fortune",
+                    "imageFile": "RWS_Tarot_10_Wheel_of_Fortune.jpg",
+                    "isReversed": False,
+                },
+                {
+                    "slot": 3,
+                    "slotLabel": "未来",
+                    "cardId": 8,
+                    "zh": "力量",
+                    "en": "Strength",
+                    "imageFile": "RWS_Tarot_08_Strength.jpg",
+                    "isReversed": False,
+                },
+            ],
+        }
 
     def test_health_reports_ready_database(self):
         status, headers, body = self.request_json("GET", "/api/health")
@@ -138,32 +179,56 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual([card["en"] for card in detail["cards"]], ["The Fool", "Wheel of Fortune"])
 
     def test_delete_readings_clears_records_and_resets_ids(self):
-        payload = {
-            "spreadNumber": 9,
-            "cards": [
-                {
-                    "slot": 1,
-                    "cardId": 0,
-                    "zh": "愚人",
-                    "en": "The Fool",
-                    "imageFile": "RWS_Tarot_00_Fool.jpg",
-                    "isReversed": False,
-                },
-                {
-                    "slot": 2,
-                    "cardId": 10,
-                    "zh": "命运之轮",
-                    "en": "Wheel of Fortune",
-                    "imageFile": "RWS_Tarot_10_Wheel_of_Fortune.jpg",
-                    "isReversed": True,
-                },
-            ],
-        }
-        post_status, _, post_body = self.request_json("POST", "/api/readings", payload)
+        payload = self.manual_consultation_payload()
+        post_status, _, post_body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
         created = json.loads(post_body)
 
         self.assertEqual(post_status, 201)
         self.assertEqual(created["id"], 1)
+        self.assertEqual(created["readingId"], 1)
+
+        conn = server.get_connection()
+        try:
+            interpretation_id = interpret_service.save_interpretation(
+                conn,
+                reading_id=created["readingId"],
+                model="test-model",
+                style="psychological",
+                language="zh",
+                content="这是一条用于验证级联清理的测试解读。",
+                prompt_hash="delete-test",
+                duration_ms=12,
+                created_at="2026-07-11T00:00:00+00:00",
+                trace_id="delete-trace",
+            )
+            consultation_service.upsert_review(
+                conn,
+                interpretation_id=interpretation_id,
+                payload={
+                    "verdict": "accepted",
+                    "rating": 5,
+                    "privacyConfirmed": True,
+                },
+                reviewed_at="2026-07-11T00:00:01+00:00",
+            )
+            interpret_agent.record_step(
+                conn,
+                reading_id=created["readingId"],
+                trace_id="delete-trace",
+                step_index=0,
+                step=interpret_agent.AgentStep(
+                    step="classify",
+                    model="test-model",
+                    duration_ms=3,
+                    input_summary="测试清理",
+                    output={"topic": "career"},
+                    ok=True,
+                ),
+            )
+        finally:
+            conn.close()
 
         delete_status, _, delete_body = self.request_json("DELETE", "/api/readings")
         self.assertEqual(delete_status, 200)
@@ -173,14 +238,46 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(list_status, 200)
         self.assertEqual(json.loads(list_body), [])
 
-        detail_status, _, _ = self.request_json("GET", f"/api/readings/{created['id']}")
+        detail_status, _, _ = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
         self.assertEqual(detail_status, 404)
 
-        second_status, _, second_body = self.request_json("POST", "/api/readings", payload)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            for table in (
+                "readings",
+                "reading_cards",
+                "consultations",
+                "interpretations",
+                "interpretation_reviews",
+                "agent_steps",
+            ):
+                self.assertEqual(
+                    conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0],
+                    0,
+                    table,
+                )
+            sequence_names = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_sequence WHERE name IN "
+                    "('readings', 'reading_cards', 'consultations', "
+                    "'interpretations', 'interpretation_reviews', 'agent_steps')"
+                )
+            }
+        finally:
+            conn.close()
+        self.assertEqual(sequence_names, set())
+
+        second_status, _, second_body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
         second = json.loads(second_body)
 
         self.assertEqual(second_status, 201)
         self.assertEqual(second["id"], 1)
+        self.assertEqual(second["readingId"], 1)
 
     def test_template_metadata_and_slot_label_roundtrip(self):
         payload = {
@@ -331,6 +428,95 @@ class TarotServerTest(unittest.TestCase):
         # Other fields the prompt builder needs survived the transform.
         self.assertEqual(cards[0]["zh"], "隐士")
         self.assertEqual(cards[1]["is_reversed"], True)
+
+    def test_create_and_fetch_manual_consultation(self):
+        status, _, body = self.request_json(
+            "POST", "/api/consultations", self.manual_consultation_payload()
+        )
+        created = json.loads(body)
+        self.assertEqual(status, 201)
+        self.assertEqual(created["readingId"], 1)
+        self.assertEqual(len(created["publicId"]), 32)
+
+        get_status, _, get_body = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
+        detail = json.loads(get_body)
+        self.assertEqual(get_status, 200)
+        self.assertEqual(
+            detail["userQuery"], "我应该如何看待这次工作机会？"
+        )
+        self.assertEqual(
+            [card["cardId"] for card in detail["reading"]["cards"]],
+            [9, 10, 8],
+        )
+
+        list_status, _, list_body = self.request_json(
+            "GET", "/api/consultations?limit=10"
+        )
+        items = json.loads(list_body)
+        self.assertEqual(list_status, 200)
+        self.assertEqual([item["id"] for item in items], [created["id"]])
+
+    def test_invalid_consultation_rolls_back_reading(self):
+        payload = self.manual_consultation_payload()
+        payload["userQuery"] = "短"
+        status, _, _ = self.request_json("POST", "/api/consultations", payload)
+        self.assertEqual(status, 400)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM readings").fetchone()[0], 0
+            )
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM consultations").fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
+
+    def test_put_interpretation_review(self):
+        _, _, created_body = self.request_json(
+            "POST", "/api/consultations", self.manual_consultation_payload()
+        )
+        created = json.loads(created_body)
+        conn = server.get_connection()
+        try:
+            interpretation_id = interpret_service.save_interpretation(
+                conn,
+                reading_id=created["readingId"],
+                model="ollama:qwen2.5:7b",
+                style="traditional",
+                language="zh",
+                content="模型原始回答",
+                prompt_hash="hash",
+                duration_ms=10,
+                created_at="2026-07-10T00:00:00+00:00",
+            )
+        finally:
+            conn.close()
+
+        status, _, body = self.request_json(
+            "PUT",
+            f"/api/interpretations/{interpretation_id}/review",
+            {
+                "verdict": "accepted",
+                "rating": 5,
+                "issueTags": [],
+                "privacyConfirmed": True,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["verdict"], "accepted")
+
+        _, _, detail_body = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
+        detail = json.loads(detail_body)
+        self.assertEqual(
+            detail["interpretations"][0]["review"]["verdict"],
+            "accepted",
+        )
 
 
 if __name__ == "__main__":
