@@ -6,6 +6,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import server
+import consultation_service
+import interpret_agent
 import interpret_service
 
 
@@ -177,32 +179,56 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual([card["en"] for card in detail["cards"]], ["The Fool", "Wheel of Fortune"])
 
     def test_delete_readings_clears_records_and_resets_ids(self):
-        payload = {
-            "spreadNumber": 9,
-            "cards": [
-                {
-                    "slot": 1,
-                    "cardId": 0,
-                    "zh": "愚人",
-                    "en": "The Fool",
-                    "imageFile": "RWS_Tarot_00_Fool.jpg",
-                    "isReversed": False,
-                },
-                {
-                    "slot": 2,
-                    "cardId": 10,
-                    "zh": "命运之轮",
-                    "en": "Wheel of Fortune",
-                    "imageFile": "RWS_Tarot_10_Wheel_of_Fortune.jpg",
-                    "isReversed": True,
-                },
-            ],
-        }
-        post_status, _, post_body = self.request_json("POST", "/api/readings", payload)
+        payload = self.manual_consultation_payload()
+        post_status, _, post_body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
         created = json.loads(post_body)
 
         self.assertEqual(post_status, 201)
         self.assertEqual(created["id"], 1)
+        self.assertEqual(created["readingId"], 1)
+
+        conn = server.get_connection()
+        try:
+            interpretation_id = interpret_service.save_interpretation(
+                conn,
+                reading_id=created["readingId"],
+                model="test-model",
+                style="psychological",
+                language="zh",
+                content="这是一条用于验证级联清理的测试解读。",
+                prompt_hash="delete-test",
+                duration_ms=12,
+                created_at="2026-07-11T00:00:00+00:00",
+                trace_id="delete-trace",
+            )
+            consultation_service.upsert_review(
+                conn,
+                interpretation_id=interpretation_id,
+                payload={
+                    "verdict": "accepted",
+                    "rating": 5,
+                    "privacyConfirmed": True,
+                },
+                reviewed_at="2026-07-11T00:00:01+00:00",
+            )
+            interpret_agent.record_step(
+                conn,
+                reading_id=created["readingId"],
+                trace_id="delete-trace",
+                step_index=0,
+                step=interpret_agent.AgentStep(
+                    step="classify",
+                    model="test-model",
+                    duration_ms=3,
+                    input_summary="测试清理",
+                    output={"topic": "career"},
+                    ok=True,
+                ),
+            )
+        finally:
+            conn.close()
 
         delete_status, _, delete_body = self.request_json("DELETE", "/api/readings")
         self.assertEqual(delete_status, 200)
@@ -212,14 +238,46 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(list_status, 200)
         self.assertEqual(json.loads(list_body), [])
 
-        detail_status, _, _ = self.request_json("GET", f"/api/readings/{created['id']}")
+        detail_status, _, _ = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
         self.assertEqual(detail_status, 404)
 
-        second_status, _, second_body = self.request_json("POST", "/api/readings", payload)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            for table in (
+                "readings",
+                "reading_cards",
+                "consultations",
+                "interpretations",
+                "interpretation_reviews",
+                "agent_steps",
+            ):
+                self.assertEqual(
+                    conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0],
+                    0,
+                    table,
+                )
+            sequence_names = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_sequence WHERE name IN "
+                    "('readings', 'reading_cards', 'consultations', "
+                    "'interpretations', 'interpretation_reviews', 'agent_steps')"
+                )
+            }
+        finally:
+            conn.close()
+        self.assertEqual(sequence_names, set())
+
+        second_status, _, second_body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
         second = json.loads(second_body)
 
         self.assertEqual(second_status, 201)
         self.assertEqual(second["id"], 1)
+        self.assertEqual(second["readingId"], 1)
 
     def test_template_metadata_and_slot_label_roundtrip(self):
         payload = {

@@ -406,10 +406,15 @@ def create_daily_draw(payload):
 def clear_readings():
     with closing(get_connection()) as conn:
         with conn:
+            # agent_steps predates the consultation schema and intentionally
+            # has no foreign key, so it must be cleared before its readings.
+            conn.execute("DELETE FROM agent_steps")
             conn.execute("DELETE FROM reading_cards")
             conn.execute("DELETE FROM readings")
             conn.execute(
-                "DELETE FROM sqlite_sequence WHERE name IN ('readings', 'reading_cards')"
+                "DELETE FROM sqlite_sequence WHERE name IN "
+                "('readings', 'reading_cards', 'consultations', "
+                "'interpretations', 'interpretation_reviews', 'agent_steps')"
             )
     return {"ok": True, "deleted": True}
 

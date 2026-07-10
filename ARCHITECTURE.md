@@ -56,6 +56,7 @@ and no `agent_steps` rows are written — fast path stays fast.
 | File | Responsibility |
 |---|---|
 | [`server.py`](server.py) | stdlib HTTP server, all routes, SSE streaming, lock guard. No business logic. |
+| [`consultation_service.py`](consultation_service.py) | Chinese consultation validation, persistence, reproducible input snapshots, and human reviews. |
 | [`interpret_service.py`](interpret_service.py) | Strategy resolver, Ollama / OpenRouter clients, `interpret_reading_stream()` orchestrator, `interpretations` table. |
 | [`interpret_prompts.py`](interpret_prompts.py) | Pure prompt assembly — system + few-shot + retrieved block + question. No I/O. |
 | [`interpret_rag.py`](interpret_rag.py) | Corpus loader, embedding cache, cosine retrieval, two-stage filter. |
@@ -141,6 +142,26 @@ CREATE TABLE agent_steps (
 Eval runs synthesize `reading_id ≥ 100_000` to keep their traces filterable
 from real reading traces.
 
+### 3.6 Consultation data graph
+
+```text
+readings 1 ── 0..1 consultations
+readings 1 ── 0..N interpretations
+interpretations 1 ── 0..1 interpretation_reviews
+interpretations trace_id ── 0..N agent_steps
+```
+
+The first interpretation request for a legacy 3D reading creates an
+`input_mode=three_d` consultation when the request contains a question.
+Questionless fast-path readings remain valid, but their interpretations lack
+a confirmed consultation question and are not eligible for SFT export.
+
+Manual consultation creation writes the reading, ordered cards, and
+consultation in one transaction. Each interpretation stores an immutable
+input snapshot plus prompt/RAG/trace metadata, while a review can be updated
+without overwriting any generated version. Only privacy-confirmed
+`accepted` or `edited` reviews are candidates for a later dataset exporter.
+
 ---
 
 ## 4 · API surface
@@ -153,6 +174,10 @@ from real reading traces.
 | GET | `/api/interpret/rag-status` | Embedding index state — `{indexed, ready, model_installed, …}`. |
 | POST | `/api/interpret/rag-build` | Trigger / refresh the embedding index. Idempotent. |
 | GET\|POST | `/api/interpret/settings` | Backend, model, OpenRouter key (key never echoed). |
+| POST | `/api/consultations` | Atomically create a Chinese consultation, reading, and cards. |
+| GET | `/api/consultations?limit=20` | List recent consultations; optional `module_type` filter. |
+| GET | `/api/consultations/<id>` | Load the consultation, reading, interpretation versions, and reviews. |
+| PUT | `/api/interpretations/<id>/review` | Upsert a human verdict, rating, issue tags, edits, and privacy confirmation. |
 
 ---
 
