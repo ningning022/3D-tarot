@@ -12,6 +12,11 @@ SUPPORTED_LANGUAGES = {"zh"}
 SUPPORTED_MODULE_TYPES = {"general_reading"}
 SUPPORTED_INPUT_MODES = {"manual", "three_d", "eval", "synthetic"}
 PRIVACY_STATUSES = {"unchecked", "clear", "redacted", "blocked"}
+FIXED_SPREAD_COUNTS = {
+    "three_timeline": 3,
+    "five_cross": 5,
+    "celtic_cross": 10,
+}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS consultations (
@@ -91,3 +96,107 @@ def insert_consultation(
         ),
     )
     return int(cursor.lastrowid)
+
+
+def normalize_consultation_input(payload: dict) -> dict:
+    if not isinstance(payload, dict):
+        raise ValueError("Body must be a JSON object")
+
+    language = str(payload.get("language") or "zh")
+    module_type = str(payload.get("moduleType") or "general_reading")
+    input_mode = str(payload.get("inputMode") or "manual")
+    user_query = str(payload.get("userQuery") or "").strip()
+    user_context = str(payload.get("userContext") or "").strip()
+    module_payload = payload.get("modulePayload") or {}
+    privacy_status = str(payload.get("privacyStatus") or "unchecked")
+
+    if language not in SUPPORTED_LANGUAGES:
+        raise ValueError("language must be zh")
+    if module_type not in SUPPORTED_MODULE_TYPES:
+        raise ValueError("Unsupported moduleType")
+    if input_mode not in SUPPORTED_INPUT_MODES:
+        raise ValueError("Unsupported inputMode")
+    if not 4 <= len(user_query) <= 500:
+        raise ValueError("userQuery must be 4-500 characters")
+    if len(user_context) > 1000:
+        raise ValueError("userContext must be at most 1000 characters")
+    if not isinstance(module_payload, dict):
+        raise ValueError("modulePayload must be a JSON object")
+    if privacy_status not in PRIVACY_STATUSES:
+        raise ValueError("Unsupported privacyStatus")
+
+    return {
+        "language": language,
+        "module_type": module_type,
+        "input_mode": input_mode,
+        "user_query": user_query,
+        "user_context": user_context,
+        "module_payload": module_payload,
+        "privacy_status": privacy_status,
+    }
+
+
+def validate_manual_cards(cards: object, *, template_key: str) -> None:
+    if not isinstance(cards, list) or not 1 <= len(cards) <= 10:
+        raise ValueError("manual cards must contain 1-10 cards")
+
+    required_count = FIXED_SPREAD_COUNTS.get(template_key)
+    if required_count is not None and len(cards) != required_count:
+        raise ValueError(f"{template_key} requires {required_count} cards")
+    if required_count is None and template_key != "free":
+        raise ValueError("Unsupported templateKey")
+
+    card_ids = []
+    slots = []
+    for card in cards:
+        if not isinstance(card, dict):
+            raise ValueError("Each card must be a JSON object")
+        card_id = int(card.get("cardId", -1))
+        slot = int(card.get("slot", 0))
+        if not 0 <= card_id <= 77:
+            raise ValueError("cardId must be between 0 and 77")
+        if slot < 1:
+            raise ValueError("card slot must be positive")
+        if not isinstance(card.get("isReversed"), bool):
+            raise ValueError("isReversed must be boolean")
+        card_ids.append(card_id)
+        slots.append(slot)
+
+    if len(card_ids) != len(set(card_ids)):
+        raise ValueError("manual cards contain duplicate cardId")
+    if len(slots) != len(set(slots)):
+        raise ValueError("manual cards contain duplicate slot")
+
+
+def _row_to_consultation(row: sqlite3.Row) -> dict:
+    return {
+        "id": row["id"],
+        "publicId": row["public_id"],
+        "readingId": row["reading_id"],
+        "schemaVersion": row["schema_version"],
+        "language": row["language"],
+        "moduleType": row["module_type"],
+        "inputMode": row["input_mode"],
+        "userQuery": row["user_query"],
+        "userContext": row["user_context"] or "",
+        "modulePayload": json.loads(row["module_payload_json"] or "{}"),
+        "privacyStatus": row["privacy_status"],
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+def load_consultation(
+    conn: sqlite3.Connection, consultation_id: int
+) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM consultations WHERE id = ?", (consultation_id,)
+    ).fetchone()
+    return _row_to_consultation(row) if row else None
+
+
+def load_by_reading_id(conn: sqlite3.Connection, reading_id: int) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM consultations WHERE reading_id = ?", (reading_id,)
+    ).fetchone()
+    return _row_to_consultation(row) if row else None
