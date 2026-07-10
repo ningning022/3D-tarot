@@ -20,6 +20,7 @@ import sqlite3
 import time
 import urllib.error
 import urllib.request
+import uuid
 from contextlib import closing
 from dataclasses import dataclass
 from typing import Iterable, Iterator
@@ -318,16 +319,49 @@ def save_interpretation(
     prompt_hash: str,
     duration_ms: int,
     created_at: str,
+    input_snapshot: dict | None = None,
+    rag_snapshot: dict | None = None,
+    trace_id: str | None = None,
+    prompt_version: str = "legacy-v1",
+    generation_status: str = "complete",
+    safety_flags: list[str] | None = None,
+    public_id: str | None = None,
 ) -> int:
     """Insert a finished interpretation row. Returns the new row id."""
+    if generation_status not in {"complete", "partial", "failed"}:
+        raise ValueError("Unsupported generation_status")
+    public_id = public_id or uuid.uuid4().hex
     with conn:
         cur = conn.execute(
             """
-            INSERT INTO interpretations
-              (reading_id, model, style, language, content, prompt_hash, created_at, duration_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO interpretations (
+                public_id, reading_id, model, style, language, content,
+                prompt_hash, created_at, duration_ms, input_snapshot_json,
+                rag_snapshot_json, trace_id, prompt_version,
+                generation_status, safety_flags_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (reading_id, model, style, language, content, prompt_hash, created_at, duration_ms),
+            (
+                public_id,
+                reading_id,
+                model,
+                style,
+                language,
+                content,
+                prompt_hash,
+                created_at,
+                duration_ms,
+                json.dumps(input_snapshot, ensure_ascii=False)
+                if input_snapshot is not None
+                else None,
+                json.dumps(rag_snapshot, ensure_ascii=False)
+                if rag_snapshot is not None
+                else None,
+                trace_id,
+                prompt_version,
+                generation_status,
+                json.dumps(safety_flags or [], ensure_ascii=False),
+            ),
         )
         return int(cur.lastrowid or 0)
 
@@ -338,8 +372,10 @@ def load_interpretation(
     """Return the latest interpretation (or all rows) for a reading."""
     rows = conn.execute(
         """
-        SELECT id, reading_id, model, style, language, content, prompt_hash,
-               created_at, duration_ms
+        SELECT id, public_id, reading_id, model, style, language, content,
+               prompt_hash, created_at, duration_ms, input_snapshot_json,
+               rag_snapshot_json, trace_id, prompt_version,
+               generation_status, safety_flags_json
         FROM interpretations
         WHERE reading_id = ?
         ORDER BY created_at DESC, id DESC
@@ -348,10 +384,32 @@ def load_interpretation(
     ).fetchall()
     if not rows:
         return [] if all_rows else None
-    keys = ["id", "reading_id", "model", "style", "language", "content",
-            "prompt_hash", "created_at", "duration_ms"]
-    records = [dict(zip(keys, r)) for r in rows]
+    records = []
+    for row in rows:
+        record = dict(row)
+        record["input_snapshot"] = json.loads(
+            record.pop("input_snapshot_json") or "null"
+        )
+        record["rag_snapshot"] = json.loads(
+            record.pop("rag_snapshot_json") or "null"
+        )
+        record["safety_flags"] = json.loads(
+            record.pop("safety_flags_json") or "[]"
+        )
+        records.append(record)
     return records if all_rows else records[0]
+
+
+def update_interpretation_safety(
+    conn: sqlite3.Connection,
+    interpretation_id: int,
+    issues: list[str],
+) -> None:
+    with conn:
+        conn.execute(
+            "UPDATE interpretations SET safety_flags_json = ? WHERE id = ?",
+            (json.dumps(issues, ensure_ascii=False), interpretation_id),
+        )
 
 
 # ── DB migration ───────────────────────────────────────────────
@@ -360,6 +418,7 @@ def load_interpretation(
 MIGRATION_SQL = """
 CREATE TABLE IF NOT EXISTS interpretations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    public_id TEXT NOT NULL UNIQUE,
     reading_id INTEGER NOT NULL REFERENCES readings(id) ON DELETE CASCADE,
     model TEXT NOT NULL,
     style TEXT NOT NULL DEFAULT 'traditional',
@@ -367,7 +426,13 @@ CREATE TABLE IF NOT EXISTS interpretations (
     content TEXT NOT NULL,
     prompt_hash TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    duration_ms INTEGER
+    duration_ms INTEGER,
+    input_snapshot_json TEXT,
+    rag_snapshot_json TEXT,
+    trace_id TEXT,
+    prompt_version TEXT NOT NULL DEFAULT 'legacy-v1',
+    generation_status TEXT NOT NULL DEFAULT 'complete',
+    safety_flags_json TEXT NOT NULL DEFAULT '[]'
 );
 CREATE INDEX IF NOT EXISTS idx_interpretations_reading ON interpretations(reading_id);
 
@@ -378,10 +443,46 @@ CREATE TABLE IF NOT EXISTS interpret_settings (
 """
 
 
+def _ensure_column(
+    conn: sqlite3.Connection, table: str, column: str, definition: str
+) -> None:
+    columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
+def _migrate_interpretation_columns(conn: sqlite3.Connection) -> None:
+    definitions = {
+        "public_id": "TEXT",
+        "input_snapshot_json": "TEXT",
+        "rag_snapshot_json": "TEXT",
+        "trace_id": "TEXT",
+        "prompt_version": "TEXT NOT NULL DEFAULT 'legacy-v1'",
+        "generation_status": "TEXT NOT NULL DEFAULT 'complete'",
+        "safety_flags_json": "TEXT NOT NULL DEFAULT '[]'",
+    }
+    for column, definition in definitions.items():
+        _ensure_column(conn, "interpretations", column, definition)
+    rows = conn.execute(
+        "SELECT id FROM interpretations "
+        "WHERE public_id IS NULL OR public_id = ''"
+    ).fetchall()
+    for row in rows:
+        conn.execute(
+            "UPDATE interpretations SET public_id = ? WHERE id = ?",
+            (uuid.uuid4().hex, row[0]),
+        )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_interpretations_public_id "
+        "ON interpretations(public_id)"
+    )
+
+
 def migrate(conn: sqlite3.Connection) -> None:
     """Idempotent schema setup. Call once on server boot."""
     with conn:
         conn.executescript(MIGRATION_SQL)
+        _migrate_interpretation_columns(conn)
     # RAG + agent_steps tables live in the same DB; co-migrate so a
     # single boot path initializes everything an interpretation needs.
     interpret_rag.migrate(conn)
@@ -396,10 +497,10 @@ def _retrieve_chunks(
     cards: list[dict],
     question: str | None,
     settings: dict[str, str],
-) -> tuple[list[dict], int]:
+) -> tuple[list[dict], int, str]:
     """Pull RAG chunks for the current spread.
 
-    Returns ``(chunks, duration_ms)``. Degrades gracefully:
+    Returns ``(chunks, duration_ms, status)``. Degrades gracefully:
       - If the embedding index isn't built yet, returns canonical
         entries (deterministic card-id match, no embedder call).
       - If the embed backend is down + a question is supplied, falls
@@ -408,6 +509,7 @@ def _retrieve_chunks(
     embed_model = settings.get("embed_model", interpret_rag.DEFAULT_EMBED_MODEL)
     ollama_url = settings.get("ollama_url", DEFAULT_OLLAMA_URL)
     started = time.monotonic()
+    rag_status = "ready"
     try:
         results = interpret_rag.retrieve_for_cards(
             conn, cards=cards, question=question,
@@ -416,13 +518,15 @@ def _retrieve_chunks(
     except interpret_rag.RagError:
         # Embedder unreachable / model missing — fall back to canonical
         # by retrying without the question argument.
+        rag_status = "degraded"
         try:
             results = interpret_rag.retrieve_for_cards(
                 conn, cards=cards, question=None,
                 model=embed_model, ollama_url=ollama_url,
             )
         except interpret_rag.RagError:
-            return [], int((time.monotonic() - started) * 1000)
+            duration_ms = int((time.monotonic() - started) * 1000)
+            return [], duration_ms, "unavailable"
     duration_ms = int((time.monotonic() - started) * 1000)
     # Translate dataclasses into plain dicts the prompt builder expects.
     out = []
@@ -437,7 +541,7 @@ def _retrieve_chunks(
             "keywords": e.keywords,
             "score": chunk.score,
         })
-    return out, duration_ms
+    return out, duration_ms, rag_status
 
 
 # ── Public orchestration entry-point ───────────────────────────
@@ -455,6 +559,8 @@ def interpret_reading_stream(
     persist: bool = True,
     enable_rag: bool = True,
     enable_agent: bool = True,
+    input_snapshot: dict | None = None,
+    prompt_version: str = "legacy-v1",
 ) -> Iterator[str]:
     """High-level: build prompt, resolve strategy, stream output,
     accumulate into a buffer, persist on completion.
@@ -500,8 +606,11 @@ def interpret_reading_stream(
     # 2) RETRIEVE — RAG is unchanged; we just timestamp it for the trace
     retrieved: list[dict] = []
     retrieve_ms = 0
+    rag_status = "disabled"
     if enable_rag:
-        retrieved, retrieve_ms = _retrieve_chunks(conn, cards, question, settings)
+        retrieved, retrieve_ms, rag_status = _retrieve_chunks(
+            conn, cards, question, settings
+        )
     if run_agent:
         rstep = interpret_agent.retrieve_step(
             retrieved=retrieved, duration_ms=retrieve_ms,
@@ -523,16 +632,20 @@ def interpret_reading_stream(
 
     started = time.monotonic()
     buffer: list[str] = []
+    completed = False
+    interpretation_id = None
     try:
         for piece in stream_from_strategy(strategy, messages):
             buffer.append(piece)
             yield piece
+        completed = True
     finally:
         duration_ms = int((time.monotonic() - started) * 1000)
         full = "".join(buffer).strip()
+        generation_status = "complete" if completed else "partial"
         if persist and full:
             from datetime import datetime, timezone
-            save_interpretation(
+            interpretation_id = save_interpretation(
                 conn,
                 reading_id=reading_id,
                 model=f"{strategy.backend}:{strategy.model}",
@@ -542,6 +655,12 @@ def interpret_reading_stream(
                 prompt_hash=prompt_hash,
                 duration_ms=duration_ms,
                 created_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                input_snapshot=input_snapshot,
+                rag_snapshot={"status": rag_status, "entries": retrieved},
+                trace_id=trace_id,
+                prompt_version=prompt_version,
+                generation_status=generation_status,
+                safety_flags=[],
             )
 
         # 4) Trace generation + run critique (agent mode only). All
@@ -570,3 +689,9 @@ def interpret_reading_stream(
                     conn, reading_id=reading_id, trace_id=trace_id,
                     step_index=step_index, step=cstep,
                 )
+                if interpretation_id is not None:
+                    update_interpretation_safety(
+                        conn,
+                        interpretation_id,
+                        list(_crit.get("issues") or []),
+                    )

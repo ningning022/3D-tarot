@@ -363,6 +363,74 @@ class TestPersistence(unittest.TestCase):
         self.assertEqual(h1, h2)
         self.assertEqual(len(h1), 16)
 
+    def test_save_loads_versioned_snapshots(self):
+        interpretation_id = interpret_service.save_interpretation(
+            self.conn,
+            reading_id=self.reading_id,
+            model="ollama:qwen2.5:7b",
+            style="traditional",
+            language="zh",
+            content="完整回答",
+            prompt_hash="abc123",
+            duration_ms=1200,
+            created_at="2026-07-10T00:00:00+00:00",
+            input_snapshot={
+                "userQuery": "我应该换工作吗？",
+                "cards": SAMPLE_CARDS,
+            },
+            rag_snapshot={"status": "ready", "entries": [{"card_id": 9}]},
+            trace_id="a" * 32,
+            prompt_version="manual-general-v1",
+            generation_status="complete",
+            safety_flags=[],
+        )
+        row = interpret_service.load_interpretation(self.conn, self.reading_id)
+        self.assertEqual(row["id"], interpretation_id)
+        self.assertEqual(len(row["public_id"]), 32)
+        self.assertEqual(
+            row["input_snapshot"]["userQuery"], "我应该换工作吗？"
+        )
+        self.assertEqual(row["generation_status"], "complete")
+
+    def test_migrate_backfills_public_id_on_legacy_row(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(
+            """
+            CREATE TABLE readings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                spread_number INTEGER NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            INSERT INTO readings(spread_number, created_at)
+            VALUES (1, '2026-01-01');
+            CREATE TABLE interpretations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reading_id INTEGER NOT NULL,
+                model TEXT NOT NULL,
+                style TEXT NOT NULL,
+                language TEXT NOT NULL,
+                content TEXT NOT NULL,
+                prompt_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                duration_ms INTEGER
+            );
+            INSERT INTO interpretations
+                (reading_id, model, style, language, content, prompt_hash, created_at)
+            VALUES
+                (1, 'legacy', 'traditional', 'zh', '旧回答', 'hash', '2026-01-01');
+            """
+        )
+        try:
+            interpret_service.migrate(conn)
+            row = conn.execute(
+                "SELECT public_id, input_snapshot_json FROM interpretations"
+            ).fetchone()
+            self.assertEqual(len(row["public_id"]), 32)
+            self.assertIsNone(row["input_snapshot_json"])
+        finally:
+            conn.close()
+
 
 class TestSettings(unittest.TestCase):
     def setUp(self):
@@ -424,6 +492,38 @@ class TestInterpretReadingStream(unittest.TestCase):
         self.assertEqual(latest["content"], "过去的你。")
         self.assertEqual(latest["model"], "ollama:qwen2.5:7b")
         self.assertGreater(latest["duration_ms"], -1)
+
+    def test_partial_stream_is_persisted_but_marked_partial(self):
+        def broken_stream():
+            yield "部分回答"
+            raise interpret_service.InterpretBackendError("stream interrupted")
+
+        strategy = interpret_service.StrategyResult(
+            backend="ollama",
+            model="qwen2.5:7b",
+            url="http://localhost:11434",
+        )
+        with mock.patch.object(
+            interpret_service, "resolve_strategy", return_value=strategy
+        ), mock.patch.object(
+            interpret_service,
+            "stream_from_strategy",
+            return_value=broken_stream(),
+        ):
+            with self.assertRaises(interpret_service.InterpretBackendError):
+                list(
+                    interpret_service.interpret_reading_stream(
+                        self.conn,
+                        reading_id=self.reading_id,
+                        cards=SAMPLE_CARDS,
+                        template_name="三张牌时间线",
+                        language="zh",
+                        enable_rag=False,
+                    )
+                )
+        row = interpret_service.load_interpretation(self.conn, self.reading_id)
+        self.assertEqual(row["content"], "部分回答")
+        self.assertEqual(row["generation_status"], "partial")
 
 
 if __name__ == "__main__":
