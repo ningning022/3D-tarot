@@ -556,6 +556,7 @@ def interpret_reading_stream(
     style: str = DEFAULT_STYLE,
     language: str = "zh",
     question: str | None = None,
+    user_context: str | None = None,
     persist: bool = True,
     enable_rag: bool = True,
     enable_agent: bool = True,
@@ -626,7 +627,9 @@ def interpret_reading_stream(
     messages = build_messages(
         cards, template_name,
         language=language, style=style,
-        question=question, retrieved_chunks=retrieved,
+        question=question,
+        user_context=user_context,
+        retrieved_chunks=retrieved,
     )
     prompt_hash = compute_prompt_hash(messages)
 

@@ -742,11 +742,29 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                 settings = interpret_service.get_settings(conn)
                 style = overrides.get("style") or settings.get("default_style", "traditional")
                 language = overrides.get("language") or settings.get("default_language", "zh")
-                # User question is optional — when supplied, the prompt
-                # builder folds it in and the RAG retriever uses it to
-                # rank corpus chunks by relevance.
                 raw_q = overrides.get("question")
-                question = str(raw_q).strip() if raw_q else None
+                request_question = str(raw_q).strip() if raw_q else None
+                try:
+                    question, consultation = (
+                        consultation_service.resolve_interpret_context(
+                            conn,
+                            reading_id=reading_id,
+                            request_question=request_question,
+                            created_at=utc_now_iso(),
+                        )
+                    )
+                except ValueError as exc:
+                    self.send_api_response(*error_response(400, str(exc)))
+                    return
+                conn.commit()
+                input_snapshot = consultation_service.build_input_snapshot(
+                    consultation=consultation,
+                    reading_id=reading_id,
+                    template_name=template_name,
+                    cards=cards,
+                    style=style,
+                    language=language,
+                )
                 # Agent mode is on by default when a question is
                 # present; clients can opt out with enable_agent=false.
                 enable_agent = bool(overrides.get("enable_agent", True))
@@ -769,7 +787,14 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                         style=style,
                         language=language,
                         question=question,
+                        user_context=(
+                            consultation["userContext"]
+                            if consultation
+                            else None
+                        ),
                         enable_agent=enable_agent,
+                        input_snapshot=input_snapshot,
+                        prompt_version="general-v1",
                     ):
                         frame = "data: " + json.dumps(
                             {"chunk": chunk}, ensure_ascii=False

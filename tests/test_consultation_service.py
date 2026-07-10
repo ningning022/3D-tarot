@@ -158,5 +158,60 @@ class TestConsultationPersistence(unittest.TestCase):
             conn.close()
 
 
+class TestInterpretContext(unittest.TestCase):
+    def test_creates_three_d_consultation_from_legacy_question(self):
+        conn = make_conn()
+        try:
+            reading_id = conn.execute(
+                "INSERT INTO readings(spread_number, created_at) "
+                "VALUES (1, '2026-07-10')"
+            ).lastrowid
+            question, consultation = (
+                consultation_service.resolve_interpret_context(
+                    conn,
+                    reading_id=reading_id,
+                    request_question="我应该换工作吗？",
+                    created_at="2026-07-10T00:00:00+00:00",
+                )
+            )
+            conn.commit()
+            self.assertEqual(question, "我应该换工作吗？")
+            self.assertEqual(consultation["inputMode"], "three_d")
+        finally:
+            conn.close()
+
+    def test_saved_question_rejects_conflicting_override(self):
+        conn = make_conn()
+        try:
+            reading_id = conn.execute(
+                "INSERT INTO readings(spread_number, created_at) "
+                "VALUES (1, '2026-07-10')"
+            ).lastrowid
+            consultation_service.insert_consultation(
+                conn,
+                reading_id=reading_id,
+                values={
+                    "language": "zh",
+                    "module_type": "general_reading",
+                    "input_mode": "manual",
+                    "user_query": "原问题内容是什么？",
+                    "user_context": "",
+                    "module_payload": {},
+                },
+                created_at="2026-07-10T00:00:00+00:00",
+            )
+            with self.assertRaisesRegex(
+                ValueError, "does not match saved consultation"
+            ):
+                consultation_service.resolve_interpret_context(
+                    conn,
+                    reading_id=reading_id,
+                    request_question="另一个不同问题",
+                    created_at="2026-07-10T00:00:00+00:00",
+                )
+        finally:
+            conn.close()
+
+
 if __name__ == "__main__":
     unittest.main()

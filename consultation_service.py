@@ -225,3 +225,66 @@ def list_consultations(
             (limit,),
         ).fetchall()
     return [_row_to_consultation(row) for row in rows]
+
+
+def resolve_interpret_context(
+    conn: sqlite3.Connection,
+    *,
+    reading_id: int,
+    request_question: str | None,
+    created_at: str,
+) -> tuple[str | None, dict | None]:
+    saved = load_by_reading_id(conn, reading_id)
+    incoming = str(request_question or "").strip()
+    if saved is not None:
+        if incoming and incoming != saved["userQuery"]:
+            raise ValueError("question does not match saved consultation")
+        return saved["userQuery"] or None, saved
+    if not incoming:
+        return None, None
+    values = normalize_consultation_input(
+        {
+            "language": "zh",
+            "moduleType": "general_reading",
+            "inputMode": "three_d",
+            "userQuery": incoming,
+            "modulePayload": {},
+        }
+    )
+    consultation_id = insert_consultation(
+        conn,
+        reading_id=reading_id,
+        values=values,
+        created_at=created_at,
+    )
+    return incoming, load_consultation(conn, consultation_id)
+
+
+def build_input_snapshot(
+    *,
+    consultation: dict | None,
+    reading_id: int,
+    template_name: str,
+    cards: list[dict],
+    style: str,
+    language: str,
+) -> dict:
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "consultationPublicId": (
+            consultation["publicId"] if consultation else None
+        ),
+        "readingId": reading_id,
+        "language": language,
+        "moduleType": (
+            consultation["moduleType"]
+            if consultation
+            else "general_reading"
+        ),
+        "userQuery": consultation["userQuery"] if consultation else "",
+        "userContext": consultation["userContext"] if consultation else "",
+        "modulePayload": consultation["modulePayload"] if consultation else {},
+        "templateName": template_name,
+        "style": style,
+        "cards": cards,
+    }

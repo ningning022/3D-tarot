@@ -144,6 +144,19 @@ class TestBuildMessages(unittest.TestCase):
         self.assertIn("Rider-Waite", zh_traditional)
         self.assertIn("直觉", zh_intuitive)
 
+    def test_includes_saved_user_context(self):
+        messages = interpret_prompts.build_messages(
+            SAMPLE_CARDS,
+            "三张牌时间线",
+            language="zh",
+            question="我应该换工作吗？",
+            user_context="现在的工作稳定，但没有成长空间。",
+        )
+        self.assertIn(
+            "【背景】现在的工作稳定，但没有成长空间。",
+            messages[-1]["content"],
+        )
+
     def test_unknown_style_raises(self):
         with self.assertRaises(ValueError):
             interpret_prompts.build_messages(SAMPLE_CARDS, "Test", style="bogus")

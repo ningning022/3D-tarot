@@ -8,13 +8,9 @@ from urllib.parse import urlparse
 import server
 
 
-TEST_TMP_ROOT = Path(__file__).resolve().parent / ".tmp"
-
-
 class TarotServerTest(unittest.TestCase):
     def setUp(self):
-        TEST_TMP_ROOT.mkdir(exist_ok=True)
-        self.tmpdir = tempfile.TemporaryDirectory(dir=TEST_TMP_ROOT)
+        self.tmpdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmpdir.cleanup)
         self.db_path = Path(self.tmpdir.name) / "tarot.sqlite3"
         server.DB_PATH = self.db_path
