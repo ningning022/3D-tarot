@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import server
+import interpret_service
 
 
 class TarotServerTest(unittest.TestCase):
@@ -415,6 +416,49 @@ class TarotServerTest(unittest.TestCase):
             )
         finally:
             conn.close()
+
+    def test_put_interpretation_review(self):
+        _, _, created_body = self.request_json(
+            "POST", "/api/consultations", self.manual_consultation_payload()
+        )
+        created = json.loads(created_body)
+        conn = server.get_connection()
+        try:
+            interpretation_id = interpret_service.save_interpretation(
+                conn,
+                reading_id=created["readingId"],
+                model="ollama:qwen2.5:7b",
+                style="traditional",
+                language="zh",
+                content="模型原始回答",
+                prompt_hash="hash",
+                duration_ms=10,
+                created_at="2026-07-10T00:00:00+00:00",
+            )
+        finally:
+            conn.close()
+
+        status, _, body = self.request_json(
+            "PUT",
+            f"/api/interpretations/{interpretation_id}/review",
+            {
+                "verdict": "accepted",
+                "rating": 5,
+                "issueTags": [],
+                "privacyConfirmed": True,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["verdict"], "accepted")
+
+        _, _, detail_body = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
+        detail = json.loads(detail_body)
+        self.assertEqual(
+            detail["interpretations"][0]["review"]["verdict"],
+            "accepted",
+        )
 
 
 if __name__ == "__main__":

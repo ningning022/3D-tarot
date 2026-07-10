@@ -213,5 +213,54 @@ class TestInterpretContext(unittest.TestCase):
             conn.close()
 
 
+class TestReviews(unittest.TestCase):
+    def setUp(self):
+        self.conn = make_conn()
+        self.reading_id = self.conn.execute(
+            "INSERT INTO readings(spread_number, created_at) "
+            "VALUES (1, '2026-07-10')"
+        ).lastrowid
+        self.interpretation_id = interpret_service.save_interpretation(
+            self.conn,
+            reading_id=self.reading_id,
+            model="ollama:qwen2.5:7b",
+            style="traditional",
+            language="zh",
+            content="模型原始回答",
+            prompt_hash="hash",
+            duration_ms=10,
+            created_at="2026-07-10T00:00:00+00:00",
+        )
+
+    def tearDown(self):
+        self.conn.close()
+
+    def test_edited_review_round_trip(self):
+        review = consultation_service.upsert_review(
+            self.conn,
+            interpretation_id=self.interpretation_id,
+            payload={
+                "verdict": "edited",
+                "rating": 5,
+                "issueTags": ["空泛套话"],
+                "editedContent": "人工修改后的理想回答",
+                "privacyConfirmed": True,
+            },
+            reviewed_at="2026-07-10T00:05:00+00:00",
+        )
+        self.assertEqual(review["verdict"], "edited")
+        self.assertEqual(review["editedContent"], "人工修改后的理想回答")
+        self.assertTrue(review["privacyConfirmed"])
+
+    def test_edited_review_requires_content(self):
+        with self.assertRaisesRegex(ValueError, "editedContent is required"):
+            consultation_service.upsert_review(
+                self.conn,
+                interpretation_id=self.interpretation_id,
+                payload={"verdict": "edited", "privacyConfirmed": True},
+                reviewed_at="2026-07-10T00:05:00+00:00",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -331,9 +331,17 @@ def fetch_consultation(consultation_id: int) -> dict | None:
         consultation = consultation_service.load_consultation(
             conn, consultation_id
         )
-    if consultation is None:
-        return None
+        if consultation is None:
+            return None
+        interpretations = interpret_service.load_interpretation(
+            conn, consultation["readingId"], all_rows=True
+        )
+        for interpretation in interpretations:
+            interpretation["review"] = consultation_service.load_review(
+                conn, interpretation["id"]
+            )
     consultation["reading"] = fetch_reading(consultation["readingId"])
+    consultation["interpretations"] = interpretations
     return consultation
 
 
@@ -606,6 +614,24 @@ def handle_api_request(method, parsed_url, body=b""):
         # POST /api/interpret/<id> is handled separately (streaming);
         # it does NOT route through this function.
 
+        if (
+            method == "PUT"
+            and path.startswith("/api/interpretations/")
+            and path.endswith("/review")
+        ):
+            try:
+                interpretation_id = int(path.split("/")[3])
+            except (ValueError, IndexError):
+                return error_response(400, "Invalid interpretation id")
+            with closing(get_connection()) as conn:
+                review = consultation_service.upsert_review(
+                    conn,
+                    interpretation_id=interpretation_id,
+                    payload=parse_json_body(body),
+                    reviewed_at=utc_now_iso(),
+                )
+            return json_response(200, review)
+
         if method == "POST" and path == "/api/consultations":
             created = create_consultation(parse_json_body(body))
             return json_response(201, created)
@@ -681,7 +707,9 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+        self.send_header(
+            "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"
+        )
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
@@ -704,6 +732,16 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
         self.send_api_response(*handle_api_request("POST", urlparse(self.path), body))
+
+    def do_PUT(self):
+        if not self.path.startswith("/api/"):
+            self.send_error(404, "Not found")
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length)
+        self.send_api_response(
+            *handle_api_request("PUT", urlparse(self.path), body)
+        )
 
     def _handle_interpret_stream(self, parsed):
         """SSE stream `/api/interpret/<reading_id>` → forward model chunks

@@ -12,6 +12,19 @@ SUPPORTED_LANGUAGES = {"zh"}
 SUPPORTED_MODULE_TYPES = {"general_reading"}
 SUPPORTED_INPUT_MODES = {"manual", "three_d", "eval", "synthetic"}
 PRIVACY_STATUSES = {"unchecked", "clear", "redacted", "blocked"}
+REVIEW_VERDICTS = {"accepted", "needs_work", "rejected", "edited"}
+REVIEW_ISSUE_TAGS = {
+    "不回应问题",
+    "牌义错误",
+    "机械罗列",
+    "空泛套话",
+    "过度宿命",
+    "擅测他人想法",
+    "建议不可执行",
+    "语气不合适",
+    "事实或安全风险",
+    "其他",
+}
 FIXED_SPREAD_COUNTS = {
     "three_timeline": 3,
     "five_cross": 5,
@@ -287,4 +300,91 @@ def build_input_snapshot(
         "templateName": template_name,
         "style": style,
         "cards": cards,
+    }
+
+
+def upsert_review(
+    conn: sqlite3.Connection,
+    *,
+    interpretation_id: int,
+    payload: dict,
+    reviewed_at: str,
+) -> dict:
+    if conn.execute(
+        "SELECT 1 FROM interpretations WHERE id = ?", (interpretation_id,)
+    ).fetchone() is None:
+        raise ValueError("Interpretation not found")
+
+    verdict = str(payload.get("verdict") or "")
+    if verdict not in REVIEW_VERDICTS:
+        raise ValueError("Unsupported review verdict")
+    rating = payload.get("rating")
+    if rating is not None and not 1 <= int(rating) <= 5:
+        raise ValueError("rating must be between 1 and 5")
+    tags = payload.get("issueTags") or []
+    if not isinstance(tags, list) or any(
+        tag not in REVIEW_ISSUE_TAGS for tag in tags
+    ):
+        raise ValueError("Unsupported review issue tag")
+    edited = str(payload.get("editedContent") or "").strip()
+    if verdict == "edited" and not edited:
+        raise ValueError("editedContent is required for edited verdict")
+    note = str(payload.get("reviewNote") or "").strip()
+    privacy = 1 if payload.get("privacyConfirmed") is True else 0
+
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO interpretation_reviews (
+                interpretation_id, verdict, rating, issue_tags_json,
+                review_note, edited_content, privacy_confirmed,
+                reviewed_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(interpretation_id) DO UPDATE SET
+                verdict=excluded.verdict,
+                rating=excluded.rating,
+                issue_tags_json=excluded.issue_tags_json,
+                review_note=excluded.review_note,
+                edited_content=excluded.edited_content,
+                privacy_confirmed=excluded.privacy_confirmed,
+                updated_at=excluded.updated_at
+            """,
+            (
+                interpretation_id,
+                verdict,
+                int(rating) if rating is not None else None,
+                json.dumps(tags, ensure_ascii=False),
+                note,
+                edited or None,
+                privacy,
+                reviewed_at,
+                reviewed_at,
+            ),
+        )
+    review = load_review(conn, interpretation_id)
+    if review is None:
+        raise RuntimeError("Review was not persisted")
+    return review
+
+
+def load_review(
+    conn: sqlite3.Connection, interpretation_id: int
+) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM interpretation_reviews WHERE interpretation_id = ?",
+        (interpretation_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "interpretationId": row["interpretation_id"],
+        "verdict": row["verdict"],
+        "rating": row["rating"],
+        "issueTags": json.loads(row["issue_tags_json"] or "[]"),
+        "reviewNote": row["review_note"] or "",
+        "editedContent": row["edited_content"] or "",
+        "privacyConfirmed": bool(row["privacy_confirmed"]),
+        "reviewedAt": row["reviewed_at"],
+        "updatedAt": row["updated_at"],
     }
