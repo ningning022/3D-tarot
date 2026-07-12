@@ -9,10 +9,20 @@ MODULE_SPECS = {
         "display_name": "普通咨询",
         "description": "围绕一个明确问题进行非宿命、可行动的牌面反思。",
         "question_required": True,
-        "input_fields": {
-            "userQuery": {"required": True, "maxLength": 500},
-            "userContext": {"required": False, "maxLength": 1000},
-        },
+        "input_fields": [
+            {
+                "key": "userQuery",
+                "label": "你的问题",
+                "required": True,
+                "maxLength": 500,
+            },
+            {
+                "key": "userContext",
+                "label": "补充背景",
+                "required": False,
+                "maxLength": 1000,
+            },
+        ],
         "allowed_spreads": [
             "three_timeline",
             "five_cross",
@@ -21,10 +31,8 @@ MODULE_SPECS = {
         ],
         "default_spread": "three_timeline",
         "prompt_version": "general-v1",
-        "prompt_overlay": "围绕用户的明确问题，提供非宿命、可行动的牌面反思。",
-        "output_contract": {
-            "required": ["summary", "cardInsights", "actions"],
-        },
+        "prompt_overlay": "直接回应用户问题，综合牌位关系，给出非宿命且可行动的反思。",
+        "output_contract": "回应问题、整合牌面、给出用户可控制的下一步。",
         "safety_rules": [
             "fatalism",
             "high_stakes_overreach",
@@ -37,7 +45,8 @@ MODULE_SPECS = {
 
 def require_enabled_module(module_type):
     """Return an enabled internal module spec or reject the module type."""
-    spec = MODULE_SPECS.get(module_type)
+    normalized = str(module_type or "")
+    spec = MODULE_SPECS.get(normalized)
     if spec is None or not spec["enabled"]:
         raise ValueError("Unsupported moduleType")
     return spec
