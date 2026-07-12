@@ -227,12 +227,12 @@ def create_consultation(payload: dict) -> dict:
         raise ValueError(
             "POST /api/consultations requires manual or three_d inputMode"
         )
+    reading = normalize_reading_payload(payload)
     consultation_service.validate_consultation_cards(
         payload.get("cards"),
-        template_key=str(payload.get("templateKey") or "free"),
+        template_key=reading["template_key"],
         module_type=values["module_type"],
     )
-    reading = normalize_reading_payload(payload)
     created_at = utc_now_iso()
     with closing(get_connection()) as conn:
         with conn:

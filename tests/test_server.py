@@ -482,6 +482,64 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(created["inputMode"], "three_d")
         self.assertEqual(created["readingId"], 1)
 
+    def test_rejects_daily_kind_as_unregistered_consultation_spread(self):
+        payload = self.manual_consultation_payload().copy()
+        payload["kind"] = "daily"
+        payload.pop("templateKey")
+        payload.pop("templateName")
+
+        status, _, body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
+
+        self.assertEqual(status, 400)
+        self.assertIn("Spread is not allowed", json.loads(body)["error"])
+        conn = sqlite3.connect(self.db_path)
+        try:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM readings").fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM consultations"
+                ).fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
+
+    def test_rejects_non_acquisition_consultation_input_modes(self):
+        expected_error = (
+            "POST /api/consultations requires manual or three_d inputMode"
+        )
+        for input_mode in ("eval", "synthetic"):
+            with self.subTest(input_mode=input_mode):
+                payload = self.manual_consultation_payload().copy()
+                payload["inputMode"] = input_mode
+
+                status, _, body = self.request_json(
+                    "POST", "/api/consultations", payload
+                )
+
+                self.assertEqual(status, 400)
+                self.assertEqual(json.loads(body)["error"], expected_error)
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM readings").fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM consultations"
+                ).fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
+
     def test_plain_reading_does_not_create_consultation(self):
         payload = self.manual_consultation_payload().copy()
         payload.pop("userQuery")
