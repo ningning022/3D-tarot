@@ -6,10 +6,11 @@ import json
 import sqlite3
 import uuid
 
+import consultation_modules
+
 
 SCHEMA_VERSION = "1.0"
 SUPPORTED_LANGUAGES = {"zh"}
-SUPPORTED_MODULE_TYPES = {"general_reading"}
 SUPPORTED_INPUT_MODES = {"manual", "three_d", "eval", "synthetic"}
 PRIVACY_STATUSES = {"unchecked", "clear", "redacted", "blocked"}
 REVIEW_VERDICTS = {"accepted", "needs_work", "rejected", "edited"}
@@ -123,13 +124,12 @@ def normalize_consultation_input(payload: dict) -> dict:
     module_payload = payload.get("modulePayload") or {}
     privacy_status = str(payload.get("privacyStatus") or "unchecked")
 
+    spec = consultation_modules.require_enabled_module(module_type)
     if language not in SUPPORTED_LANGUAGES:
         raise ValueError("language must be zh")
-    if module_type not in SUPPORTED_MODULE_TYPES:
-        raise ValueError("Unsupported moduleType")
     if input_mode not in SUPPORTED_INPUT_MODES:
         raise ValueError("Unsupported inputMode")
-    if not 4 <= len(user_query) <= 500:
+    if spec["question_required"] and not 4 <= len(user_query) <= 500:
         raise ValueError("userQuery must be 4-500 characters")
     if len(user_context) > 1000:
         raise ValueError("userContext must be at most 1000 characters")
@@ -179,6 +179,16 @@ def validate_manual_cards(cards: object, *, template_key: str) -> None:
         raise ValueError("manual cards contain duplicate cardId")
     if len(slots) != len(set(slots)):
         raise ValueError("manual cards contain duplicate slot")
+
+
+def validate_consultation_cards(
+    cards: object,
+    *,
+    template_key: str,
+    module_type: str,
+) -> None:
+    consultation_modules.validate_spread(module_type, template_key)
+    validate_manual_cards(cards, template_key=template_key)
 
 
 def _row_to_consultation(row: sqlite3.Row) -> dict:

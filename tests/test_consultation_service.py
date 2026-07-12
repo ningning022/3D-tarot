@@ -122,6 +122,16 @@ class TestConsultationValidation(unittest.TestCase):
                 cards, template_key="three_timeline"
             )
 
+    def test_rejects_spread_before_validating_card_count(self):
+        cards = [{"slot": 1, "cardId": 9, "isReversed": False}]
+
+        with self.assertRaisesRegex(ValueError, "Spread is not allowed"):
+            consultation_service.validate_consultation_cards(
+                cards,
+                template_key="choice_six",
+                module_type="general_reading",
+            )
+
 
 class TestConsultationPersistence(unittest.TestCase):
     def test_insert_and_load_by_reading(self):

@@ -72,6 +72,17 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
         self.assertEqual(json.loads(body), {"ok": True, "database": "ready"})
 
+    def test_lists_public_consultation_modules(self):
+        status, _, body = self.request_json("GET", "/api/consultation-modules")
+
+        modules = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            [module["moduleType"] for module in modules],
+            ["general_reading"],
+        )
+        self.assertNotIn("promptOverlay", modules[0])
+
     def test_reading_insert_list_and_detail_roundtrip(self):
         payload = {
             "spreadNumber": 7,
@@ -457,6 +468,35 @@ class TarotServerTest(unittest.TestCase):
         items = json.loads(list_body)
         self.assertEqual(list_status, 200)
         self.assertEqual([item["id"] for item in items], [created["id"]])
+
+    def test_create_three_d_consultation(self):
+        payload = self.manual_consultation_payload().copy()
+        payload["inputMode"] = "three_d"
+
+        status, _, body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
+
+        created = json.loads(body)
+        self.assertEqual(status, 201)
+        self.assertEqual(created["inputMode"], "three_d")
+        self.assertEqual(created["readingId"], 1)
+
+    def test_plain_reading_does_not_create_consultation(self):
+        payload = self.manual_consultation_payload().copy()
+        payload.pop("userQuery")
+
+        status, _, _ = self.request_json("POST", "/api/readings", payload)
+
+        self.assertEqual(status, 201)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM consultations"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertEqual(count, 0)
 
     def test_invalid_consultation_rolls_back_reading(self):
         payload = self.manual_consultation_payload()
