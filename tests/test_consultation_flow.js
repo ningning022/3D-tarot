@@ -11,7 +11,10 @@ const {
     buildReadingPayload,
     buildConsultationPayload,
     chooseSaveOperation,
-    nextPhase
+    nextPhase,
+    persistDraftCards,
+    runSavedInterpretation,
+    submitReview
 } = require('../js/consultation_flow.js');
 
 const deck = [
@@ -282,6 +285,323 @@ function testPhaseTransitions() {
     assert.throws(() => nextPhase('saved', 'unknown'), /Unknown consultation phase/);
 }
 
+async function testPersistDraftCardsRoutesConsultationOnce() {
+    const draft = completeDraft();
+    const originalCards = draft.cards;
+    const originalDraft = JSON.parse(JSON.stringify(draft));
+    const cards = draft.cards.map(card => ({ ...card }));
+    const calls = { consultation: [], reading: [] };
+    const created = { id: 17, readingId: 29, publicId: 'consultation-17' };
+    const deps = {
+        deck,
+        api: {
+            async createConsultation(payload) {
+                calls.consultation.push(payload);
+                return created;
+            },
+            async createReading(payload) {
+                calls.reading.push(payload);
+                return { id: 99 };
+            }
+        }
+    };
+
+    const result = await persistDraftCards(draft, cards, deps);
+
+    assert.deepStrictEqual(result, {
+        consultationId: 17,
+        readingId: 29,
+        created,
+        operation: 'consultation'
+    });
+    assert.deepStrictEqual(calls.consultation, [
+        buildConsultationPayload({ ...draft, cards }, deck)
+    ]);
+    assert.strictEqual(calls.reading.length, 0);
+    assert.deepStrictEqual(draft, originalDraft);
+    assert.strictEqual(draft.cards, originalCards);
+}
+
+async function testPersistDraftCardsRoutesReadingOnce() {
+    const draft = {
+        ...createInitialDraft(),
+        templateKey: 'free',
+        templateName: 'Free Spread',
+        spreadNumber: 5
+    };
+    const cards = [
+        { slot: 1, slotLabel: 'Slot 1', cardId: 2, isReversed: true }
+    ];
+    const calls = { consultation: [], reading: [] };
+    const created = { id: 31, createdAt: '2026-07-13T00:00:00Z' };
+    const deps = {
+        deck,
+        api: {
+            async createConsultation(payload) {
+                calls.consultation.push(payload);
+                return { id: 100, readingId: 101 };
+            },
+            async createReading(payload) {
+                calls.reading.push(payload);
+                return created;
+            }
+        }
+    };
+
+    const result = await persistDraftCards(draft, cards, deps);
+
+    assert.deepStrictEqual(result, {
+        consultationId: null,
+        readingId: 31,
+        created,
+        operation: 'reading'
+    });
+    assert.deepStrictEqual(calls.reading, [
+        buildReadingPayload({ ...draft, cards }, deck)
+    ]);
+    assert.strictEqual(calls.consultation.length, 0);
+    assert.deepStrictEqual(draft.cards, []);
+}
+
+async function testRunSavedInterpretationStreamsAndSelectsLatestComplete() {
+    const oldComplete = {
+        id: 4,
+        created_at: '2026-07-12T08:00:00Z',
+        generation_status: 'complete',
+        content: 'old'
+    };
+    const sameTimeLowerId = {
+        id: 7,
+        created_at: '2026-07-13T08:00:00Z',
+        generation_status: 'complete',
+        content: 'same-time older id'
+    };
+    const latestComplete = {
+        id: 8,
+        created_at: '2026-07-13T08:00:00Z',
+        generation_status: 'complete',
+        content: 'latest complete'
+    };
+    const newerPartial = {
+        id: 9,
+        created_at: '2026-07-13T09:00:00Z',
+        generation_status: 'partial',
+        content: 'partial'
+    };
+    const seenEvents = [];
+    const streamCalls = [];
+    const loadCalls = [];
+    const signal = { name: 'abort-signal' };
+    const deps = {
+        async *streamInterpretation(readingId, options) {
+            streamCalls.push({ readingId, options });
+            yield { chunk: 'first ' };
+            yield { chunk: 'second' };
+            yield { done: true };
+        },
+        api: {
+            async loadConsultation(consultationId) {
+                loadCalls.push(consultationId);
+                return {
+                    interpretations: [
+                        oldComplete,
+                        newerPartial,
+                        sameTimeLowerId,
+                        latestComplete
+                    ]
+                };
+            }
+        }
+    };
+
+    const result = await runSavedInterpretation(
+        { readingId: 29, consultationId: 17 },
+        { style: 'traditional' },
+        deps,
+        event => seenEvents.push(event),
+        signal
+    );
+
+    assert.deepStrictEqual(streamCalls, [{
+        readingId: 29,
+        options: { style: 'traditional', language: 'zh', signal }
+    }]);
+    assert.deepStrictEqual(seenEvents, [
+        { chunk: 'first ' },
+        { chunk: 'second' },
+        { done: true }
+    ]);
+    assert.deepStrictEqual(loadCalls, [17]);
+    assert.deepStrictEqual(result, {
+        content: 'first second',
+        done: true,
+        interpretation: latestComplete
+    });
+}
+
+async function testRunSavedInterpretationWithoutConsultation() {
+    let loadCount = 0;
+    const deps = {
+        async *streamInterpretation() {
+            yield { chunk: 'plain reading' };
+            yield { done: true };
+        },
+        api: {
+            async loadConsultation() {
+                loadCount += 1;
+                return { interpretations: [] };
+            }
+        }
+    };
+
+    const result = await runSavedInterpretation(
+        { readingId: 31, consultationId: null },
+        { style: 'psychological' },
+        deps
+    );
+
+    assert.deepStrictEqual(result, {
+        content: 'plain reading',
+        done: true,
+        interpretation: null
+    });
+    assert.strictEqual(loadCount, 0);
+}
+
+async function testRunSavedInterpretationConvertsStreamError() {
+    const seenEvents = [];
+    const deps = {
+        async *streamInterpretation() {
+            yield { chunk: 'partial' };
+            yield { error: 'concurrent', message: 'Interpretation is busy' };
+        },
+        api: {
+            async loadConsultation() {
+                throw new Error('must not load after stream error');
+            }
+        }
+    };
+
+    await assert.rejects(
+        runSavedInterpretation(
+            { readingId: 3, consultationId: 5 },
+            { style: 'traditional' },
+            deps,
+            event => seenEvents.push(event)
+        ),
+        error => {
+            assert.strictEqual(error.message, 'Interpretation is busy');
+            assert.strictEqual(error.code, 'concurrent');
+            return true;
+        }
+    );
+    assert.deepStrictEqual(seenEvents, [
+        { chunk: 'partial' },
+        { error: 'concurrent', message: 'Interpretation is busy' }
+    ]);
+}
+
+async function testRunSavedInterpretationRejectsEarlyEnd() {
+    const deps = {
+        async *streamInterpretation() {
+            yield { chunk: 'unfinished' };
+        },
+        api: {
+            async loadConsultation() {
+                throw new Error('must not load before done');
+            }
+        }
+    };
+
+    await assert.rejects(
+        runSavedInterpretation(
+            { readingId: 3, consultationId: 5 },
+            { style: 'traditional' },
+            deps
+        ),
+        /ended before done/
+    );
+}
+
+async function testSubmitReviewRejectsInvalidInputs() {
+    let reviewCount = 0;
+    const deps = {
+        api: {
+            async reviewInterpretation() {
+                reviewCount += 1;
+            }
+        }
+    };
+
+    await assert.rejects(
+        submitReview(10, { verdict: 'pending' }, deps),
+        /Unsupported review verdict/
+    );
+    await assert.rejects(
+        submitReview(10, { verdict: 'edited', editedContent: '   ' }, deps),
+        /editedContent is required/
+    );
+    for (const rating of [0, 6, 'not-a-number']) {
+        await assert.rejects(
+            submitReview(10, { verdict: 'accepted', rating }, deps),
+            /rating must be between 1 and 5/
+        );
+    }
+    assert.strictEqual(reviewCount, 0);
+}
+
+async function testSubmitReviewNormalizesSuccessfulPayloads() {
+    const calls = [];
+    const deps = {
+        api: {
+            async reviewInterpretation(interpretationId, payload) {
+                calls.push({ interpretationId, payload });
+                return { saved: calls.length };
+            }
+        }
+    };
+
+    const editedResult = await submitReview(21, {
+        verdict: 'edited',
+        rating: '5',
+        issueTags: ['空泛套话'],
+        reviewNote: '  needs a concrete action  ',
+        editedContent: '  revised interpretation  ',
+        privacyConfirmed: 'true'
+    }, deps);
+    const acceptedResult = await submitReview(22, {
+        verdict: 'accepted',
+        issueTags: 'not-an-array'
+    }, deps);
+
+    assert.deepStrictEqual(editedResult, { saved: 1 });
+    assert.deepStrictEqual(acceptedResult, { saved: 2 });
+    assert.deepStrictEqual(calls, [
+        {
+            interpretationId: 21,
+            payload: {
+                verdict: 'edited',
+                rating: 5,
+                issueTags: ['空泛套话'],
+                reviewNote: 'needs a concrete action',
+                editedContent: 'revised interpretation',
+                privacyConfirmed: false
+            }
+        },
+        {
+            interpretationId: 22,
+            payload: {
+                verdict: 'accepted',
+                rating: null,
+                issueTags: [],
+                reviewNote: '',
+                editedContent: '',
+                privacyConfirmed: false
+            }
+        }
+    ]);
+}
+
 function testBrowserGlobalExport() {
     const source = fs.readFileSync(require.resolve('../js/consultation_flow.js'), 'utf8');
     const browserWindow = {};
@@ -291,6 +611,9 @@ function testBrowserGlobalExport() {
 
     assert.ok(browserWindow.ConsultationFlow);
     assert.strictEqual(typeof browserWindow.ConsultationFlow.createInitialDraft, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.persistDraftCards, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.runSavedInterpretation, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.submitReview, 'function');
     assert.strictEqual(browserWindow.ConsultationFlow.createInitialDraft().language, 'zh');
 }
 
@@ -306,19 +629,29 @@ const tests = [
     ['reading payload', testReadingPayload],
     ['unknown card materialization', testUnknownCardMaterialization],
     ['phase transitions', testPhaseTransitions],
+    ['persist draft cards routes consultation once', testPersistDraftCardsRoutesConsultationOnce],
+    ['persist draft cards routes reading once', testPersistDraftCardsRoutesReadingOnce],
+    ['run saved interpretation streams and selects latest complete', testRunSavedInterpretationStreamsAndSelectsLatestComplete],
+    ['run saved interpretation without consultation', testRunSavedInterpretationWithoutConsultation],
+    ['run saved interpretation converts stream error', testRunSavedInterpretationConvertsStreamError],
+    ['run saved interpretation rejects early end', testRunSavedInterpretationRejectsEarlyEnd],
+    ['submit review rejects invalid inputs', testSubmitReviewRejectsInvalidInputs],
+    ['submit review normalizes successful payloads', testSubmitReviewNormalizesSuccessfulPayloads],
     ['browser global export', testBrowserGlobalExport]
 ];
 
-let passed = 0;
-for (const [name, test] of tests) {
-    try {
-        test();
-        console.log(`  ok   ${name}`);
-        passed += 1;
-    } catch (error) {
-        console.error(`  FAIL ${name}: ${error.stack || error.message}`);
-        process.exitCode = 1;
+(async function runTests() {
+    let passed = 0;
+    for (const [name, test] of tests) {
+        try {
+            await test();
+            console.log(`  ok   ${name}`);
+            passed += 1;
+        } catch (error) {
+            console.error(`  FAIL ${name}: ${error.stack || error.message}`);
+            process.exitCode = 1;
+        }
     }
-}
 
-console.log(`\nConsultation flow tests: ${passed}/${tests.length} passed`);
+    console.log(`\nConsultation flow tests: ${passed}/${tests.length} passed`);
+})();
