@@ -1,16 +1,32 @@
 const TarotAPI = (() => {
     let warnedOffline = false;
 
+    async function readError(response) {
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            // The fallback below handles non-JSON error responses.
+        }
+
+        const message = (payload && (payload.error || payload.message))
+            || `API ${response.status}: ${response.statusText || 'Request failed'}`;
+        const error = new Error(message);
+        error.status = response.status;
+        error.payload = payload;
+        return error;
+    }
+
     async function requestJson(path, options = {}) {
         const response = await fetch(path, {
+            ...options,
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
                 ...(options.headers || {})
-            },
-            ...options
+            }
         });
         if (!response.ok) {
-            throw new Error(`API ${response.status}: ${response.statusText}`);
+            throw await readError(response);
         }
         return response.json();
     }
@@ -30,16 +46,42 @@ const TarotAPI = (() => {
         }
     }
 
+    async function loadConsultationModules() {
+        return requestJson('/api/consultation-modules', { cache: 'no-store' });
+    }
+
+    async function createReading(payload) {
+        return requestJson('/api/readings', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    }
+
+    async function createConsultation(payload) {
+        return requestJson('/api/consultations', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+    }
+
+    async function loadConsultation(id) {
+        return requestJson(`/api/consultations/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    }
+
+    async function reviewInterpretation(id, payload) {
+        return requestJson(`/api/interpretations/${encodeURIComponent(id)}/review`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+    }
+
     async function saveReading(spreadNumber, cards) {
         const payload = Array.isArray(cards)
             ? { spreadNumber, cards }
             : { ...(cards || {}), spreadNumber: cards && cards.spreadNumber !== undefined ? cards.spreadNumber : spreadNumber };
         if (!Array.isArray(payload.cards) || payload.cards.length === 0) return null;
         try {
-            return await requestJson('/api/readings', {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
+            return await createReading(payload);
         } catch (error) {
             warnOffline(error);
             return null;
@@ -104,6 +146,11 @@ const TarotAPI = (() => {
 
     return {
         health,
+        loadConsultationModules,
+        createReading,
+        createConsultation,
+        loadConsultation,
+        reviewInterpretation,
         saveReading,
         loadReadings,
         loadReading,
@@ -113,4 +160,5 @@ const TarotAPI = (() => {
     };
 })();
 
-window.TarotAPI = TarotAPI;
+if (typeof module === 'object' && module.exports) module.exports = TarotAPI;
+if (typeof window !== 'undefined') window.TarotAPI = TarotAPI;
