@@ -562,6 +562,10 @@ def interpret_reading_stream(
     enable_agent: bool = True,
     input_snapshot: dict | None = None,
     prompt_version: str = "legacy-v1",
+    module_overlay: str | None = None,
+    module_payload: dict | None = None,
+    output_contract: str | None = None,
+    module_safety_rules: list[str] | None = None,
 ) -> Iterator[str]:
     """High-level: build prompt, resolve strategy, stream output,
     accumulate into a buffer, persist on completion.
@@ -630,6 +634,10 @@ def interpret_reading_stream(
         question=question,
         user_context=user_context,
         retrieved_chunks=retrieved,
+        module_overlay=module_overlay,
+        module_payload=module_payload,
+        output_contract=output_contract,
+        module_safety_rules=module_safety_rules,
     )
     prompt_hash = compute_prompt_hash(messages)
 

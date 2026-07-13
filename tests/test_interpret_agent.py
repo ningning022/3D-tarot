@@ -197,6 +197,38 @@ class TestClassify(unittest.TestCase):
 
 
 class TestCritique(unittest.TestCase):
+    def test_accepts_alignment_safety_issue_tags(self):
+        fake = {
+            "score": 2,
+            "issues": [
+                "mind_reading",
+                "fear_escalation",
+                "fatalism",
+                "high_stakes_overreach",
+            ],
+            "needs_retry": True,
+            "summary": "unsafe certainty",
+        }
+        with mock.patch.object(interpret_agent, "call_ollama_json", return_value=fake):
+            _step, out = interpret_agent.critique(
+                "他一定会回来联系你。",
+                question="对方真实想法是什么？",
+                cards=[],
+                model="m",
+                url="u",
+                language="zh",
+            )
+        self.assertEqual(out["issues"], fake["issues"])
+        prompt = interpret_agent._critique_messages(
+            "他一定会回来联系你。",
+            question="对方真实想法是什么？",
+            cards=[],
+            language="zh",
+        )[0]["content"]
+        self.assertIn("读心", prompt)
+        self.assertIn("宿命", prompt)
+        self.assertIn("高风险", prompt)
+
     def test_happy_path_with_clamping(self):
         # Critic returns score outside 0-10; we clamp.
         fake = {"score": 42, "issues": ["off_topic"], "needs_retry": True,

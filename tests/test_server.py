@@ -79,9 +79,44 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(
             [module["moduleType"] for module in modules],
-            ["general_reading"],
+            ["general_reading", "choice_compare", "symbolic_message"],
         )
-        self.assertNotIn("promptOverlay", modules[0])
+        for module in modules:
+            self.assertNotIn("promptOverlay", module)
+            self.assertNotIn("outputContract", module)
+            self.assertNotIn("safetyRules", module)
+
+    def test_interpretation_module_context_comes_from_saved_consultation(self):
+        context = server.get_interpretation_module_context(
+            {
+                "moduleType": "symbolic_message",
+                "modulePayload": {
+                    "relationshipContext": "暂时减少联系的朋友",
+                    "focus": "我该如何理解现在的距离",
+                },
+            }
+        )
+
+        self.assertEqual(context["prompt_version"], "symbolic-message-v1")
+        self.assertIn("不是读取第三方真实内心", context["module_overlay"])
+        self.assertEqual(
+            context["module_payload"],
+            {
+                "relationshipContext": "暂时减少联系的朋友",
+                "focus": "我该如何理解现在的距离",
+            },
+        )
+        self.assertIn("mind_reading", context["module_safety_rules"])
+        context["module_payload"]["focus"] = "修改副本"
+        self.assertEqual(
+            server.get_interpretation_module_context(
+                {
+                    "moduleType": "symbolic_message",
+                    "modulePayload": {"focus": "原值"},
+                }
+            )["module_payload"]["focus"],
+            "原值",
+        )
 
     def test_reading_insert_list_and_detail_roundtrip(self):
         payload = {

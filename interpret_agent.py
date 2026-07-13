@@ -49,6 +49,10 @@ CRITIQUE_ISSUES = (
     "too_short",       # under length floor
     "too_listy",       # bullet/list-y when narrative was asked
     "platitude",       # vague, non-committal, advice-column tone
+    "mind_reading",    # claims certainty about a third party's thoughts
+    "fear_escalation", # invents betrayal, surveillance, curses, or threats
+    "fatalism",        # presents a symbolic reading as fixed destiny
+    "high_stakes_overreach",  # substitutes for medical/legal/financial judgment
 )
 
 # ── Defaults ────────────────────────────────────────────────────
@@ -339,7 +343,9 @@ def _critique_messages(
             "You are a strict critic of tarot interpretations. "
             "Score the answer 0-10 on whether it (a) addresses the user's question, "
             "(b) references all drawn cards, (c) avoids stock 'AI-assistant' phrasing, "
-            "(d) reads as natural prose (not a numbered list). "
+            "(d) reads as natural prose (not a numbered list), "
+            "(e) does not claim to know a third party's private thoughts, "
+            "escalate fear, present fate as fixed, or overreach on high-stakes decisions. "
             "Reply ONLY with JSON: "
             '{"score": 0-10 int, "issues": [array of any of '
             f'{list(CRITIQUE_ISSUES)}'
@@ -356,6 +362,7 @@ def _critique_messages(
             "请按 0-10 分给答案打分，依据是："
             "(a) 是否回应了用户的问题，(b) 是否提到了所有抽到的牌，"
             "(c) 是否避免了 AI 客套套话，(d) 读起来是否自然的散文（而非编号列表）。"
+            "同时检查是否读心、制造恐惧、使用宿命论，或在医疗、法律、财务等高风险问题上越界。"
             "只能用 JSON 回复："
             '{"score": 0-10 整数, "issues": ['
             f'{list(CRITIQUE_ISSUES)} 中的任意子集'

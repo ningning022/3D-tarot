@@ -157,6 +157,65 @@ class TestBuildMessages(unittest.TestCase):
             messages[-1]["content"],
         )
 
+    def test_module_prompt_order_and_choice_contract(self):
+        messages = interpret_prompts.build_messages(
+            SAMPLE_CARDS,
+            "二选一",
+            language="zh",
+            style="psychological",
+            question="请比较两个选项",
+            retrieved_chunks=[{"zh": "愚者", "en": "The Fool"}],
+            module_overlay="二选一模块规则：不得替用户宣布唯一正确选择。",
+            module_payload={
+                "optionA": "留在当前岗位",
+                "optionB": "接受新的工作机会",
+                "decisionPriorities": "成长与生活平衡",
+            },
+            output_contract="先比较 A/B 的潜力与代价，再给出选择原则。",
+            module_safety_rules=["fatalism", "high_stakes_overreach"],
+        )
+
+        system = messages[0]["content"]
+        self.assertLess(system.index("【任务】"), system.index("【模块规则】"))
+        self.assertLess(system.index("【模块规则】"), system.index("【风格】"))
+        self.assertIn("fatalism", system)
+        user = messages[-1]["content"]
+        self.assertLess(user.index("【参考资料"), user.index("【模块字段】"))
+        self.assertLess(user.index("【模块字段】"), user.index("牌阵："))
+        self.assertLess(user.index("牌阵："), user.index("【输出契约】"))
+        self.assertIn("留在当前岗位", user)
+        self.assertIn("接受新的工作机会", user)
+        self.assertIn("成长与生活平衡", user)
+
+    def test_symbolic_message_prompt_sets_mind_reading_boundary(self):
+        messages = interpret_prompts.build_messages(
+            SAMPLE_CARDS,
+            "即时传讯",
+            language="zh",
+            module_overlay=(
+                "这是象征性反思，不是读取第三方真实内心；"
+                "不得编造对方原话，不得断言背叛、监视或必然联系。"
+            ),
+            module_payload={
+                "relationshipContext": "暂时减少联系的朋友",
+                "focus": "我该如何理解现在的距离",
+            },
+            output_contract="把结论落回用户自己的边界与行动。",
+            module_safety_rules=["mind_reading", "fear_escalation"],
+        )
+
+        combined = "\n".join(message["content"] for message in messages)
+        self.assertIn("象征性反思", combined)
+        self.assertIn("不是读取第三方真实内心", combined)
+        self.assertIn("不得编造对方原话", combined)
+        self.assertIn("暂时减少联系的朋友", combined)
+
+    def test_no_module_arguments_keep_legacy_prompt_shape(self):
+        messages = interpret_prompts.build_messages(SAMPLE_CARDS, "Test")
+        self.assertNotIn("【模块规则】", messages[0]["content"])
+        self.assertNotIn("【模块字段】", messages[-1]["content"])
+        self.assertNotIn("【输出契约】", messages[-1]["content"])
+
     def test_unknown_style_raises(self):
         with self.assertRaises(ValueError):
             interpret_prompts.build_messages(SAMPLE_CARDS, "Test", style="bogus")
