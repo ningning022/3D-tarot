@@ -2,9 +2,9 @@ const assert = require('assert');
 const { getPrimaryActionState, canChangeSpread } = require('../js/main_ui_state.js');
 
 assert.deepStrictEqual(getPrimaryActionState('IDLE'), {
-  label: '新占卜 / New',
+  label: '新咨询 / Consult',
   disabled: false,
-  intent: 'START_READING'
+  intent: 'OPEN_CONSULTATION'
 });
 
 assert.deepStrictEqual(getPrimaryActionState('AWAITING'), {

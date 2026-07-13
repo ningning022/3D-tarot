@@ -1,8 +1,27 @@
-# Architecture — Akashic Tarot Agent
+# 架构 / Architecture — Akashic Tarot Agent
 
-This document covers the interpretation Agent system added on top of the
-3D tarot UI. For the broader project (UI, deck rendering, daily-draw
-mechanics) see [`README.md`](README.md).
+本文先说明统一咨询主链，再介绍叠加在 3D 塔罗 UI 之上的解读 Agent。界面、牌组渲染和每日一牌等产品说明见 [`README.md`](README.md)。
+
+## 0 · 统一咨询主链
+
+咨询模块负责“用户想解决什么”以及允许哪些牌阵；取牌方式只负责“卡牌从哪里来”。两者是正交维度：`general_reading × manual` 和 `general_reading × three_d` 会落入相同的数据图。
+
+```text
+Consultation module (intent + allowed spreads)
+        ×
+Acquisition mode (three_d | manual)
+        ↓
+reading + cards [+ consultation]
+        ↓
+optional interpretation → optional review
+```
+
+- `none`（无特定问题）直接保存 reading + cards，不创建 consultation 行；可以选择立即生成、稍后生成或仅保存。即使生成了解读，也不提供人工审核入口。
+- `general_reading`（普通咨询）要求中文问题，保存时原子写入 reading、cards 和 consultation。`GET /api/consultation-modules` 是前端模块能力的唯一来源。
+- `three_d` 与 `manual` 只改变卡牌采集方式，不改变后续保存、解读或审核语义。
+- `now` 立即生成，`later` 稍后生成，`none` 为 save-only。
+- review 只属于“有 consultation 且生成成功”的 interpretation；隐私确认只在 `accepted` / `edited` 时出现。未经隐私确认的生成文本不是数据集候选。
+- 未来的 choice / message 模块当前未注册、未启用；能力接口不会返回它们。
 
 ---
 
@@ -56,6 +75,7 @@ and no `agent_steps` rows are written — fast path stays fast.
 | File | Responsibility |
 |---|---|
 | [`server.py`](server.py) | stdlib HTTP server, all routes, SSE streaming, lock guard. No business logic. |
+| [`js/consultation_flow.js`](js/consultation_flow.js) | Consultation-first browser state machine, acquisition hand-off, persistence routing, generation, review, focus management, and accessible form rendering. |
 | [`consultation_service.py`](consultation_service.py) | Chinese consultation validation, persistence, reproducible input snapshots, and human reviews. |
 | [`interpret_service.py`](interpret_service.py) | Strategy resolver, Ollama / OpenRouter clients, `interpret_reading_stream()` orchestrator, `interpretations` table. |
 | [`interpret_prompts.py`](interpret_prompts.py) | Pure prompt assembly — system + few-shot + retrieved block + question. No I/O. |
@@ -174,6 +194,7 @@ without overwriting any generated version. Only privacy-confirmed
 | GET | `/api/interpret/rag-status` | Embedding index state — `{indexed, ready, model_installed, …}`. |
 | POST | `/api/interpret/rag-build` | Trigger / refresh the embedding index. Idempotent. |
 | GET\|POST | `/api/interpret/settings` | Backend, model, OpenRouter key (key never echoed). |
+| GET | `/api/consultation-modules` | List enabled consultation modules, fields, allowed spreads, and defaults. |
 | POST | `/api/consultations` | Atomically create a Chinese consultation, reading, and cards. |
 | GET | `/api/consultations?limit=20` | List recent consultations; optional `module_type` filter. |
 | GET | `/api/consultations/<id>` | Load the consultation, reading, interpretation versions, and reviews. |

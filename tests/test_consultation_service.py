@@ -122,6 +122,16 @@ class TestConsultationValidation(unittest.TestCase):
                 cards, template_key="three_timeline"
             )
 
+    def test_rejects_spread_before_validating_card_count(self):
+        cards = [{"slot": 1, "cardId": 9, "isReversed": False}]
+
+        with self.assertRaisesRegex(ValueError, "Spread is not allowed"):
+            consultation_service.validate_consultation_cards(
+                cards,
+                template_key="choice_six",
+                module_type="general_reading",
+            )
+
 
 class TestConsultationPersistence(unittest.TestCase):
     def test_insert_and_load_by_reading(self):
@@ -260,6 +270,19 @@ class TestReviews(unittest.TestCase):
                 payload={"verdict": "edited", "privacyConfirmed": True},
                 reviewed_at="2026-07-10T00:05:00+00:00",
             )
+
+    def test_review_rejects_non_integer_rating(self):
+        for rating in (1.5, "1.5", True):
+            with self.subTest(rating=rating):
+                with self.assertRaisesRegex(
+                    ValueError, "rating must be an integer between 1 and 5"
+                ):
+                    consultation_service.upsert_review(
+                        self.conn,
+                        interpretation_id=self.interpretation_id,
+                        payload={"verdict": "accepted", "rating": rating},
+                        reviewed_at="2026-07-10T00:05:00+00:00",
+                    )
 
 
 if __name__ == "__main__":

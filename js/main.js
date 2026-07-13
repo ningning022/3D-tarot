@@ -83,6 +83,10 @@ function applyThemeCardBacks(theme) {
     if (typeof activeCards !== 'undefined') activeCards.forEach(visit);
 }
 
+window.startConsultationSpread = function startConsultationSpread() {
+    startSpread(idlePinchedCards.slice());
+};
+
 function init() {
     scene = new THREE.Scene();
     scene.background = null;
@@ -144,6 +148,7 @@ function init() {
         '点击选牌 / Click a card, then 新占卜 / New.';
     if (window.SpreadTemplates) {
         SpreadTemplates.bindTemplateSelector();
+        if (window.ConsultationFlow) ConsultationFlow.mount();
         bindStageControls();
         updateCurrentSpreadPanel();
     }
@@ -190,7 +195,9 @@ function bindTopbarActions() {
             const action = window.MainUiState
                 ? MainUiState.getPrimaryActionState(spreadState).intent
                 : (spreadState === 'AWAITING' ? 'NEXT_SPREAD' : 'START_READING');
-            if (action === 'START_READING') {
+            if (action === 'OPEN_CONSULTATION') {
+                if (window.ConsultationFlow) ConsultationFlow.open();
+            } else if (action === 'START_READING') {
                 startSpread(idlePinchedCards.slice());
             } else if (action === 'NEXT_SPREAD') {
                 hideSpreadPrompt();

@@ -8,6 +8,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import consultation_modules
 import consultation_service
 import interpret_service
 
@@ -222,13 +223,16 @@ def create_reading(payload: dict) -> dict:
 
 def create_consultation(payload: dict) -> dict:
     values = consultation_service.normalize_consultation_input(payload)
-    if values["input_mode"] != "manual":
-        raise ValueError("POST /api/consultations requires inputMode=manual")
-    consultation_service.validate_manual_cards(
-        payload.get("cards"),
-        template_key=str(payload.get("templateKey") or "free"),
-    )
+    if values["input_mode"] not in {"manual", "three_d"}:
+        raise ValueError(
+            "POST /api/consultations requires manual or three_d inputMode"
+        )
     reading = normalize_reading_payload(payload)
+    consultation_service.validate_consultation_cards(
+        payload.get("cards"),
+        template_key=reading["template_key"],
+        module_type=values["module_type"],
+    )
     created_at = utc_now_iso()
     with closing(get_connection()) as conn:
         with conn:
@@ -636,6 +640,11 @@ def handle_api_request(method, parsed_url, body=b""):
                     reviewed_at=utc_now_iso(),
                 )
             return json_response(200, review)
+
+        if method == "GET" and path == "/api/consultation-modules":
+            return json_response(
+                200, consultation_modules.list_public_modules()
+            )
 
         if method == "POST" and path == "/api/consultations":
             created = create_consultation(parse_json_body(body))

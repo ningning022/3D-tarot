@@ -72,6 +72,17 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(headers["Content-Type"], "application/json; charset=utf-8")
         self.assertEqual(json.loads(body), {"ok": True, "database": "ready"})
 
+    def test_lists_public_consultation_modules(self):
+        status, _, body = self.request_json("GET", "/api/consultation-modules")
+
+        modules = json.loads(body)
+        self.assertEqual(status, 200)
+        self.assertEqual(
+            [module["moduleType"] for module in modules],
+            ["general_reading"],
+        )
+        self.assertNotIn("promptOverlay", modules[0])
+
     def test_reading_insert_list_and_detail_roundtrip(self):
         payload = {
             "spreadNumber": 7,
@@ -458,6 +469,93 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(list_status, 200)
         self.assertEqual([item["id"] for item in items], [created["id"]])
 
+    def test_create_three_d_consultation(self):
+        payload = self.manual_consultation_payload().copy()
+        payload["inputMode"] = "three_d"
+
+        status, _, body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
+
+        created = json.loads(body)
+        self.assertEqual(status, 201)
+        self.assertEqual(created["inputMode"], "three_d")
+        self.assertEqual(created["readingId"], 1)
+
+    def test_rejects_daily_kind_as_unregistered_consultation_spread(self):
+        payload = self.manual_consultation_payload().copy()
+        payload["kind"] = "daily"
+        payload.pop("templateKey")
+        payload.pop("templateName")
+
+        status, _, body = self.request_json(
+            "POST", "/api/consultations", payload
+        )
+
+        self.assertEqual(status, 400)
+        self.assertIn("Spread is not allowed", json.loads(body)["error"])
+        conn = sqlite3.connect(self.db_path)
+        try:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM readings").fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM consultations"
+                ).fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
+
+    def test_rejects_non_acquisition_consultation_input_modes(self):
+        expected_error = (
+            "POST /api/consultations requires manual or three_d inputMode"
+        )
+        for input_mode in ("eval", "synthetic"):
+            with self.subTest(input_mode=input_mode):
+                payload = self.manual_consultation_payload().copy()
+                payload["inputMode"] = input_mode
+
+                status, _, body = self.request_json(
+                    "POST", "/api/consultations", payload
+                )
+
+                self.assertEqual(status, 400)
+                self.assertEqual(json.loads(body)["error"], expected_error)
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            self.assertEqual(
+                conn.execute("SELECT COUNT(*) FROM readings").fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM consultations"
+                ).fetchone()[0],
+                0,
+            )
+        finally:
+            conn.close()
+
+    def test_plain_reading_does_not_create_consultation(self):
+        payload = self.manual_consultation_payload().copy()
+        payload.pop("userQuery")
+
+        status, _, _ = self.request_json("POST", "/api/readings", payload)
+
+        self.assertEqual(status, 201)
+        conn = sqlite3.connect(self.db_path)
+        try:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM consultations"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertEqual(count, 0)
+
     def test_invalid_consultation_rolls_back_reading(self):
         payload = self.manual_consultation_payload()
         payload["userQuery"] = "短"
@@ -482,6 +580,17 @@ class TarotServerTest(unittest.TestCase):
         created = json.loads(created_body)
         conn = server.get_connection()
         try:
+            consultation = consultation_service.load_consultation(
+                conn, created["id"]
+            )
+            input_snapshot = consultation_service.build_input_snapshot(
+                consultation=consultation,
+                reading_id=created["readingId"],
+                template_name=self.manual_consultation_payload()["templateName"],
+                cards=self.manual_consultation_payload()["cards"],
+                style="traditional",
+                language="zh",
+            )
             interpretation_id = interpret_service.save_interpretation(
                 conn,
                 reading_id=created["readingId"],
@@ -492,6 +601,7 @@ class TarotServerTest(unittest.TestCase):
                 prompt_hash="hash",
                 duration_ms=10,
                 created_at="2026-07-10T00:00:00+00:00",
+                input_snapshot=input_snapshot,
             )
         finally:
             conn.close()
@@ -514,8 +624,28 @@ class TarotServerTest(unittest.TestCase):
         )
         detail = json.loads(detail_body)
         self.assertEqual(
+            [card["cardId"] for card in detail["reading"]["cards"]],
+            [9, 10, 8],
+        )
+        self.assertEqual(
+            detail["interpretations"][0]["input_snapshot"]["userQuery"],
+            self.manual_consultation_payload()["userQuery"],
+        )
+        self.assertEqual(
+            [
+                card["cardId"]
+                for card in detail["interpretations"][0]["input_snapshot"][
+                    "cards"
+                ]
+            ],
+            [9, 10, 8],
+        )
+        self.assertEqual(
             detail["interpretations"][0]["review"]["verdict"],
             "accepted",
+        )
+        self.assertTrue(
+            detail["interpretations"][0]["review"]["privacyConfirmed"]
         )
 
 

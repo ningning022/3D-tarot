@@ -266,3 +266,59 @@
         font-size: 1rem;
     }
 }
+
+/* Consultation flow: tablet and narrow desktop */
+@media (max-width: 820px) {
+    .consultation-flow {
+        inset: 0;
+        border-radius: 0;
+        padding: 14px;
+    }
+
+    .consultation-flow-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    }
+
+    .consultation-flow-layout > .consultation-flow-head,
+    .consultation-flow-layout > .consultation-flow-steps,
+    .consultation-flow-layout > .consultation-flow-status,
+    .consultation-flow-layout > .consultation-flow-mount,
+    .consultation-flow-layout > .consultation-flow-actions {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .consultation-flow-actions {
+        position: sticky;
+        bottom: 0;
+        background: var(--panel-bg);
+    }
+
+    .consultation-card-preview {
+        grid-template-columns: 72px 1fr;
+    }
+
+    .consultation-card-preview img {
+        width: 72px;
+    }
+}
+
+/* Consultation flow: phone */
+@media (max-width: 420px) {
+    .consultation-flow {
+        padding: 10px;
+    }
+
+    .consultation-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .consultation-flow-steps {
+        overflow-x: auto;
+    }
+
+    .consultation-choice-grid {
+        grid-template-columns: 1fr;
+    }
+}

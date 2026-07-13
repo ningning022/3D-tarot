@@ -410,6 +410,10 @@ function handleIdleGestures(now) {
         if (idleHeldCard) {
             _returnHeldCardToRing();
         }
+        if (window.ConsultationFlow) {
+            ConsultationFlow.open();
+            return;
+        }
         const selectedCards = SpreadFlow.createEnteringSnapshot(idlePinchedCards);
         idlePinchedCards = selectedCards;
         spreadState = 'ENTERING';
@@ -530,9 +534,12 @@ function confirmCard(card) {
     // 本阵所有牌全部确认 → 牌阵完成 / All confirmed → spread complete
     if (confirmedInSpread >= spreadCards) {
         spreadCount++;
-        completeReadingHistory(spreadCount);
-
-        setTimeout(() => showSpreadPrompt(), 800);
+        const savePromise = completeReadingHistory(spreadCount);
+        settleCapturedReading(
+            savePromise,
+            () => setTimeout(() => showSpreadPrompt(), 800),
+            error => console.error('Failed to persist captured reading:', error)
+        );
     }
     if (typeof updatePrimaryActionButton === 'function') updatePrimaryActionButton();
 }

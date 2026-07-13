@@ -8,9 +8,9 @@
     function getPrimaryActionState(spreadState) {
         if (spreadState === 'IDLE') {
             return {
-                label: '新占卜 / New',
+                label: '新咨询 / Consult',
                 disabled: false,
-                intent: 'START_READING'
+                intent: 'OPEN_CONSULTATION'
             };
         }
         if (spreadState === 'AWAITING') {
