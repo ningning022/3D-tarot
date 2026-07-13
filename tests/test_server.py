@@ -580,6 +580,17 @@ class TarotServerTest(unittest.TestCase):
         created = json.loads(created_body)
         conn = server.get_connection()
         try:
+            consultation = consultation_service.load_consultation(
+                conn, created["id"]
+            )
+            input_snapshot = consultation_service.build_input_snapshot(
+                consultation=consultation,
+                reading_id=created["readingId"],
+                template_name=self.manual_consultation_payload()["templateName"],
+                cards=self.manual_consultation_payload()["cards"],
+                style="traditional",
+                language="zh",
+            )
             interpretation_id = interpret_service.save_interpretation(
                 conn,
                 reading_id=created["readingId"],
@@ -590,6 +601,7 @@ class TarotServerTest(unittest.TestCase):
                 prompt_hash="hash",
                 duration_ms=10,
                 created_at="2026-07-10T00:00:00+00:00",
+                input_snapshot=input_snapshot,
             )
         finally:
             conn.close()
@@ -612,8 +624,28 @@ class TarotServerTest(unittest.TestCase):
         )
         detail = json.loads(detail_body)
         self.assertEqual(
+            [card["cardId"] for card in detail["reading"]["cards"]],
+            [9, 10, 8],
+        )
+        self.assertEqual(
+            detail["interpretations"][0]["input_snapshot"]["userQuery"],
+            self.manual_consultation_payload()["userQuery"],
+        )
+        self.assertEqual(
+            [
+                card["cardId"]
+                for card in detail["interpretations"][0]["input_snapshot"][
+                    "cards"
+                ]
+            ],
+            [9, 10, 8],
+        )
+        self.assertEqual(
             detail["interpretations"][0]["review"]["verdict"],
             "accepted",
+        )
+        self.assertTrue(
+            detail["interpretations"][0]["review"]["privacyConfirmed"]
         )
 
 

@@ -15,6 +15,7 @@ const {
     nextPhase,
     persistDraftCards,
     runSavedInterpretation,
+    validateReview,
     submitReview,
     mount,
     open,
@@ -374,12 +375,30 @@ function testConsultationFlowCssContract() {
         path.join(__dirname, '..', 'css', 'consultation_flow.css'),
         'utf8'
     );
+    const responsive = fs.readFileSync(
+        path.join(__dirname, '..', 'css', 'responsive.css'),
+        'utf8'
+    );
     assert.match(css, /z-index:\s*320/);
     assert.match(css, /\.consultation-flow\[hidden\]/);
     assert.match(css, /min-height:\s*44px/);
     assert.match(css, /:focus-visible/);
     assert.match(css, /\.consultation-card-grid/);
-    assert.match(css, /@media\s*\(max-width:/);
+    assert.match(
+        css,
+        /\.consultation-flow-layout\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\([^;]+;/s
+    );
+    assert.match(css, /\.consultation-flow-status\.is-success\s*\{/);
+    assert.match(css, /\.consultation-flow-status\.is-warning\s*\{/);
+    assert.match(css, /\.consultation-field-error\s*\{/);
+    assert.match(
+        responsive,
+        /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
+    );
+    assert.match(
+        responsive,
+        /@media\s*\(max-width:\s*420px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*padding:\s*10px;[^}]*\}[\s\S]*?\.consultation-card-grid\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}[\s\S]*?\.consultation-flow-steps\s*\{[^}]*overflow-x:\s*auto;[^}]*\}[\s\S]*?\.consultation-choice-grid\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}/
+    );
 }
 
 function makeFakeControllerDocument() {
@@ -411,6 +430,7 @@ function makeFakeControllerDocument() {
                 disabled: false,
                 value: '',
                 checked: false,
+                attributes: {},
                 addEventListener(type, listener) {
                     (listeners[type] = listeners[type] || []).push(listener);
                 },
@@ -443,7 +463,13 @@ function makeFakeControllerDocument() {
                     });
                 },
                 setAttribute(name, value) {
+                    node.attributes[name] = String(value);
                     node[name] = String(value);
+                },
+                getAttribute(name) {
+                    return Object.prototype.hasOwnProperty.call(node.attributes, name)
+                        ? node.attributes[name]
+                        : null;
                 },
                 focus() {
                     document.activeElement = node;
@@ -456,17 +482,39 @@ function makeFakeControllerDocument() {
                         const isCheckedInput = selector === 'input:checked'
                             && current.tagName === 'INPUT'
                             && current.checked;
-                        if (isCheckedInput) matches.push(current);
+                        const isFocusable = selector.includes('button:not([disabled])')
+                            && ['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'].includes(current.tagName)
+                            && !current.disabled
+                            && !current.hidden;
+                        if (isCheckedInput || isFocusable) matches.push(current);
                         (current.children || []).forEach(visit);
                     };
                     node.children.forEach(visit);
                     return matches;
+                },
+                contains(candidate) {
+                    if (candidate === node) return true;
+                    return node.children.some(child => (
+                        child && typeof child.contains === 'function'
+                            ? child.contains(candidate)
+                            : child === candidate
+                    ));
                 }
             };
             return node;
         },
         getElementById(id) {
-            return nodes[id] || null;
+            if (nodes[id]) return nodes[id];
+            const visit = current => {
+                if (!current || typeof current !== 'object') return null;
+                if (current.id === id) return current;
+                for (const child of current.children || []) {
+                    const match = visit(child);
+                    if (match) return match;
+                }
+                return null;
+            };
+            return visit(document.body);
         },
         addEventListener(type, listener) {
             (documentListeners[type] = documentListeners[type] || []).push(listener);
@@ -475,7 +523,12 @@ function makeFakeControllerDocument() {
             return (documentListeners[type] || []).length;
         },
         dispatch(type, event) {
-            (documentListeners[type] || []).forEach(listener => listener(event));
+            const dispatched = {
+                target: document.activeElement,
+                preventDefault() {},
+                ...(event || {})
+            };
+            (documentListeners[type] || []).forEach(listener => listener(dispatched));
         }
     };
     document.body = document.createElement('body');
@@ -495,6 +548,19 @@ function makeFakeControllerDocument() {
         nodes[id] = node;
         document.body.append(node);
     });
+    document.body.replaceChildren();
+    nodes['consultation-flow'].append(
+        nodes['consultation-flow-title'],
+        nodes['consultation-flow-close'],
+        nodes['consultation-flow-steps'],
+        nodes['consultation-flow-status'],
+        nodes['consultation-flow-mount'],
+        nodes['consultation-flow-actions']
+    );
+    document.body.append(
+        nodes['consultation-flow'],
+        nodes['active-consultation-summary']
+    );
     nodes['consultation-flow'].hidden = true;
     nodes['active-consultation-summary'].hidden = true;
     return { document, nodes };
@@ -508,6 +574,15 @@ function findFakeNode(rootNode, predicate) {
         if (match) return match;
     }
     return null;
+}
+
+function collectFakeNodes(rootNode, predicate, matches = []) {
+    if (!rootNode || typeof rootNode !== 'object') return matches;
+    if (predicate(rootNode)) matches.push(rootNode);
+    for (const child of rootNode.children || []) {
+        collectFakeNodes(child, predicate, matches);
+    }
+    return matches;
 }
 
 function deferred() {
@@ -748,6 +823,10 @@ async function testBrowserControllerMountOpenCloseLifecycle() {
 
     browserFlow.mount();
     browserFlow.mount();
+    assert.strictEqual(
+        nodes['consultation-flow'].classList.contains('consultation-flow-layout'),
+        true
+    );
     assert.strictEqual(nodes['consultation-flow-close'].listenerCount('click'), 1);
     assert.strictEqual(document.listenerCount('keydown'), 1);
     assert.strictEqual(await browserFlow.open(), true);
@@ -758,6 +837,59 @@ async function testBrowserControllerMountOpenCloseLifecycle() {
     assert.strictEqual(moduleLoads, 1);
     assert.strictEqual(await browserFlow.open(), false);
     assert.strictEqual(moduleLoads, 1);
+
+    const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusables = nodes['consultation-flow'].querySelectorAll(focusableSelector);
+    const firstFocusable = focusables[0];
+    const lastFocusable = focusables[focusables.length - 1];
+    let titleBackwardPrevented = false;
+    nodes['consultation-flow-title'].focus();
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: true,
+        preventDefault() { titleBackwardPrevented = true; }
+    });
+    assert.strictEqual(titleBackwardPrevented, true);
+    assert.strictEqual(document.activeElement, lastFocusable);
+    let titleForwardPrevented = false;
+    nodes['consultation-flow-title'].focus();
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: false,
+        preventDefault() { titleForwardPrevented = true; }
+    });
+    assert.strictEqual(titleForwardPrevented, true);
+    assert.strictEqual(document.activeElement, firstFocusable);
+
+    let outsideForwardPrevented = false;
+    opener.focus();
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: false,
+        preventDefault() { outsideForwardPrevented = true; }
+    });
+    assert.strictEqual(outsideForwardPrevented, true);
+    assert.strictEqual(document.activeElement, firstFocusable);
+
+    let forwardPrevented = false;
+    lastFocusable.focus();
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: false,
+        preventDefault() { forwardPrevented = true; }
+    });
+    assert.strictEqual(forwardPrevented, true);
+    assert.strictEqual(document.activeElement, firstFocusable);
+    let backwardPrevented = false;
+    firstFocusable.focus();
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: true,
+        preventDefault() { backwardPrevented = true; }
+    });
+    assert.strictEqual(backwardPrevented, true);
+    assert.strictEqual(document.activeElement, lastFocusable);
+
     assert.strictEqual(browserFlow.close(), true);
     assert.strictEqual(document.activeElement, opener);
 
@@ -990,6 +1122,216 @@ async function testReviewPrivacyFollowsConsultationAndVerdict() {
         node => node.tagName === 'INPUT' && node.name === 'privacyConfirmed'
     );
     assert.strictEqual(plainPrivacy.parentNode.hidden, true);
+}
+
+async function testDynamicFormAccessibilityAndReviewErrors() {
+    const controller = loadControllerRuntime();
+    const { browserFlow, testFlow, nodes } = controller;
+    browserFlow.mount();
+    await browserFlow.open();
+
+    const assertControlsAreLabelled = phaseDraft => {
+        testFlow.setDraftForTest(phaseDraft);
+        const mountNode = nodes['consultation-flow-mount'];
+        const controls = collectFakeNodes(
+            mountNode,
+            node => ['INPUT', 'SELECT', 'TEXTAREA'].includes(node.tagName)
+        );
+        const labels = collectFakeNodes(mountNode, node => node.tagName === 'LABEL');
+        assert.ok(controls.length > 0, `${phaseDraft.phase} should render controls`);
+        controls.forEach(control => {
+            assert.ok(control.id, `${phaseDraft.phase} ${control.tagName} should have an id`);
+            assert.ok(
+                labels.some(label => label.htmlFor === control.id),
+                `${control.id} should have a persistent label`
+            );
+        });
+    };
+
+    assertControlsAreLabelled({
+        ...completeDraft(),
+        phase: 'editing_details'
+    });
+    assertControlsAreLabelled({
+        ...createInitialDraft(),
+        phase: 'choosing_spread_source',
+        templateKey: 'free',
+        inputMode: 'manual'
+    });
+    assertControlsAreLabelled({
+        ...completeDraft(),
+        phase: 'acquiring_cards'
+    });
+
+    testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'review_ready',
+        saved: { consultationId: 17, readingId: 29 },
+        generated: { content: 'output', interpretation: { id: 10 } }
+    });
+    const currentStep = findFakeNode(
+        nodes['consultation-flow-steps'],
+        node => node.getAttribute && node.getAttribute('aria-current') === 'step'
+    );
+    assert.ok(currentStep, 'the current flow step should expose aria-current="step"');
+
+    const form = findFakeNode(nodes['consultation-flow-mount'], node => node.tagName === 'FORM');
+    const controls = collectFakeNodes(
+        form,
+        node => ['INPUT', 'SELECT', 'TEXTAREA'].includes(node.tagName)
+    );
+    const labels = collectFakeNodes(form, node => node.tagName === 'LABEL');
+    controls.forEach(control => {
+        assert.ok(control.id, `review ${control.tagName} should have an id`);
+        assert.ok(labels.some(label => label.htmlFor === control.id));
+    });
+
+    const verdict = controls.find(control => control.name === 'verdict');
+    const rating = controls.find(control => control.name === 'rating');
+    const edited = controls.find(control => control.name === 'editedContent');
+    verdict.value = 'pending';
+    rating.value = '0';
+    await form.dispatch('submit');
+    const verdictError = controller.document.getElementById('consultation-review-verdict-error');
+    const ratingError = controller.document.getElementById('consultation-review-rating-error');
+    assert.strictEqual(verdictError.textContent, '请选择审核结论');
+    assert.strictEqual(verdictError.hidden, false);
+    assert.strictEqual(verdict.getAttribute('aria-describedby'), verdictError.id);
+    assert.strictEqual(ratingError.textContent, '评分应为 1–5');
+    assert.strictEqual(ratingError.hidden, false);
+    assert.strictEqual(rating.getAttribute('aria-describedby'), ratingError.id);
+
+    verdict.value = 'edited';
+    rating.value = '';
+    edited.value = '   ';
+    await form.dispatch('submit');
+    const editedError = controller.document.getElementById('consultation-review-edited-error');
+    assert.strictEqual(editedError.textContent, '编辑后的理想答案不能为空');
+    assert.strictEqual(editedError.hidden, false);
+    assert.strictEqual(edited.getAttribute('aria-describedby'), editedError.id);
+}
+
+async function testFocusTrapExcludesDisabledAndAncestorHiddenControls() {
+    const controller = loadControllerRuntime();
+    const { browserFlow, testFlow, nodes, document } = controller;
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'review_ready',
+        saved: { consultationId: 17, readingId: 29 },
+        generated: { content: 'output', interpretation: { id: 10 } }
+    });
+
+    const dialog = nodes['consultation-flow'];
+    const form = findFakeNode(nodes['consultation-flow-mount'], node => node.tagName === 'FORM');
+    const submit = findFakeNode(form, node => node.tagName === 'BUTTON' && node.type === 'submit');
+    const verdict = findFakeNode(form, node => node.name === 'verdict');
+    const edited = findFakeNode(form, node => node.name === 'editedContent');
+    const privacy = findFakeNode(form, node => node.name === 'privacyConfirmed');
+    const closeButton = nodes['consultation-flow-close'];
+
+    submit.disabled = true;
+    submit.focus();
+    let disabledForwardPrevented = false;
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: false,
+        preventDefault() { disabledForwardPrevented = true; }
+    });
+    assert.strictEqual(disabledForwardPrevented, true);
+    assert.strictEqual(document.activeElement, closeButton);
+
+    submit.focus();
+    let disabledBackwardPrevented = false;
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: true,
+        preventDefault() { disabledBackwardPrevented = true; }
+    });
+    assert.strictEqual(disabledBackwardPrevented, true);
+    assert.strictEqual(document.activeElement, privacy);
+
+    verdict.value = 'needs_work';
+    await verdict.dispatch('change');
+    assert.strictEqual(privacy.parentNode.hidden, true);
+    nodes['consultation-flow-title'].focus();
+    let hiddenBackwardPrevented = false;
+    document.dispatch('keydown', {
+        key: 'Tab',
+        shiftKey: true,
+        preventDefault() { hiddenBackwardPrevented = true; }
+    });
+    assert.strictEqual(hiddenBackwardPrevented, true);
+    assert.strictEqual(document.activeElement, edited);
+    assert.notStrictEqual(document.activeElement, privacy);
+
+    assert.strictEqual(dialog.contains(document.activeElement), true);
+}
+
+async function testCompletionFocusAndNoQuestionReviewEligibility() {
+    const noQuestion = loadControllerRuntime({
+        api: {
+            async createReading() { return { id: 51 }; }
+        },
+        interpret: {
+            async *streamInterpretation() {
+                yield { chunk: 'generated answer' };
+                yield { done: true };
+            }
+        }
+    });
+    noQuestion.browserFlow.mount();
+    await noQuestion.browserFlow.open();
+    noQuestion.testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'confirming',
+        questionMode: 'none',
+        moduleType: null,
+        userQuery: '',
+        userContext: '',
+        interpretationAction: 'now'
+    });
+    const save = findFakeNode(
+        noQuestion.nodes['consultation-flow-actions'],
+        node => node.dataset && node.dataset.flowAction === 'save'
+    );
+    await save.dispatch('click');
+    assert.strictEqual(
+        noQuestion.document.activeElement.id,
+        'consultation-result-title'
+    );
+    assert.strictEqual(
+        findFakeNode(noQuestion.nodes['consultation-flow-mount'], node => node.tagName === 'FORM'),
+        null
+    );
+    assert.strictEqual(
+        findFakeNode(noQuestion.nodes['consultation-flow-mount'], node => node.tagName === 'ARTICLE').textContent,
+        'generated answer'
+    );
+
+    const reviewed = loadControllerRuntime({
+        api: {
+            async reviewInterpretation() { return { id: 7, verdict: 'accepted' }; }
+        }
+    });
+    reviewed.browserFlow.mount();
+    await reviewed.browserFlow.open();
+    reviewed.testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'review_ready',
+        saved: { consultationId: 17, readingId: 29 },
+        generated: { content: 'output', interpretation: { id: 10 } }
+    });
+    const reviewForm = findFakeNode(
+        reviewed.nodes['consultation-flow-mount'],
+        node => node.tagName === 'FORM'
+    );
+    await reviewForm.dispatch('submit');
+    assert.strictEqual(
+        reviewed.document.activeElement.id,
+        'consultation-review-saved-status'
+    );
 }
 
 async function testReviewSubmitGuardsDuplicateAndAllowsRetry() {
@@ -1388,19 +1730,44 @@ async function testSubmitReviewRejectsInvalidInputs() {
 
     await assert.rejects(
         submitReview(10, { verdict: 'pending' }, deps),
-        /Unsupported review verdict/
+        /请选择审核结论/
     );
     await assert.rejects(
         submitReview(10, { verdict: 'edited', editedContent: '   ' }, deps),
-        /editedContent is required/
+        /编辑后的理想答案不能为空/
     );
     for (const rating of [0, 6, 'not-a-number']) {
         await assert.rejects(
             submitReview(10, { verdict: 'accepted', rating }, deps),
-            /rating must be between 1 and 5/
+            /评分应为 1–5/
         );
     }
+    await assert.rejects(
+        submitReview(10, { verdict: 'pending', rating: 0 }, deps),
+        /请选择审核结论/
+    );
     assert.strictEqual(reviewCount, 0);
+}
+
+function testValidateReviewReturnsFieldErrors() {
+    assert.deepStrictEqual(validateReview({ verdict: 'accepted' }), {});
+    assert.deepStrictEqual(validateReview({ verdict: 'rejected', rating: 1 }), {});
+    assert.deepStrictEqual(validateReview({ verdict: 'edited', editedContent: '  revised  ', rating: '5' }), {});
+
+    assert.deepStrictEqual(
+        validateReview({ verdict: 'pending' }),
+        { verdict: '请选择审核结论' }
+    );
+    assert.deepStrictEqual(
+        validateReview({ verdict: 'edited', editedContent: '   ' }),
+        { editedContent: '编辑后的理想答案不能为空' }
+    );
+    for (const rating of [NaN, 0, 6, 1.5, 'not-a-number']) {
+        assert.deepStrictEqual(
+            validateReview({ verdict: 'accepted', rating }),
+            { rating: '评分应为 1–5' }
+        );
+    }
 }
 
 async function testSubmitReviewNormalizesSuccessfulPayloads() {
@@ -1739,6 +2106,7 @@ function testBrowserGlobalExport() {
     assert.strictEqual(typeof browserWindow.ConsultationFlow.createInitialDraft, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.persistDraftCards, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.runSavedInterpretation, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.validateReview, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.submitReview, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.mount, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.open, 'function');
@@ -1771,6 +2139,9 @@ const tests = [
     ['stale save cannot generate after close or reset', testStaleSaveCannotStartGenerationAfterCloseOrReset],
     ['close aborts generation and ignores late events', testCloseAbortsGenerationAndIgnoresLateEvents],
     ['review privacy follows consultation and verdict', testReviewPrivacyFollowsConsultationAndVerdict],
+    ['dynamic form accessibility and review errors', testDynamicFormAccessibilityAndReviewErrors],
+    ['focus trap excludes disabled and ancestor-hidden controls', testFocusTrapExcludesDisabledAndAncestorHiddenControls],
+    ['completion focus and no-question review eligibility', testCompletionFocusAndNoQuestionReviewEligibility],
     ['review submit guards duplicate and allows retry', testReviewSubmitGuardsDuplicateAndAllowsRetry],
     ['stale review cannot mutate after close or reset', testStaleReviewCannotMutateAfterCloseOrReset],
     ['module default spread clears old cards', testModuleDefaultSpreadClearsOldCards],
@@ -1780,6 +2151,7 @@ const tests = [
     ['run saved interpretation without consultation', testRunSavedInterpretationWithoutConsultation],
     ['run saved interpretation converts stream error', testRunSavedInterpretationConvertsStreamError],
     ['run saved interpretation rejects early end', testRunSavedInterpretationRejectsEarlyEnd],
+    ['validate review returns field errors', testValidateReviewReturnsFieldErrors],
     ['submit review rejects invalid inputs', testSubmitReviewRejectsInvalidInputs],
     ['submit review normalizes successful payloads', testSubmitReviewNormalizesSuccessfulPayloads],
     ['captured reading uses active consultation flow', testCapturedReadingUsesActiveConsultationFlow],

@@ -67,6 +67,14 @@ body.consultation-flow-open {
     color: var(--danger, #ef7777);
 }
 
+.consultation-flow-status.is-success {
+    color: var(--success, #63c58d);
+}
+
+.consultation-flow-status.is-warning {
+    color: var(--warning, #e7b95e);
+}
+
 .consultation-flow-mount {
     min-height: 0;
     overflow: auto;
@@ -77,6 +85,40 @@ body.consultation-flow-open {
     justify-content: flex-end;
     padding-top: 12px;
     border-top: 1px solid var(--panel-line);
+}
+
+.consultation-flow-layout {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.75fr) minmax(0, 2fr) minmax(220px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: start;
+}
+
+.consultation-flow-layout > .consultation-flow-head {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+.consultation-flow-layout > .consultation-flow-steps {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.consultation-flow-layout > .consultation-flow-mount {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+}
+
+.consultation-flow-layout > .consultation-flow-status {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+.consultation-flow-layout > .consultation-flow-actions {
+    grid-column: 2 / -1;
+    grid-row: 3;
 }
 
 .consultation-step,
@@ -149,6 +191,12 @@ body.consultation-flow-open {
 .consultation-field-label,
 .consultation-muted {
     color: color-mix(in oklch, var(--ink-text) 68%, transparent);
+}
+
+.consultation-field-error {
+    margin: 0;
+    color: var(--danger, #ef7777);
+    font-size: 0.84rem;
 }
 
 .consultation-flow input,
@@ -252,36 +300,4 @@ body.consultation-flow-open {
     background: color-mix(in oklch, var(--accent) 10%, transparent);
     border: 1px solid var(--accent-line);
     border-radius: 8px;
-}
-
-@media (max-width: 720px) {
-    .consultation-flow {
-        inset: 0;
-        gap: 8px;
-        padding: 14px;
-        border: 0;
-        border-radius: 0;
-    }
-
-    .consultation-flow-head {
-        align-items: flex-start;
-    }
-
-    .consultation-flow-actions {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .consultation-choice-grid,
-    .consultation-card-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .consultation-card-preview {
-        grid-template-columns: 72px 1fr;
-    }
-
-    .consultation-card-preview img {
-        width: 72px;
-    }
 }

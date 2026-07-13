@@ -26,6 +26,19 @@ Akashic Tarot 是一个本地运行的 3D 塔罗交互应用：前端使用 Thre
 - "清空数据库" 操作需要输入 `CLEAR` 二次确认。
 - 包含前端交互、牌阵布局、手势识别、每日一牌和后端 API 测试。
 
+## 统一咨询流程
+
+主页面采用 **consultation-first（咨询优先）** 的单一入口；咨询意图、取牌方式和是否立即解读彼此独立，不再把“3D 抽牌”和“手动录牌”拆成两套产品流程。
+
+1. **选择咨询类型**：`无特定问题（none）` 只观察牌面，不保存问题；`普通咨询（general_reading）` 要求填写中文问题，可补充背景，并受模块允许牌阵约束。
+2. **选择取牌方式**：`three_d` 使用现有 3D 舞台抽牌，`manual` 用搜索框逐槽录入线下已经抽出的牌；两者最终写入相同的 reading + cards 数据结构。
+3. **选择解读时机**：`now` 保存后立即生成，`later` 保留记录供稍后生成，`none` 仅保存牌阵（save-only）。
+4. **保存与审核**：有明确问题时会原子写入 reading、cards 和 consultation；无特定问题只写 reading + cards，**不会创建 consultation 行**。无问题模式即使立即生成了解读，也只展示答案，不出现审核表单。
+
+人工审核只面向“有 consultation 且已成功生成 interpretation”的记录。审核结论支持 `accepted`、`needs_work`、`rejected`、`edited`；只有 `accepted` 或 `edited` 才显示隐私确认。模型文本默认不是训练数据，只有确认隐私的 `accepted` / `edited` 版本才可能成为后续导出候选。
+
+模块能力由 `GET /api/consultation-modules` 返回。目前仅启用 `general_reading`；“选择决策（choice）”和“消息解读（message）”作为未来模块预留，当前未注册、未启用，也不会出现在前端选项中。
+
 ## 界面示意
 
 | 黑夜模式鼠标操作 | 摄像头模式等待态 | 后台记录页 |
@@ -127,6 +140,7 @@ data/tarot.sqlite3
 | `GET` | `/api/readings?limit=20` | 获取最近记录。 |
 | `GET` | `/api/readings/{id}` | 获取单条记录和卡牌详情。 |
 | `DELETE` | `/api/readings` | 清空本地记录并重置 id。 |
+| `GET` | `/api/consultation-modules` | 获取当前启用的咨询模块、输入字段与允许牌阵。 |
 | `POST` | `/api/consultations` | 原子保存中文咨询、牌阵和手动录入的卡牌。 |
 | `GET` | `/api/consultations?limit=20` | 获取最近咨询。 |
 | `GET` | `/api/consultations/{id}` | 获取咨询、牌阵、全部解读版本和人工审核。 |
@@ -253,7 +267,7 @@ curl -X POST -H "Content-Type: application/json" \
 
 ### 中文咨询数据接口
 
-手动录牌使用独立的咨询记录保存问题、背景和输入来源。创建操作会在一个 SQLite 事务中同时写入 reading、cards 和 consultation；任一步校验或写入失败都会整体回滚。
+统一咨询流程使用独立的咨询记录保存问题、背景和输入来源；手动录牌与 3D 抽牌共用同一份 schema。创建操作会在一个 SQLite 事务中同时写入 reading、cards 和 consultation；任一步校验或写入失败都会整体回滚。无特定问题流程改走 `/api/readings`，因此不会产生空的 consultation 行。
 
 ```json
 POST /api/consultations
@@ -298,6 +312,7 @@ POST /api/consultations
 }
 ```
 
+- `GET /api/consultation-modules`：返回当前启用模块；目前只有普通咨询。
 - `GET /api/consultations?limit=20`：列出最近咨询，可用 `module_type` 筛选。
 - `GET /api/consultations/<id>`：返回问题、牌阵、全部解读版本及人工审核。
 - `POST /api/interpret/<readingId>`：使用已保存的问题和背景进行 SSE 流式解读；不能用请求参数覆盖已保存问题。

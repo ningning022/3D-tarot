@@ -33,6 +33,7 @@
     let abortController = null;
     let flowEpoch = 0;
     let acquiredCardsSavePromise = null;
+    let fieldSequence = 0;
 
     function createInitialDraft() {
         return {
@@ -312,7 +313,7 @@
         return { content, done: true, interpretation };
     }
 
-    async function submitReview(interpretationId, review, deps) {
+    function validateReview(review) {
         const currentReview = review || {};
         const verdict = String(currentReview.verdict || '');
         const allowedVerdicts = [
@@ -321,26 +322,43 @@
             'rejected',
             'edited'
         ];
+        const errors = {};
         if (!allowedVerdicts.includes(verdict)) {
-            throw new Error('Unsupported review verdict');
+            errors.verdict = '请选择审核结论';
         }
 
         const editedContent = String(currentReview.editedContent || '').trim();
         if (verdict === 'edited' && !editedContent) {
-            throw new Error('editedContent is required for edited verdict');
+            errors.editedContent = '编辑后的理想答案不能为空';
         }
 
-        let rating = null;
         if (
             currentReview.rating !== undefined
             && currentReview.rating !== null
             && currentReview.rating !== ''
         ) {
-            rating = Number(currentReview.rating);
+            const rating = Number(currentReview.rating);
             if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-                throw new Error('rating must be between 1 and 5');
+                errors.rating = '评分应为 1–5';
             }
         }
+
+        return errors;
+    }
+
+    async function submitReview(interpretationId, review, deps) {
+        const currentReview = review || {};
+        const errors = validateReview(currentReview);
+        const firstError = Object.values(errors)[0];
+        if (firstError) throw new Error(firstError);
+
+        const verdict = String(currentReview.verdict || '');
+        const editedContent = String(currentReview.editedContent || '').trim();
+        const rating = (
+            currentReview.rating === undefined
+            || currentReview.rating === null
+            || currentReview.rating === ''
+        ) ? null : Number(currentReview.rating);
 
         const payload = {
             verdict,
@@ -420,8 +438,21 @@
     }
 
     function field(labelText, control, className = 'consultation-field') {
-        return el('label', { className }, [
-            el('span', { className: 'consultation-field-label', textContent: labelText }),
+        const formTags = ['INPUT', 'SELECT', 'TEXTAREA'];
+        const isFormControl = Boolean(control && formTags.includes(control.tagName));
+        if (isFormControl && !control.id) {
+            const hint = String(control.name || control.type || control.tagName)
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]+/g, '-');
+            fieldSequence += 1;
+            control.id = `consultation-${hint}-${fieldSequence}`;
+        }
+        return el('div', { className }, [
+            el('label', {
+                className: 'consultation-field-label',
+                htmlFor: isFormControl ? control.id : undefined,
+                textContent: labelText
+            }),
             control
         ]);
     }
@@ -651,7 +682,7 @@
                     });
                 }
             });
-            cardNode.append(search, results);
+            cardNode.append(field(`搜索第 ${slotPlan.slot} 个位置的牌`, search), results);
             grid.append(cardNode);
         });
         mountNode.append(el('section', { className: 'consultation-step' }, [
@@ -714,7 +745,11 @@
 
     function renderSavedStep(mountNode, actionsNode) {
         mountNode.append(el('section', { className: 'consultation-result-panel' }, [
-            el('h3', { textContent: '已保存' }),
+            el('h3', {
+                id: 'consultation-result-title',
+                tabIndex: -1,
+                textContent: '已保存'
+            }),
             el('p', { textContent: saved ? `Reading #${saved.readingId}` : '记录已保存' }),
             streamContent ? el('article', { textContent: streamContent }) : null
         ]));
@@ -739,24 +774,52 @@
         const interpretation = generated && generated.interpretation;
         const form = el('form', { className: 'consultation-review-panel' });
         form.append(
-            el('h3', { textContent: '审核解读' }),
+            el('h3', {
+                id: 'consultation-result-title',
+                tabIndex: -1,
+                textContent: '审核解读'
+            }),
             el('article', {
                 className: 'consultation-stream-result',
                 textContent: generated ? generated.content : streamContent
             })
         );
-        const verdict = el('select', { name: 'verdict' }, [
+        const verdictError = el('p', {
+            id: 'consultation-review-verdict-error',
+            className: 'consultation-field-error',
+            hidden: true,
+            role: 'alert'
+        });
+        const verdict = el('select', {
+            id: 'consultation-review-verdict',
+            name: 'verdict',
+            'aria-describedby': verdictError.id
+        }, [
             el('option', { value: 'accepted', textContent: '接受' }),
             el('option', { value: 'needs_work', textContent: '需要改进' }),
             el('option', { value: 'rejected', textContent: '拒绝' }),
             el('option', { value: 'edited', textContent: '采用编辑版' })
         ]);
         verdict.value = 'accepted';
-        const rating = el('select', { name: 'rating' }, [
+        const ratingError = el('p', {
+            id: 'consultation-review-rating-error',
+            className: 'consultation-field-error',
+            hidden: true,
+            role: 'alert'
+        });
+        const rating = el('select', {
+            id: 'consultation-review-rating',
+            name: 'rating',
+            'aria-describedby': ratingError.id
+        }, [
             el('option', { value: '', textContent: '不评分' }),
             ...[1, 2, 3, 4, 5].map(value => el('option', { value: String(value), textContent: `${value}` }))
         ]);
-        form.append(field('结论', verdict), field('评分', rating));
+        const verdictField = field('结论', verdict);
+        verdictField.append(verdictError);
+        const ratingField = field('评分', rating);
+        ratingField.append(ratingError);
+        form.append(verdictField, ratingField);
         const tagBox = el('fieldset', { className: 'consultation-review-tags' }, [
             el('legend', { textContent: '问题标签' })
         ]);
@@ -766,9 +829,28 @@
                 tagBox.append(field(tag, checkbox, 'consultation-checkbox'));
             });
         form.append(tagBox);
-        const note = el('textarea', { name: 'reviewNote', rows: 3 });
-        const edited = el('textarea', { name: 'editedContent', rows: 6 });
-        const privacy = el('input', { type: 'checkbox', name: 'privacyConfirmed' });
+        const note = el('textarea', {
+            id: 'consultation-review-note',
+            name: 'reviewNote',
+            rows: 3
+        });
+        const editedError = el('p', {
+            id: 'consultation-review-edited-error',
+            className: 'consultation-field-error',
+            hidden: true,
+            role: 'alert'
+        });
+        const edited = el('textarea', {
+            id: 'consultation-review-edited',
+            name: 'editedContent',
+            rows: 6,
+            'aria-describedby': editedError.id
+        });
+        const privacy = el('input', {
+            id: 'consultation-review-privacy',
+            type: 'checkbox',
+            name: 'privacyConfirmed'
+        });
         const privacyField = field('我已确认编辑内容不含不应保存的隐私信息', privacy, 'consultation-checkbox');
         const updatePrivacy = () => {
             const isConsultation = Boolean(saved && saved.consultationId !== null);
@@ -785,32 +867,60 @@
             className: 'consultation-primary',
             textContent: '保存审核'
         });
+        const editedField = field('编辑后的理想答案', edited);
+        editedField.append(editedError);
         form.append(
             field('审核备注', note),
-            field('编辑后的理想答案', edited),
+            editedField,
             privacyField,
             submitButton
         );
         form.addEventListener('submit', async event => {
             event.preventDefault();
             if (reviewInFlight) return;
+            const pendingReview = {
+                verdict: verdict.value,
+                rating: rating.value,
+                issueTags: Array.from(tagBox.querySelectorAll('input:checked'))
+                    .map(input => input.value),
+                reviewNote: note.value,
+                editedContent: edited.value,
+                privacyConfirmed: privacy.checked
+            };
+            const validationErrors = validateReview(pendingReview);
+            [
+                [verdict, verdictError, validationErrors.verdict],
+                [rating, ratingError, validationErrors.rating],
+                [edited, editedError, validationErrors.editedContent]
+            ].forEach(([control, errorNode, message]) => {
+                errorNode.textContent = message || '';
+                errorNode.hidden = !message;
+                control.setAttribute('aria-invalid', message ? 'true' : 'false');
+            });
+            const firstInvalid = validationErrors.verdict
+                ? verdict
+                : validationErrors.rating
+                    ? rating
+                    : validationErrors.editedContent
+                        ? edited
+                        : null;
+            if (firstInvalid) {
+                firstInvalid.focus();
+                return;
+            }
             reviewInFlight = true;
             submitButton.disabled = true;
             const token = flowEpoch;
-            const issueTags = Array.from(tagBox.querySelectorAll('input:checked'))
-                .map(input => input.value);
             try {
-                const review = await submitReview(interpretation.id, {
-                    verdict: verdict.value,
-                    rating: rating.value,
-                    issueTags,
-                    reviewNote: note.value,
-                    editedContent: edited.value,
-                    privacyConfirmed: privacy.checked
-                }, browserDeps());
+                const review = await submitReview(
+                    interpretation.id,
+                    pendingReview,
+                    browserDeps()
+                );
                 if (token !== flowEpoch || phase !== 'review_ready') return;
                 generated = { ...generated, review };
                 setPhase('review_saved');
+                focusFlowNode('consultation-review-saved-status');
             } catch (error) {
                 if (token !== flowEpoch || phase !== 'review_ready') return;
                 setStatus(error.message, true);
@@ -827,7 +937,11 @@
     function renderReviewSavedStep(mountNode, actionsNode) {
         mountNode.append(el('section', { className: 'consultation-result-panel' }, [
             el('h3', { textContent: '审核已保存' }),
-            el('p', { textContent: '感谢你的反馈，它将用于改进后续解读。' })
+            el('p', {
+                id: 'consultation-review-saved-status',
+                tabIndex: -1,
+                textContent: '感谢你的反馈，它将用于改进后续解读。'
+            })
         ]));
         actionsNode.append(actionButton('完成', () => close(true), { className: 'consultation-primary' }));
     }
@@ -852,10 +966,14 @@
         const actionsNode = root.document.getElementById('consultation-flow-actions');
         const stepsNode = root.document.getElementById('consultation-flow-steps');
         if (!mountNode || !actionsNode) return;
+        fieldSequence = 0;
         mountNode.replaceChildren();
         actionsNode.replaceChildren();
         if (stepsNode) {
-            stepsNode.textContent = `Step ${Math.max(1, PHASES.indexOf(phase) + 1)} · ${phase}`;
+            stepsNode.replaceChildren(el('span', {
+                'aria-current': 'step',
+                textContent: `Step ${Math.max(1, PHASES.indexOf(phase) + 1)} · ${phase}`
+            }));
         }
         const renderer = renderers[phase];
         if (renderer) renderer(mountNode, actionsNode);
@@ -867,6 +985,13 @@
         if (!node) return;
         node.textContent = String(message || '');
         node.classList.toggle('is-error', isError);
+        node.classList.toggle('is-success', Boolean(message) && !isError);
+    }
+
+    function focusFlowNode(id) {
+        if (!root.document) return;
+        const node = root.document.getElementById(id);
+        if (node && node.focus) node.focus();
     }
 
     function getBrowserDeck() {
@@ -957,10 +1082,40 @@
         if (mounted || !root.document) return;
         const closeButton = root.document.getElementById('consultation-flow-close');
         if (!closeButton) return;
+        const dialog = root.document.getElementById('consultation-flow');
+        if (dialog) dialog.classList.add('consultation-flow-layout');
         mounted = true;
         closeButton.addEventListener('click', () => close());
         root.document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && isOpen()) close();
+            if (event.key !== 'Tab' || !isOpen()) return;
+            const dialog = root.document.getElementById('consultation-flow');
+            if (!dialog || !dialog.querySelectorAll) return;
+            const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+            const focusable = Array.from(dialog.querySelectorAll(focusableSelector))
+                .filter(node => {
+                    if (node.hidden || node.disabled) return false;
+                    let ancestor = node.parentNode;
+                    while (ancestor && ancestor !== dialog) {
+                        if (ancestor.hidden) return false;
+                        ancestor = ancestor.parentNode;
+                    }
+                    return ancestor === dialog;
+                });
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            const active = root.document.activeElement;
+            if (!focusable.includes(active)) {
+                event.preventDefault();
+                (event.shiftKey ? last : first).focus();
+            } else if (event.shiftKey && active === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && active === last) {
+                event.preventDefault();
+                first.focus();
+            }
         });
         render();
     }
@@ -1000,6 +1155,7 @@
             || (typeof AbortController !== 'undefined' ? AbortController : null);
         const controller = AbortControllerClass ? new AbortControllerClass() : null;
         abortController = controller;
+        let completionFocusId = null;
         render();
         try {
             const nextGenerated = await runSavedInterpretation(
@@ -1018,6 +1174,7 @@
             phase = saved.consultationId !== null && generated.interpretation
                 ? 'review_ready'
                 : 'saved';
+            completionFocusId = 'consultation-result-title';
             setStatus('解读完成', false);
         } catch (error) {
             if (token !== flowEpoch) return;
@@ -1027,6 +1184,7 @@
             if (token === flowEpoch) {
                 if (abortController === controller) abortController = null;
                 render();
+                if (completionFocusId) focusFlowNode(completionFocusId);
             }
         }
     }
@@ -1165,6 +1323,7 @@
         chooseSaveOperation,
         persistDraftCards,
         runSavedInterpretation,
+        validateReview,
         submitReview,
         nextPhase,
         mount,
