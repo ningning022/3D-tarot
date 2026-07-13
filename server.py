@@ -580,6 +580,25 @@ def _load_reading_for_interpret(reading_id: int) -> tuple[str, list[dict]] | Non
     return template_name, cards
 
 
+def get_interpretation_module_context(consultation: dict | None) -> dict:
+    """Resolve trusted prompt metadata from the saved consultation record."""
+    if consultation:
+        spec = consultation_modules.require_enabled_module(
+            consultation.get("moduleType")
+        )
+        module_payload = consultation.get("modulePayload")
+    else:
+        spec = consultation_modules.require_enabled_module("general_reading")
+        module_payload = {}
+    return {
+        "prompt_version": spec["prompt_version"],
+        "module_overlay": spec["prompt_overlay"] if consultation else None,
+        "module_payload": dict(module_payload) if isinstance(module_payload, dict) else {},
+        "output_contract": spec["output_contract"] if consultation else None,
+        "module_safety_rules": list(spec["safety_rules"]) if consultation else [],
+    }
+
+
 def handle_api_request(method, parsed_url, body=b""):
     init_db()
     path = parsed_url.path.rstrip("/") or "/"
@@ -817,6 +836,7 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                     style=style,
                     language=language,
                 )
+                module_context = get_interpretation_module_context(consultation)
                 # Agent mode is on by default when a question is
                 # present; clients can opt out with enable_agent=false.
                 enable_agent = bool(overrides.get("enable_agent", True))
@@ -846,7 +866,11 @@ class TarotRequestHandler(SimpleHTTPRequestHandler):
                         ),
                         enable_agent=enable_agent,
                         input_snapshot=input_snapshot,
-                        prompt_version="general-v1",
+                        prompt_version=module_context["prompt_version"],
+                        module_overlay=module_context["module_overlay"],
+                        module_payload=module_context["module_payload"],
+                        output_contract=module_context["output_contract"],
+                        module_safety_rules=module_context["module_safety_rules"],
                     ):
                         frame = "data: " + json.dumps(
                             {"chunk": chunk}, ensure_ascii=False

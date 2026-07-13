@@ -11,8 +11,12 @@ const {
     validateDraft,
     buildReadingPayload,
     buildConsultationPayload,
+    getModuleFieldValue,
+    setModuleFieldValue,
+    validateModuleDetails,
     chooseSaveOperation,
     nextPhase,
+    getPublicStep,
     persistDraftCards,
     runSavedInterpretation,
     validateReview,
@@ -37,8 +41,60 @@ const deck = [
 const generalModule = {
     moduleType: 'general_reading',
     questionRequired: true,
+    inputFields: [
+        {
+            key: 'userQuery',
+            label: '你的问题',
+            type: 'textarea',
+            required: true,
+            maxLength: 500,
+            placeholder: '请输入问题'
+        },
+        {
+            key: 'userContext',
+            label: '补充背景',
+            type: 'textarea',
+            required: false,
+            maxLength: 1000,
+            placeholder: '可选背景'
+        }
+    ],
     allowedSpreads: ['three_timeline', 'free'],
     defaultSpread: 'three_timeline'
+};
+
+const choiceModule = {
+    moduleType: 'choice_compare',
+    displayName: '二选一',
+    questionRequired: false,
+    inputFields: [
+        {
+            key: 'optionA',
+            label: '选项 A',
+            type: 'textarea',
+            required: true,
+            maxLength: 120,
+            placeholder: '填写选项 A'
+        },
+        {
+            key: 'optionB',
+            label: '选项 B',
+            type: 'textarea',
+            required: true,
+            maxLength: 120,
+            placeholder: '填写选项 B'
+        },
+        {
+            key: 'decisionPriorities',
+            label: '你最在意的判断标准',
+            type: 'textarea',
+            required: false,
+            maxLength: 200,
+            placeholder: '可选'
+        }
+    ],
+    allowedSpreads: ['choice_six'],
+    defaultSpread: 'choice_six'
 };
 
 const fixedTemplate = {
@@ -296,6 +352,99 @@ function testPhaseTransitions() {
     assert.throws(() => nextPhase('saved', 'unknown'), /Unknown consultation phase/);
 }
 
+function testRegistryDrivenModuleFieldsAndPayload() {
+    const original = {
+        ...createInitialDraft(),
+        moduleType: 'choice_compare',
+        userQuery: '通用问题',
+        userContext: '通用背景',
+        modulePayload: {
+            optionA: '留任',
+            optionB: '跳槽',
+            staleFromAnotherModule: '应剔除'
+        }
+    };
+
+    assert.strictEqual(getModuleFieldValue(original, { key: 'userQuery' }), '通用问题');
+    assert.strictEqual(getModuleFieldValue(original, { key: 'optionA' }), '留任');
+    assert.strictEqual(getModuleFieldValue(original, { key: 'missing' }), '');
+
+    const changedTopLevel = setModuleFieldValue(original, { key: 'userContext' }, '新背景');
+    const changedPayload = setModuleFieldValue(original, { key: 'optionA' }, '创业');
+    assert.strictEqual(changedTopLevel.userContext, '新背景');
+    assert.strictEqual(changedTopLevel.modulePayload.optionA, '留任');
+    assert.strictEqual(changedPayload.modulePayload.optionA, '创业');
+    assert.strictEqual(changedPayload.modulePayload.optionB, '跳槽');
+    assert.strictEqual(original.modulePayload.optionA, '留任');
+
+    assert.deepStrictEqual(
+        validateModuleDetails(choiceModule, {
+            ...original,
+            modulePayload: { optionA: '', optionB: '跳槽' }
+        }),
+        { optionA: '请填写选项 A' }
+    );
+    assert.deepStrictEqual(
+        validateModuleDetails(choiceModule, {
+            ...original,
+            modulePayload: { optionA: '同一选择', optionB: ' 同一选择 ' }
+        }),
+        { optionB: '两个选项不能相同' }
+    );
+    assert.deepStrictEqual(
+        validateModuleDetails(choiceModule, {
+            ...original,
+            modulePayload: { optionA: '甲'.repeat(121), optionB: '乙' }
+        }),
+        { optionA: '选项 A不能超过 120 个字符' }
+    );
+
+    const payload = buildConsultationPayload(
+        { ...original, cards: completeDraft().cards },
+        deck,
+        choiceModule
+    );
+    assert.deepStrictEqual(payload.modulePayload, { optionA: '留任', optionB: '跳槽' });
+}
+
+function testInternalPhasesMapToPublicSteps() {
+    const expected = {
+        choosing_type: [1, '选择咨询类型'],
+        editing_details: [2, '填写咨询信息'],
+        choosing_spread_source: [3, '选择牌阵与取牌方式'],
+        choosing_interpretation: [4, '选择解读方式'],
+        acquiring_cards: [5, '录入牌面'],
+        confirming: [6, '确认本次咨询'],
+        saving: [6, '确认本次咨询'],
+        saved: [7, '结果与审核'],
+        generating: [7, '结果与审核'],
+        review_ready: [7, '结果与审核'],
+        review_saved: [7, '结果与审核']
+    };
+
+    Object.entries(expected).forEach(([internalPhase, [index, label]]) => {
+        assert.deepStrictEqual(
+            getPublicStep(internalPhase, { inputMode: 'manual' }),
+            { index, total: 7, label }
+        );
+    });
+    assert.deepStrictEqual(
+        getPublicStep('acquiring_cards', { inputMode: 'three_d' }),
+        { index: 5, total: 7, label: '抽取牌面' }
+    );
+    assert.deepStrictEqual(
+        getPublicStep('unknown_internal_phase', {}),
+        { index: 1, total: 7, label: '选择咨询类型' }
+    );
+
+    const source = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'consultation_flow.js'),
+        'utf8'
+    );
+    assert.strictEqual(source.includes('PHASES.indexOf(phase)'), false);
+    assert.strictEqual(source.includes('· ${phase}'), false);
+}
+
 function testThreePageConsultationFlowIntegration() {
     const html = fs.readFileSync(
         path.join(__dirname, '..', 'Three.html'),
@@ -388,12 +537,20 @@ function testConsultationFlowCssContract() {
         css,
         /\.consultation-flow-layout\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\([^;]+;/s
     );
+    assert.match(
+        css,
+        /\.consultation-flow-layout\s*\{[^}]*grid-template-rows:\s*auto auto auto;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/s
+    );
+    assert.match(
+        css,
+        /\.consultation-flow-layout\s*>\s*\.consultation-flow-mount\s*\{[^}]*overflow:\s*visible;/s
+    );
     assert.match(css, /\.consultation-flow-status\.is-success\s*\{/);
     assert.match(css, /\.consultation-flow-status\.is-warning\s*\{/);
     assert.match(css, /\.consultation-field-error\s*\{/);
     assert.match(
         responsive,
-        /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
+        /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-rows:\s*repeat\(5, max-content\);[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*static;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
     );
     assert.match(
         responsive,
@@ -1571,6 +1728,76 @@ async function testModuleDefaultSpreadClearsOldCards() {
     assert.strictEqual(nextDraft.cards.length, 0);
 }
 
+async function testChoiceModuleRendersRegistryFieldsAndValidatesBeforeSpread() {
+    const { browserFlow, testFlow, nodes } = loadControllerRuntime({
+        api: {
+            async loadConsultationModules() {
+                return [generalModule, choiceModule];
+            }
+        }
+    });
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'choosing_type',
+        modulePayload: { relationshipContext: '旧模块残留' }
+    });
+
+    const choiceButton = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'type-choice_compare'
+    );
+    assert.ok(choiceButton);
+    await choiceButton.dispatch('click');
+    assert.strictEqual(testFlow.getDraft().templateKey, 'choice_six');
+    assert.deepStrictEqual(Object.keys(testFlow.getDraft().modulePayload), []);
+
+    const detailInputs = collectFakeNodes(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'TEXTAREA'
+    );
+    assert.deepStrictEqual(
+        detailInputs.map(node => node.name),
+        ['optionA', 'optionB', 'decisionPriorities']
+    );
+    assert.strictEqual(detailInputs[0].placeholder, '填写选项 A');
+    assert.strictEqual(String(detailInputs[0].getAttribute('required')), 'true');
+    assert.strictEqual(String(detailInputs[0].getAttribute('maxLength')), '120');
+
+    let next = findFakeNode(
+        nodes['consultation-flow-actions'],
+        node => node.dataset && node.dataset.flowAction === 'details-next'
+    );
+    await next.dispatch('click');
+    assert.strictEqual(nodes['consultation-flow-status'].textContent, '请填写选项 A');
+    assert.ok(findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.name === 'optionA'
+    ));
+
+    const optionA = findFakeNode(nodes['consultation-flow-mount'], node => node.name === 'optionA');
+    const optionB = findFakeNode(nodes['consultation-flow-mount'], node => node.name === 'optionB');
+    optionA.value = '留任';
+    optionB.value = '跳槽';
+    await optionA.dispatch('input');
+    await optionB.dispatch('input');
+    next = findFakeNode(
+        nodes['consultation-flow-actions'],
+        node => node.dataset && node.dataset.flowAction === 'details-next'
+    );
+    await next.dispatch('click');
+
+    assert.ok(findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'spread-choice_six'
+    ));
+    assert.strictEqual(findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'spread-three_timeline'
+    ), null);
+}
+
 async function testPersistDraftCardsRoutesConsultationOnce() {
     const draft = completeDraft();
     const originalCards = draft.cards;
@@ -2215,9 +2442,11 @@ const tests = [
     ['optional cards still validate provided cards', testOptionalCardsStillValidateProvidedCards],
     ['save operation selection', testSaveOperationSelection],
     ['consultation payload', testConsultationPayload],
+    ['registry driven module fields and payload', testRegistryDrivenModuleFieldsAndPayload],
     ['reading payload', testReadingPayload],
     ['unknown card materialization', testUnknownCardMaterialization],
     ['phase transitions', testPhaseTransitions],
+    ['internal phases map to public steps', testInternalPhasesMapToPublicSteps],
     ['Three page consultation flow integration', testThreePageConsultationFlowIntegration],
     ['controller exports state and safe renderers', testControllerExportsStateAndSafeRenderers],
     ['consultation flow CSS contract', testConsultationFlowCssContract],
@@ -2238,6 +2467,7 @@ const tests = [
     ['review submit guards duplicate and allows retry', testReviewSubmitGuardsDuplicateAndAllowsRetry],
     ['stale review cannot mutate after close or reset', testStaleReviewCannotMutateAfterCloseOrReset],
     ['module default spread clears old cards', testModuleDefaultSpreadClearsOldCards],
+    ['choice module renders registry fields and validates before spread', testChoiceModuleRendersRegistryFieldsAndValidatesBeforeSpread],
     ['persist draft cards routes consultation once', testPersistDraftCardsRoutesConsultationOnce],
     ['persist draft cards routes reading once', testPersistDraftCardsRoutesReadingOnce],
     ['run saved interpretation streams and selects latest complete', testRunSavedInterpretationStreamsAndSelectsLatestComplete],

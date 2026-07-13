@@ -277,7 +277,7 @@
 
     .consultation-flow-layout {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+        grid-template-rows: repeat(5, max-content);
     }
 
     .consultation-flow-layout > .consultation-flow-head,
@@ -290,8 +290,7 @@
     }
 
     .consultation-flow-actions {
-        position: sticky;
-        bottom: 0;
+        position: static;
         background: var(--panel-bg);
     }
 

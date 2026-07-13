@@ -90,9 +90,11 @@ body.consultation-flow-open {
 .consultation-flow-layout {
     display: grid;
     grid-template-columns: minmax(180px, 0.75fr) minmax(0, 2fr) minmax(220px, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
     gap: 16px;
     align-items: start;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .consultation-flow-layout > .consultation-flow-head {
@@ -109,6 +111,7 @@ body.consultation-flow-open {
     grid-column: 2;
     grid-row: 2;
     width: 100%;
+    overflow: visible;
 }
 
 .consultation-flow-layout > .consultation-flow-status {
@@ -197,6 +200,21 @@ body.consultation-flow-open {
     margin: 0;
     color: var(--danger, #ef7777);
     font-size: 0.84rem;
+}
+
+.consultation-module-summary {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    background: color-mix(in oklch, var(--surface-elevated) 72%, transparent);
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+}
+
+.consultation-module-summary p {
+    margin: 0;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 
 .consultation-flow input,

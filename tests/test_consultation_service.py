@@ -104,6 +104,111 @@ class TestConsultationValidation(unittest.TestCase):
                 }
             )
 
+    def test_normalizes_choice_compare_payload_and_derives_query(self):
+        value = consultation_service.normalize_consultation_input(
+            {
+                "language": "zh",
+                "moduleType": "choice_compare",
+                "inputMode": "manual",
+                "userQuery": "客户端不应决定规范问题",
+                "modulePayload": {
+                    "optionA": "  留在当前岗位  ",
+                    "optionB": "接受新的工作机会",
+                    "decisionPriorities": "成长空间与生活平衡",
+                    "ignored": "不应持久化",
+                },
+            }
+        )
+
+        self.assertEqual(
+            value["module_payload"],
+            {
+                "optionA": "留在当前岗位",
+                "optionB": "接受新的工作机会",
+                "decisionPriorities": "成长空间与生活平衡",
+            },
+        )
+        self.assertIn("A「留在当前岗位」", value["user_query"])
+        self.assertIn("B「接受新的工作机会」", value["user_query"])
+        self.assertIn("成长空间与生活平衡", value["user_query"])
+        self.assertIn("不替我做决定", value["user_query"])
+
+    def test_rejects_invalid_choice_compare_fields(self):
+        valid = {
+            "language": "zh",
+            "moduleType": "choice_compare",
+            "inputMode": "manual",
+            "modulePayload": {"optionA": "留任", "optionB": "跳槽"},
+        }
+        for payload, message in [
+            ({**valid, "modulePayload": {"optionB": "跳槽"}}, "optionA is required"),
+            ({**valid, "modulePayload": {"optionA": "留任"}}, "optionB is required"),
+            (
+                {
+                    **valid,
+                    "modulePayload": {"optionA": " 同一个选项 ", "optionB": "同一个选项"},
+                },
+                "optionA and optionB must be different",
+            ),
+            (
+                {
+                    **valid,
+                    "modulePayload": {"optionA": "甲" * 121, "optionB": "跳槽"},
+                },
+                "optionA must be at most 120 characters",
+            ),
+        ]:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(ValueError, message):
+                    consultation_service.normalize_consultation_input(payload)
+
+    def test_normalizes_symbolic_message_payload_and_derives_bounded_query(self):
+        value = consultation_service.normalize_consultation_input(
+            {
+                "language": "zh",
+                "moduleType": "symbolic_message",
+                "inputMode": "three_d",
+                "modulePayload": {
+                    "relationshipContext": "  暂时减少联系的朋友  ",
+                    "focus": "我该如何理解现在的距离",
+                    "ignored": "不应持久化",
+                },
+            }
+        )
+
+        self.assertEqual(
+            value["module_payload"],
+            {
+                "relationshipContext": "暂时减少联系的朋友",
+                "focus": "我该如何理解现在的距离",
+            },
+        )
+        self.assertIn("象征性反思", value["user_query"])
+        self.assertIn("不读取或断言他人的真实想法", value["user_query"])
+        self.assertIn("暂时减少联系的朋友", value["user_query"])
+
+    def test_rejects_missing_symbolic_message_context(self):
+        with self.assertRaisesRegex(ValueError, "relationshipContext is required"):
+            consultation_service.normalize_consultation_input(
+                {
+                    "language": "zh",
+                    "moduleType": "symbolic_message",
+                    "inputMode": "manual",
+                    "modulePayload": {"focus": "对方会不会联系我"},
+                }
+            )
+
+    def test_rejects_module_payload_that_is_not_an_object(self):
+        with self.assertRaisesRegex(ValueError, "modulePayload must be a JSON object"):
+            consultation_service.normalize_consultation_input(
+                {
+                    "language": "zh",
+                    "moduleType": "choice_compare",
+                    "inputMode": "manual",
+                    "modulePayload": ["A", "B"],
+                }
+            )
+
     def test_rejects_duplicate_manual_cards(self):
         cards = [
             {"slot": 1, "cardId": 9, "isReversed": False},
@@ -120,6 +225,38 @@ class TestConsultationValidation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "three_timeline requires 3 cards"):
             consultation_service.validate_manual_cards(
                 cards, template_key="three_timeline"
+            )
+
+    def test_enforces_dedicated_module_spread_counts(self):
+        six_cards = [
+            {"slot": slot, "cardId": slot, "isReversed": False}
+            for slot in range(1, 7)
+        ]
+        three_cards = six_cards[:3]
+
+        consultation_service.validate_consultation_cards(
+            six_cards,
+            template_key="choice_six",
+            module_type="choice_compare",
+        )
+        consultation_service.validate_consultation_cards(
+            three_cards,
+            template_key="symbolic_message_three",
+            module_type="symbolic_message",
+        )
+        with self.assertRaisesRegex(ValueError, "choice_six requires 6 cards"):
+            consultation_service.validate_consultation_cards(
+                three_cards,
+                template_key="choice_six",
+                module_type="choice_compare",
+            )
+        with self.assertRaisesRegex(
+            ValueError, "symbolic_message_three requires 3 cards"
+        ):
+            consultation_service.validate_consultation_cards(
+                six_cards,
+                template_key="symbolic_message_three",
+                module_type="symbolic_message",
             )
 
     def test_rejects_spread_before_validating_card_count(self):
@@ -161,9 +298,7 @@ class TestConsultationPersistence(unittest.TestCase):
             loaded = consultation_service.load_by_reading_id(conn, reading_id)
             self.assertEqual(loaded["id"], consultation_id)
             self.assertEqual(loaded["publicId"], "d" * 32)
-            self.assertEqual(
-                loaded["modulePayload"], {"source": "physical_deck"}
-            )
+            self.assertEqual(loaded["modulePayload"], {})
         finally:
             conn.close()
 

@@ -22,6 +22,29 @@
         'review_saved'
     ];
 
+    const PUBLIC_STEPS = Object.freeze({
+        choosing_type: Object.freeze({ index: 1, label: '选择咨询类型' }),
+        editing_details: Object.freeze({ index: 2, label: '填写咨询信息' }),
+        choosing_spread_source: Object.freeze({ index: 3, label: '选择牌阵与取牌方式' }),
+        choosing_interpretation: Object.freeze({ index: 4, label: '选择解读方式' }),
+        acquiring_cards: Object.freeze({ index: 5, label: '录入牌面' }),
+        confirming: Object.freeze({ index: 6, label: '确认本次咨询' }),
+        saving: Object.freeze({ index: 6, label: '确认本次咨询' }),
+        saved: Object.freeze({ index: 7, label: '结果与审核' }),
+        generating: Object.freeze({ index: 7, label: '结果与审核' }),
+        review_ready: Object.freeze({ index: 7, label: '结果与审核' }),
+        review_saved: Object.freeze({ index: 7, label: '结果与审核' })
+    });
+
+    function getPublicStep(internalPhase, currentDraft = {}) {
+        const fallback = PUBLIC_STEPS.choosing_type;
+        const current = PUBLIC_STEPS[internalPhase] || fallback;
+        const label = internalPhase === 'acquiring_cards' && currentDraft.inputMode === 'three_d'
+            ? '抽取牌面'
+            : current.label;
+        return { index: current.index, total: 7, label };
+    }
+
     let draft = createInitialDraft();
     let phase = 'choosing_type';
     let modules = [];
@@ -99,6 +122,65 @@
         });
     }
 
+    function getModuleFieldValue(currentDraft, fieldSpec) {
+        const key = typeof fieldSpec === 'string' ? fieldSpec : fieldSpec && fieldSpec.key;
+        if (!key) return '';
+        if (key === 'userQuery' || key === 'userContext') {
+            return String((currentDraft && currentDraft[key]) || '');
+        }
+        return String(
+            (currentDraft && currentDraft.modulePayload && currentDraft.modulePayload[key]) || ''
+        );
+    }
+
+    function setModuleFieldValue(currentDraft, fieldSpec, value) {
+        const key = typeof fieldSpec === 'string' ? fieldSpec : fieldSpec && fieldSpec.key;
+        const next = {
+            ...(currentDraft || {}),
+            modulePayload: { ...((currentDraft && currentDraft.modulePayload) || {}) }
+        };
+        if (!key) return next;
+        if (key === 'userQuery' || key === 'userContext') {
+            next[key] = String(value == null ? '' : value);
+        } else {
+            next.modulePayload[key] = String(value == null ? '' : value);
+        }
+        return next;
+    }
+
+    function validateModuleDetails(moduleSpec, currentDraft) {
+        const errors = {};
+        const fields = moduleSpec && Array.isArray(moduleSpec.inputFields)
+            ? moduleSpec.inputFields
+            : [];
+        fields.forEach(fieldSpec => {
+            const key = fieldSpec.key;
+            const value = getModuleFieldValue(currentDraft, fieldSpec).trim();
+            const label = fieldSpec.label || key;
+            if (fieldSpec.required && !value) {
+                errors[key] = `请填写${label}`;
+                return;
+            }
+            const maxLength = Number(fieldSpec.maxLength);
+            if (Number.isFinite(maxLength) && value.length > maxLength) {
+                errors[key] = `${label}不能超过 ${maxLength} 个字符`;
+            }
+        });
+
+        if (moduleSpec && moduleSpec.moduleType === 'choice_compare') {
+            const optionA = getModuleFieldValue(currentDraft, 'optionA').trim();
+            const optionB = getModuleFieldValue(currentDraft, 'optionB').trim();
+            if (
+                optionA
+                && optionB
+                && optionA.localeCompare(optionB, undefined, { sensitivity: 'accent' }) === 0
+            ) {
+                errors.optionB = '两个选项不能相同';
+            }
+        }
+        return errors;
+    }
+
     function validateDraft(draft, moduleSpec, options = {}) {
         const currentDraft = draft || {};
         const errors = {};
@@ -133,12 +215,13 @@
                 errors.templateKey = '当前咨询模块不支持这个牌阵';
             }
 
-            const queryLength = String(currentDraft.userQuery || '').trim().length;
-            if (queryLength < 4 || queryLength > 500) {
-                errors.userQuery = '问题长度需为 4 到 500 个字符';
+            if (moduleSpec) {
+                Object.assign(errors, validateModuleDetails(moduleSpec, currentDraft));
             }
-            if (String(currentDraft.userContext || '').trim().length > 1000) {
-                errors.userContext = '补充背景不能超过 1000 个字符';
+
+            const queryLength = String(currentDraft.userQuery || '').trim().length;
+            if (moduleSpec && moduleSpec.questionRequired && queryLength < 4) {
+                errors.userQuery = '问题长度需为 4 到 500 个字符';
             }
         }
 
@@ -200,7 +283,23 @@
         };
     }
 
-    function buildConsultationPayload(draft, deck) {
+    function buildConsultationPayload(draft, deck, moduleSpec = null) {
+        const rawModulePayload = (draft && draft.modulePayload) || {};
+        const allowedPayloadKeys = moduleSpec && Array.isArray(moduleSpec.inputFields)
+            ? new Set(
+                moduleSpec.inputFields
+                    .map(fieldSpec => fieldSpec.key)
+                    .filter(key => key !== 'userQuery' && key !== 'userContext')
+            )
+            : null;
+        const modulePayload = Object.fromEntries(
+            Object.entries(rawModulePayload)
+                .filter(([key, value]) => (
+                    (!allowedPayloadKeys || allowedPayloadKeys.has(key))
+                    && String(value == null ? '' : value).trim()
+                ))
+                .map(([key, value]) => [key, String(value).trim()])
+        );
         return {
             ...buildReadingPayload(draft, deck),
             language: 'zh',
@@ -208,7 +307,7 @@
             inputMode: draft && draft.inputMode,
             userQuery: String((draft && draft.userQuery) || '').trim(),
             userContext: String((draft && draft.userContext) || '').trim(),
-            modulePayload: (draft && draft.modulePayload) || {}
+            modulePayload
         };
     }
 
@@ -224,7 +323,7 @@
 
         if (operation === 'consultation') {
             const created = await deps.api.createConsultation(
-                buildConsultationPayload(working, deps.deck)
+                buildConsultationPayload(working, deps.deck, deps.moduleSpec || null)
             );
             return {
                 consultationId: created.id,
@@ -408,11 +507,15 @@
         return root.SpreadTemplates.getTemplate(key);
     }
 
+    function getCurrentModuleSpec() {
+        return modules.find(item => item.moduleType === draft.moduleType) || null;
+    }
+
     function getTemplatesForDraft() {
         if (!root.SpreadTemplates) return [];
         const templates = root.SpreadTemplates.getTemplates();
         if (draft.questionMode !== 'module') return templates;
-        const moduleSpec = modules.find(item => item.moduleType === draft.moduleType);
+        const moduleSpec = getCurrentModuleSpec();
         const allowed = new Set(
             moduleSpec && Array.isArray(moduleSpec.allowedSpreads)
                 ? moduleSpec.allowedSpreads
@@ -466,7 +569,8 @@
                 questionMode: 'none',
                 moduleType: null,
                 userQuery: '',
-                userContext: ''
+                userContext: '',
+                modulePayload: {}
             };
             setPhase('editing_details');
         }, { action: 'type-none' }));
@@ -480,7 +584,10 @@
                         ...draft,
                         questionMode: 'module',
                         moduleType: moduleSpec.moduleType,
-                        templateKey: defaultSpread
+                        templateKey: defaultSpread,
+                        userQuery: '',
+                        userContext: '',
+                        modulePayload: {}
                     };
                     const template = getTemplate(draft.templateKey);
                     if (template) draft.templateName = template.name;
@@ -502,20 +609,30 @@
         const section = el('section', { className: 'consultation-step consultation-details' });
         section.append(el('h3', { textContent: '咨询细节' }));
         if (draft.questionMode === 'module') {
-            section.append(field('你的问题', el('textarea', {
-                name: 'userQuery',
-                value: draft.userQuery,
-                maxLength: 500,
-                rows: 4,
-                onInput: event => { draft.userQuery = event.target.value; }
-            })));
-            section.append(field('补充背景', el('textarea', {
-                name: 'userContext',
-                value: draft.userContext,
-                maxLength: 1000,
-                rows: 4,
-                onInput: event => { draft.userContext = event.target.value; }
-            })));
+            const moduleSpec = getCurrentModuleSpec();
+            const inputFields = moduleSpec && Array.isArray(moduleSpec.inputFields)
+                ? moduleSpec.inputFields
+                : [];
+            inputFields.forEach(fieldSpec => {
+                const tag = fieldSpec.type === 'textarea' ? 'textarea' : 'input';
+                const control = el(tag, {
+                    id: `consultation-module-${fieldSpec.key}`,
+                    name: fieldSpec.key,
+                    type: tag === 'input' ? (fieldSpec.type || 'text') : undefined,
+                    value: getModuleFieldValue(draft, fieldSpec),
+                    maxLength: Number(fieldSpec.maxLength) || undefined,
+                    placeholder: fieldSpec.placeholder || '',
+                    required: Boolean(fieldSpec.required),
+                    rows: tag === 'textarea' ? 4 : undefined,
+                    onInput: event => {
+                        draft = setModuleFieldValue(draft, fieldSpec, event.target.value);
+                    }
+                });
+                section.append(field(
+                    `${fieldSpec.label || fieldSpec.key}${fieldSpec.required ? ' *' : ''}`,
+                    control
+                ));
+            });
         } else {
             section.append(el('p', {
                 className: 'consultation-muted',
@@ -534,9 +651,32 @@
         styleSelect.value = draft.style;
         section.append(field('解读风格', styleSelect));
         mountNode.append(section);
+        const advance = () => {
+            if (draft.questionMode === 'module') {
+                const moduleSpec = getCurrentModuleSpec();
+                const errors = validateModuleDetails(moduleSpec, draft);
+                if (moduleSpec && moduleSpec.questionRequired) {
+                    const queryLength = getModuleFieldValue(draft, 'userQuery').trim().length;
+                    if (queryLength > 0 && queryLength < 4) {
+                        errors.userQuery = '问题长度至少需要 4 个字符';
+                    }
+                }
+                const firstError = Object.entries(errors)[0];
+                if (firstError) {
+                    setStatus(firstError[1], true);
+                    focusFlowNode(`consultation-module-${firstError[0]}`);
+                    return;
+                }
+            }
+            setStatus('', false);
+            setPhase('choosing_spread_source');
+        };
         actionsNode.append(
             actionButton('返回', () => setPhase('choosing_type')),
-            actionButton('选择牌阵', () => setPhase('choosing_spread_source'), { className: 'consultation-primary' })
+            actionButton('选择牌阵', advance, {
+                className: 'consultation-primary',
+                action: 'details-next'
+            })
         );
     }
 
@@ -720,10 +860,19 @@
             el('p', { textContent: draft.templateName })
         ]);
         if (draft.questionMode === 'module') {
-            section.append(
-                el('p', { className: 'consultation-query', textContent: draft.userQuery }),
-                el('p', { className: 'consultation-context', textContent: draft.userContext })
-            );
+            const moduleSpec = getCurrentModuleSpec();
+            const summary = el('div', { className: 'consultation-module-summary' });
+            (moduleSpec && Array.isArray(moduleSpec.inputFields)
+                ? moduleSpec.inputFields
+                : []
+            ).forEach(fieldSpec => {
+                const value = getModuleFieldValue(draft, fieldSpec).trim();
+                if (!value) return;
+                summary.append(el('p', {
+                    textContent: `${fieldSpec.label || fieldSpec.key}：${value}`
+                }));
+            });
+            section.append(summary);
         }
         const cardGrid = el('div', { className: 'consultation-card-grid' });
         materializeCards(draft.cards, getBrowserDeck()).forEach(card => {
@@ -985,9 +1134,10 @@
         mountNode.replaceChildren();
         actionsNode.replaceChildren();
         if (stepsNode) {
+            const publicStep = getPublicStep(phase, draft);
             stepsNode.replaceChildren(el('span', {
                 'aria-current': 'step',
-                textContent: `Step ${Math.max(1, PHASES.indexOf(phase) + 1)} · ${phase}`
+                textContent: `步骤 ${publicStep.index} / ${publicStep.total} · ${publicStep.label}`
             }));
         }
         const renderer = renderers[phase];
@@ -1019,7 +1169,8 @@
         return {
             deck: getBrowserDeck(),
             api: root.TarotAPI,
-            streamInterpretation: root.AkashicInterpret.streamInterpretation
+            streamInterpretation: root.AkashicInterpret.streamInterpretation,
+            moduleSpec: getCurrentModuleSpec()
         };
     }
 
@@ -1152,8 +1303,9 @@
         const node = root.document.getElementById('active-consultation-summary');
         if (!node) return;
         node.hidden = false;
+        const moduleSpec = getCurrentModuleSpec();
         node.textContent = draft.questionMode === 'module'
-            ? `普通咨询 · ${draft.templateName}`
+            ? `${(moduleSpec && moduleSpec.displayName) || '结构化咨询'} · ${draft.templateName}`
             : `无特定问题 · ${draft.templateName}`;
     }
 
@@ -1344,6 +1496,9 @@
         createInitialDraft,
         searchDeck,
         getSlotPlan,
+        getModuleFieldValue,
+        setModuleFieldValue,
+        validateModuleDetails,
         validateDraft,
         buildReadingPayload,
         buildConsultationPayload,
@@ -1353,6 +1508,7 @@
         validateReview,
         submitReview,
         nextPhase,
+        getPublicStep,
         mount,
         open,
         close,

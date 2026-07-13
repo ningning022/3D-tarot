@@ -65,6 +65,54 @@ class TarotServerTest(unittest.TestCase):
             ],
         }
 
+    def choice_consultation_payload(self):
+        payload = self.manual_consultation_payload()
+        payload.update(
+            {
+                "moduleType": "choice_compare",
+                "userQuery": "客户端伪造的问题应被忽略",
+                "userContext": "",
+                "modulePayload": {
+                    "optionA": "留在当前岗位",
+                    "optionB": "接受新的工作机会",
+                    "decisionPriorities": "成长空间与生活平衡",
+                },
+                "templateKey": "choice_six",
+                "templateName": "二选一 / Choice Comparison",
+                "cards": [
+                    {
+                        "slot": slot,
+                        "slotLabel": f"二选一位置 {slot}",
+                        "cardId": slot - 1,
+                        "zh": f"测试牌 {slot}",
+                        "en": f"Test Card {slot}",
+                        "imageFile": f"card-{slot}.jpg",
+                        "isReversed": slot % 2 == 0,
+                    }
+                    for slot in range(1, 7)
+                ],
+            }
+        )
+        return payload
+
+    def symbolic_message_payload(self):
+        payload = self.manual_consultation_payload()
+        payload.update(
+            {
+                "moduleType": "symbolic_message",
+                "inputMode": "three_d",
+                "userQuery": "客户端伪造的问题应被忽略",
+                "userContext": "",
+                "modulePayload": {
+                    "relationshipContext": "暂时减少联系的朋友",
+                    "focus": "我该如何理解现在的距离",
+                },
+                "templateKey": "symbolic_message_three",
+                "templateName": "即时传讯 / Symbolic Message",
+            }
+        )
+        return payload
+
     def test_health_reports_ready_database(self):
         status, headers, body = self.request_json("GET", "/api/health")
 
@@ -79,9 +127,109 @@ class TarotServerTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(
             [module["moduleType"] for module in modules],
-            ["general_reading"],
+            ["general_reading", "choice_compare", "symbolic_message"],
         )
-        self.assertNotIn("promptOverlay", modules[0])
+        for module in modules:
+            self.assertNotIn("promptOverlay", module)
+            self.assertNotIn("outputContract", module)
+            self.assertNotIn("safetyRules", module)
+
+    def test_interpretation_module_context_comes_from_saved_consultation(self):
+        context = server.get_interpretation_module_context(
+            {
+                "moduleType": "symbolic_message",
+                "modulePayload": {
+                    "relationshipContext": "暂时减少联系的朋友",
+                    "focus": "我该如何理解现在的距离",
+                },
+            }
+        )
+
+        self.assertEqual(context["prompt_version"], "symbolic-message-v1")
+        self.assertIn("不是读取第三方真实内心", context["module_overlay"])
+        self.assertEqual(
+            context["module_payload"],
+            {
+                "relationshipContext": "暂时减少联系的朋友",
+                "focus": "我该如何理解现在的距离",
+            },
+        )
+        self.assertIn("mind_reading", context["module_safety_rules"])
+        context["module_payload"]["focus"] = "修改副本"
+        self.assertEqual(
+            server.get_interpretation_module_context(
+                {
+                    "moduleType": "symbolic_message",
+                    "modulePayload": {"focus": "原值"},
+                }
+            )["module_payload"]["focus"],
+            "原值",
+        )
+
+    def test_create_choice_consultation_round_trip(self):
+        payload = self.choice_consultation_payload()
+        status, _, body = self.request_json("POST", "/api/consultations", payload)
+
+        self.assertEqual(status, 201)
+        created = json.loads(body)
+        detail_status, _, detail_body = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
+        detail = json.loads(detail_body)
+        self.assertEqual(detail_status, 200)
+        self.assertEqual(detail["moduleType"], "choice_compare")
+        self.assertEqual(detail["modulePayload"], payload["modulePayload"])
+        self.assertIn("A「留在当前岗位」", detail["userQuery"])
+        self.assertIn("B「接受新的工作机会」", detail["userQuery"])
+        self.assertNotIn("客户端伪造", detail["userQuery"])
+        self.assertEqual(detail["reading"]["templateKey"], "choice_six")
+        self.assertEqual(len(detail["reading"]["cards"]), 6)
+
+    def test_choice_consultation_validation_is_atomic(self):
+        invalid_payloads = []
+        missing_option = self.choice_consultation_payload()
+        missing_option["modulePayload"].pop("optionA")
+        invalid_payloads.append(missing_option)
+        underfilled = self.choice_consultation_payload()
+        underfilled["cards"] = underfilled["cards"][:3]
+        invalid_payloads.append(underfilled)
+        wrong_spread = self.choice_consultation_payload()
+        wrong_spread["templateKey"] = "three_timeline"
+        wrong_spread["templateName"] = "三张牌"
+        invalid_payloads.append(wrong_spread)
+
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload):
+                status, _, _ = self.request_json(
+                    "POST", "/api/consultations", payload
+                )
+                self.assertEqual(status, 400)
+
+        _, _, readings_body = self.request_json("GET", "/api/readings?limit=20")
+        _, _, consultations_body = self.request_json(
+            "GET", "/api/consultations?limit=20"
+        )
+        self.assertEqual(json.loads(readings_body), [])
+        self.assertEqual(json.loads(consultations_body), [])
+
+    def test_create_symbolic_message_three_d_round_trip(self):
+        payload = self.symbolic_message_payload()
+        status, _, body = self.request_json("POST", "/api/consultations", payload)
+
+        self.assertEqual(status, 201)
+        created = json.loads(body)
+        _, _, detail_body = self.request_json(
+            "GET", f"/api/consultations/{created['id']}"
+        )
+        detail = json.loads(detail_body)
+        self.assertEqual(detail["moduleType"], "symbolic_message")
+        self.assertEqual(detail["inputMode"], "three_d")
+        self.assertIn("象征性反思", detail["userQuery"])
+        self.assertIn("不读取或断言他人的真实想法", detail["userQuery"])
+        self.assertEqual(
+            detail["reading"]["templateKey"], "symbolic_message_three"
+        )
+        self.assertEqual(len(detail["reading"]["cards"]), 3)
 
     def test_reading_insert_list_and_detail_roundtrip(self):
         payload = {

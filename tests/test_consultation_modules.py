@@ -26,14 +26,18 @@ class TestConsultationModules(unittest.TestCase):
                 {
                     "key": "userQuery",
                     "label": "你的问题",
+                    "type": "textarea",
                     "required": True,
                     "maxLength": 500,
+                    "placeholder": "例如：我该如何面对最近的工作变化？",
                 },
                 {
                     "key": "userContext",
                     "label": "补充背景",
+                    "type": "textarea",
                     "required": False,
                     "maxLength": 1000,
+                    "placeholder": "可选：只填写会影响解读的必要背景。",
                 },
             ],
         )
@@ -59,10 +63,13 @@ class TestConsultationModules(unittest.TestCase):
         )
         self.assertTrue(spec["enabled"])
 
-    def test_lists_the_enabled_general_reading_module(self):
+    def test_lists_all_enabled_modules_without_internal_prompts(self):
         modules = list_public_modules()
 
-        self.assertEqual(len(modules), 1)
+        self.assertEqual(
+            [module["moduleType"] for module in modules],
+            ["general_reading", "choice_compare", "symbolic_message"],
+        )
         self.assertEqual(
             modules[0],
             {
@@ -74,14 +81,18 @@ class TestConsultationModules(unittest.TestCase):
                     {
                         "key": "userQuery",
                         "label": "你的问题",
+                        "type": "textarea",
                         "required": True,
                         "maxLength": 500,
+                        "placeholder": "例如：我该如何面对最近的工作变化？",
                     },
                     {
                         "key": "userContext",
                         "label": "补充背景",
+                        "type": "textarea",
                         "required": False,
                         "maxLength": 1000,
+                        "placeholder": "可选：只填写会影响解读的必要背景。",
                     },
                 ],
                 "allowedSpreads": [
@@ -93,12 +104,43 @@ class TestConsultationModules(unittest.TestCase):
                 "defaultSpread": "three_timeline",
             },
         )
-        self.assertNotIn("promptOverlay", modules[0])
-        self.assertNotIn("safetyRules", modules[0])
+        choice = modules[1]
+        self.assertEqual(choice["displayName"], "二选一")
+        self.assertFalse(choice["questionRequired"])
+        self.assertEqual(
+            [field["key"] for field in choice["inputFields"]],
+            ["optionA", "optionB", "decisionPriorities"],
+        )
+        self.assertEqual(
+            [field["required"] for field in choice["inputFields"]],
+            [True, True, False],
+        )
+        self.assertEqual(choice["allowedSpreads"], ["choice_six"])
+        self.assertEqual(choice["defaultSpread"], "choice_six")
+
+        message = modules[2]
+        self.assertEqual(message["displayName"], "即时传讯")
+        self.assertFalse(message["questionRequired"])
+        self.assertEqual(
+            [field["key"] for field in message["inputFields"]],
+            ["relationshipContext", "focus"],
+        )
+        self.assertEqual(
+            [field["required"] for field in message["inputFields"]],
+            [True, False],
+        )
+        self.assertEqual(message["allowedSpreads"], ["symbolic_message_three"])
+        self.assertEqual(message["defaultSpread"], "symbolic_message_three")
+
+        for module in modules:
+            self.assertNotIn("promptOverlay", module)
+            self.assertNotIn("outputContract", module)
+            self.assertNotIn("safetyRules", module)
+            self.assertNotIn("promptVersion", module)
 
     def test_rejects_an_unsupported_module(self):
         with self.assertRaisesRegex(ValueError, "Unsupported moduleType"):
-            require_enabled_module("choice_compare")
+            require_enabled_module("not_a_real_module")
 
     def test_rejects_a_disabled_module(self):
         disabled_module_type = "disabled_test_module"
@@ -127,6 +169,15 @@ class TestConsultationModules(unittest.TestCase):
         spec = validate_spread("general_reading", "free")
 
         self.assertIs(spec, MODULE_SPECS["general_reading"])
+
+        self.assertIs(
+            validate_spread("choice_compare", "choice_six"),
+            MODULE_SPECS["choice_compare"],
+        )
+        self.assertIs(
+            validate_spread("symbolic_message", "symbolic_message_three"),
+            MODULE_SPECS["symbolic_message"],
+        )
 
     def test_rejects_a_spread_not_allowed_by_the_module(self):
         with self.assertRaisesRegex(ValueError, "Spread is not allowed"):
