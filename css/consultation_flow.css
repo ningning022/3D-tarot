@@ -202,6 +202,21 @@ body.consultation-flow-open {
     font-size: 0.84rem;
 }
 
+.consultation-module-summary {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    background: color-mix(in oklch, var(--surface-elevated) 72%, transparent);
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+}
+
+.consultation-module-summary p {
+    margin: 0;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
 .consultation-flow input,
 .consultation-flow textarea,
 .consultation-flow select {
