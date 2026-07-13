@@ -122,7 +122,8 @@ def normalize_consultation_input(payload: dict) -> dict:
     input_mode = str(payload.get("inputMode") or "manual")
     user_query = str(payload.get("userQuery") or "").strip()
     user_context = str(payload.get("userContext") or "").strip()
-    module_payload = payload.get("modulePayload") or {}
+    raw_module_payload = payload.get("modulePayload")
+    module_payload = {} if raw_module_payload is None else raw_module_payload
     privacy_status = str(payload.get("privacyStatus") or "unchecked")
 
     spec = consultation_modules.require_enabled_module(module_type)
@@ -130,12 +131,46 @@ def normalize_consultation_input(payload: dict) -> dict:
         raise ValueError("language must be zh")
     if input_mode not in SUPPORTED_INPUT_MODES:
         raise ValueError("Unsupported inputMode")
+    if not isinstance(module_payload, dict):
+        raise ValueError("modulePayload must be a JSON object")
+    normalized_module_payload = {}
+    for field in spec["input_fields"]:
+        key = field["key"]
+        if key in {"userQuery", "userContext"}:
+            continue
+        value = str(module_payload.get(key) or "").strip()
+        if field.get("required") and not value:
+            raise ValueError(f"{key} is required")
+        max_length = int(field["maxLength"])
+        if len(value) > max_length:
+            raise ValueError(f"{key} must be at most {max_length} characters")
+        if value:
+            normalized_module_payload[key] = value
+
+    if module_type == "choice_compare":
+        option_a = normalized_module_payload["optionA"]
+        option_b = normalized_module_payload["optionB"]
+        if option_a.casefold() == option_b.casefold():
+            raise ValueError("optionA and optionB must be different")
+        priorities = normalized_module_payload.get("decisionPriorities")
+        user_query = (
+            f"请以象征性反思比较两个选项：A「{option_a}」；B「{option_b}」。"
+            + (f"我最关注：{priorities}。" if priorities else "")
+            + "请分析各自的潜力与代价，并给出选择原则，不替我做决定。"
+        )
+    elif module_type == "symbolic_message":
+        relationship = normalized_module_payload["relationshipContext"]
+        focus = normalized_module_payload.get("focus")
+        user_query = (
+            "请把这次即时传讯视为象征性反思，不读取或断言他人的真实想法。"
+            f"关系背景：{relationship}。"
+            + (f"我想关注：{focus}。" if focus else "")
+        )
+
     if spec["question_required"] and not 4 <= len(user_query) <= 500:
         raise ValueError("userQuery must be 4-500 characters")
     if len(user_context) > 1000:
         raise ValueError("userContext must be at most 1000 characters")
-    if not isinstance(module_payload, dict):
-        raise ValueError("modulePayload must be a JSON object")
     if privacy_status not in PRIVACY_STATUSES:
         raise ValueError("Unsupported privacyStatus")
 
@@ -145,7 +180,7 @@ def normalize_consultation_input(payload: dict) -> dict:
         "input_mode": input_mode,
         "user_query": user_query,
         "user_context": user_context,
-        "module_payload": module_payload,
+        "module_payload": normalized_module_payload,
         "privacy_status": privacy_status,
     }
 
