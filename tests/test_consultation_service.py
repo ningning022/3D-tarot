@@ -271,6 +271,19 @@ class TestReviews(unittest.TestCase):
                 reviewed_at="2026-07-10T00:05:00+00:00",
             )
 
+    def test_review_rejects_non_integer_rating(self):
+        for rating in (1.5, "1.5", True):
+            with self.subTest(rating=rating):
+                with self.assertRaisesRegex(
+                    ValueError, "rating must be an integer between 1 and 5"
+                ):
+                    consultation_service.upsert_review(
+                        self.conn,
+                        interpretation_id=self.interpretation_id,
+                        payload={"verdict": "accepted", "rating": rating},
+                        reviewed_at="2026-07-10T00:05:00+00:00",
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

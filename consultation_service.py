@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 import uuid
 
@@ -329,8 +330,22 @@ def upsert_review(
     if verdict not in REVIEW_VERDICTS:
         raise ValueError("Unsupported review verdict")
     rating = payload.get("rating")
-    if rating is not None and not 1 <= int(rating) <= 5:
-        raise ValueError("rating must be between 1 and 5")
+    normalized_rating = None
+    if rating is not None:
+        try:
+            numeric_rating = float(rating)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "rating must be an integer between 1 and 5"
+            ) from exc
+        if (
+            isinstance(rating, bool)
+            or not math.isfinite(numeric_rating)
+            or not numeric_rating.is_integer()
+            or not 1 <= numeric_rating <= 5
+        ):
+            raise ValueError("rating must be an integer between 1 and 5")
+        normalized_rating = int(numeric_rating)
     tags = payload.get("issueTags") or []
     if not isinstance(tags, list) or any(
         tag not in REVIEW_ISSUE_TAGS for tag in tags
@@ -362,7 +377,7 @@ def upsert_review(
             (
                 interpretation_id,
                 verdict,
-                int(rating) if rating is not None else None,
+                normalized_rating,
                 json.dumps(tags, ensure_ascii=False),
                 note,
                 edited or None,

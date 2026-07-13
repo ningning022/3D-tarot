@@ -908,6 +908,8 @@ async function testFinishClearsCompletedConsultationBeforeReopen() {
         saved: { consultationId: 17, readingId: 29 },
         generated: { content: 'completed output', interpretation: { id: 10 } }
     });
+    nodes['active-consultation-summary'].hidden = false;
+    nodes['active-consultation-summary'].textContent = '普通咨询 · 三张牌';
 
     const finish = findFakeNode(
         nodes['consultation-flow-actions'],
@@ -916,12 +918,61 @@ async function testFinishClearsCompletedConsultationBeforeReopen() {
     assert.ok(finish, 'saved step should expose a finish button');
     await finish.dispatch('click');
     assert.strictEqual(browserFlow.isOpen(), false);
+    assert.strictEqual(nodes['active-consultation-summary'].hidden, true);
+    assert.strictEqual(nodes['active-consultation-summary'].textContent, '');
 
     await browserFlow.open();
     assert.ok(findFakeNode(
         nodes['consultation-flow-mount'],
         node => node.dataset && node.dataset.flowAction === 'type-none'
     ), 'reopening after finish should start a fresh consultation');
+}
+
+async function testSelectionControlsExposePressedState() {
+    const { browserFlow, testFlow, nodes } = loadControllerRuntime();
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'choosing_spread_source',
+        templateKey: 'three_timeline',
+        inputMode: 'manual'
+    });
+
+    const selectedSpread = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'spread-three_timeline'
+    );
+    const otherSpread = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'spread-five_cross'
+    );
+    const manualMode = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'BUTTON' && node.textContent === '手动录入'
+    );
+    const threeDMode = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'BUTTON' && node.textContent === '3D 抽牌'
+    );
+    assert.strictEqual(selectedSpread.getAttribute('aria-pressed'), 'true');
+    assert.strictEqual(otherSpread.getAttribute('aria-pressed'), 'false');
+    assert.strictEqual(manualMode.getAttribute('aria-pressed'), 'true');
+    assert.strictEqual(threeDMode.getAttribute('aria-pressed'), 'false');
+
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'choosing_interpretation',
+        interpretationAction: 'later'
+    });
+    const interpretationButtons = collectFakeNodes(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'BUTTON'
+    );
+    const pressedStates = interpretationButtons.map(
+        button => button.getAttribute('aria-pressed')
+    );
+    assert.deepStrictEqual(pressedStates, ['false', 'true', 'false']);
 }
 
 async function testDetailsUsesOnlyBackendSupportedStyles() {
@@ -2172,6 +2223,7 @@ const tests = [
     ['consultation flow CSS contract', testConsultationFlowCssContract],
     ['browser controller mount open close lifecycle', testBrowserControllerMountOpenCloseLifecycle],
     ['finish clears completed consultation before reopen', testFinishClearsCompletedConsultationBeforeReopen],
+    ['selection controls expose pressed state', testSelectionControlsExposePressedState],
     ['save acquired cards persists once and copies capture', testSaveAcquiredCardsPersistsOnceAndCopiesCapture],
     ['save acquired cards throws then allows retry', testSaveAcquiredCardsThrowsThenAllowsRetry],
     ['save acquired cards ignores stale close and reset', testSaveAcquiredCardsIgnoresStaleCloseAndReset],

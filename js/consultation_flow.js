@@ -554,6 +554,7 @@
                 className: template.key === draft.templateKey
                     ? 'consultation-choice is-selected'
                     : 'consultation-choice',
+                ariaPressed: template.key === draft.templateKey,
                 action: `spread-${template.key}`
             }));
         });
@@ -563,12 +564,18 @@
                 if (draft.inputMode !== 'manual') draft.cards = [];
                 draft.inputMode = 'manual';
                 render();
-            }, { className: draft.inputMode === 'manual' ? 'is-selected' : '' }),
+            }, {
+                className: draft.inputMode === 'manual' ? 'is-selected' : '',
+                ariaPressed: draft.inputMode === 'manual'
+            }),
             actionButton('3D 抽牌', () => {
                 if (draft.inputMode !== 'three_d') draft.cards = [];
                 draft.inputMode = 'three_d';
                 render();
-            }, { className: draft.inputMode === 'three_d' ? 'is-selected' : '' })
+            }, {
+                className: draft.inputMode === 'three_d' ? 'is-selected' : '',
+                ariaPressed: draft.inputMode === 'three_d'
+            })
         ]);
         section.append(field('取牌方式', modes));
         if (draft.templateKey === 'free') {
@@ -606,7 +613,8 @@
             }, {
                 className: draft.interpretationAction === value
                     ? 'consultation-choice is-selected'
-                    : 'consultation-choice'
+                    : 'consultation-choice',
+                ariaPressed: draft.interpretationAction === value
             }));
         });
         section.append(choices);
@@ -1037,6 +1045,12 @@
         generated = null;
         streamContent = '';
         setStatus('', false);
+        const summary = root.document
+            && root.document.getElementById('active-consultation-summary');
+        if (summary) {
+            summary.hidden = true;
+            summary.textContent = '';
+        }
         render();
     }
 
