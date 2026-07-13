@@ -227,6 +227,38 @@ class TestConsultationValidation(unittest.TestCase):
                 cards, template_key="three_timeline"
             )
 
+    def test_enforces_dedicated_module_spread_counts(self):
+        six_cards = [
+            {"slot": slot, "cardId": slot, "isReversed": False}
+            for slot in range(1, 7)
+        ]
+        three_cards = six_cards[:3]
+
+        consultation_service.validate_consultation_cards(
+            six_cards,
+            template_key="choice_six",
+            module_type="choice_compare",
+        )
+        consultation_service.validate_consultation_cards(
+            three_cards,
+            template_key="symbolic_message_three",
+            module_type="symbolic_message",
+        )
+        with self.assertRaisesRegex(ValueError, "choice_six requires 6 cards"):
+            consultation_service.validate_consultation_cards(
+                three_cards,
+                template_key="choice_six",
+                module_type="choice_compare",
+            )
+        with self.assertRaisesRegex(
+            ValueError, "symbolic_message_three requires 3 cards"
+        ):
+            consultation_service.validate_consultation_cards(
+                six_cards,
+                template_key="symbolic_message_three",
+                module_type="symbolic_message",
+            )
+
     def test_rejects_spread_before_validating_card_count(self):
         cards = [{"slot": 1, "cardId": 9, "isReversed": False}]
 

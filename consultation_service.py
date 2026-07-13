@@ -31,6 +31,8 @@ FIXED_SPREAD_COUNTS = {
     "three_timeline": 3,
     "five_cross": 5,
     "celtic_cross": 10,
+    "choice_six": 6,
+    "symbolic_message_three": 3,
 }
 
 SCHEMA = """

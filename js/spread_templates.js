@@ -46,6 +46,29 @@
             ]
         },
         {
+            key: 'choice_six',
+            name: '二选一 / Choice Comparison',
+            fixedCount: 6,
+            slots: [
+                { slot: 1, label: '共同核心 / Shared Need' },
+                { slot: 2, label: '选项 A：潜力 / A Potential' },
+                { slot: 3, label: '选项 A：代价 / A Cost' },
+                { slot: 4, label: '选项 B：潜力 / B Potential' },
+                { slot: 5, label: '选项 B：代价 / B Cost' },
+                { slot: 6, label: '选择原则 / Decision Principle' }
+            ]
+        },
+        {
+            key: 'symbolic_message_three',
+            name: '即时传讯 / Symbolic Message',
+            fixedCount: 3,
+            slots: [
+                { slot: 1, label: '情感氛围 / Emotional Climate' },
+                { slot: 2, label: '未表达主题 / Unspoken Theme' },
+                { slot: 3, label: '你的边界与行动 / Your Boundary and Action' }
+            ]
+        },
+        {
             key: 'free',
             name: '自由牌阵 / Free Spread',
             fixedCount: null,

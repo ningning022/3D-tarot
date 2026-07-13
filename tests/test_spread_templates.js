@@ -20,6 +20,33 @@ assert.deepStrictEqual(
 assert.strictEqual(getTemplate('celtic_cross').slots.length, 10);
 assert.strictEqual(getTemplate('free').fixedCount, null);
 
+const choiceTemplate = getTemplate('choice_six');
+assert.strictEqual(choiceTemplate.key, 'choice_six');
+assert.strictEqual(choiceTemplate.fixedCount, 6);
+assert.deepStrictEqual(
+  choiceTemplate.slots.map(slot => slot.label),
+  [
+    '共同核心 / Shared Need',
+    '选项 A：潜力 / A Potential',
+    '选项 A：代价 / A Cost',
+    '选项 B：潜力 / B Potential',
+    '选项 B：代价 / B Cost',
+    '选择原则 / Decision Principle'
+  ]
+);
+
+const messageTemplate = getTemplate('symbolic_message_three');
+assert.strictEqual(messageTemplate.key, 'symbolic_message_three');
+assert.strictEqual(messageTemplate.fixedCount, 3);
+assert.deepStrictEqual(
+  messageTemplate.slots.map(slot => slot.label),
+  [
+    '情感氛围 / Emotional Climate',
+    '未表达主题 / Unspoken Theme',
+    '你的边界与行动 / Your Boundary and Action'
+  ]
+);
+
 setActiveTemplate('five_cross');
 assert.strictEqual(getActiveTemplate().key, 'five_cross');
 setActiveTemplate('unknown-key');
@@ -49,5 +76,9 @@ assert.deepStrictEqual(
   ['three_timeline', 'free']
 );
 assert.deepStrictEqual(filterTemplates(null), []);
+assert.deepStrictEqual(
+  filterTemplates(['choice_six', 'symbolic_message_three']).map(item => item.key),
+  ['choice_six', 'symbolic_message_three']
+);
 
 console.log('spread template tests passed');
