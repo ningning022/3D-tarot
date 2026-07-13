@@ -90,9 +90,11 @@ body.consultation-flow-open {
 .consultation-flow-layout {
     display: grid;
     grid-template-columns: minmax(180px, 0.75fr) minmax(0, 2fr) minmax(220px, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
     gap: 16px;
     align-items: start;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .consultation-flow-layout > .consultation-flow-head {
@@ -109,6 +111,7 @@ body.consultation-flow-open {
     grid-column: 2;
     grid-row: 2;
     width: 100%;
+    overflow: visible;
 }
 
 .consultation-flow-layout > .consultation-flow-status {

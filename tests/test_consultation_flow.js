@@ -388,12 +388,20 @@ function testConsultationFlowCssContract() {
         css,
         /\.consultation-flow-layout\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\([^;]+;/s
     );
+    assert.match(
+        css,
+        /\.consultation-flow-layout\s*\{[^}]*grid-template-rows:\s*auto auto auto;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/s
+    );
+    assert.match(
+        css,
+        /\.consultation-flow-layout\s*>\s*\.consultation-flow-mount\s*\{[^}]*overflow:\s*visible;/s
+    );
     assert.match(css, /\.consultation-flow-status\.is-success\s*\{/);
     assert.match(css, /\.consultation-flow-status\.is-warning\s*\{/);
     assert.match(css, /\.consultation-field-error\s*\{/);
     assert.match(
         responsive,
-        /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
+        /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-rows:\s*repeat\(5, auto\);[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
     );
     assert.match(
         responsive,
