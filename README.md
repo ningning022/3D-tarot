@@ -30,14 +30,22 @@ Akashic Tarot 是一个本地运行的 3D 塔罗交互应用：前端使用 Thre
 
 主页面采用 **consultation-first（咨询优先）** 的单一入口；咨询意图、取牌方式和是否立即解读彼此独立，不再把“3D 抽牌”和“手动录牌”拆成两套产品流程。
 
-1. **选择咨询类型**：`无特定问题（none）` 只观察牌面，不保存问题；`普通咨询（general_reading）` 要求填写中文问题，可补充背景，并受模块允许牌阵约束。
+前端只显示 7 个用户业务阶段：**选择咨询类型 → 填写咨询信息 → 选择牌阵与取牌方式 → 选择解读方式 → 抽取/录入牌面 → 确认本次咨询 → 结果与审核**。`saving`、`saved`、`generating` 等内部状态不会作为 Step 8/9 暴露，但仍保留在状态机内负责重试和失败恢复。
+
+1. **选择咨询类型**：`无特定问题（none）` 只观察牌面；`普通咨询（general_reading）` 填写自由问题；`二选一（choice_compare）` 填写选项 A/B；`即时传讯（symbolic_message）` 填写关系背景与可选关注点。
 2. **选择取牌方式**：`three_d` 使用现有 3D 舞台抽牌，`manual` 用搜索框逐槽录入线下已经抽出的牌；两者最终写入相同的 reading + cards 数据结构。
 3. **选择解读时机**：`now` 保存后立即生成，`later` 保留记录供稍后生成，`none` 仅保存牌阵（save-only）。
-4. **保存与审核**：有明确问题时会原子写入 reading、cards 和 consultation；无特定问题只写 reading + cards，**不会创建 consultation 行**。无问题模式即使立即生成了解读，也只展示答案，不出现审核表单。
+4. **保存与审核**：结构化咨询会原子写入 reading、cards 和 consultation；无特定问题只写 reading + cards，**不会创建 consultation 行**。无问题模式即使立即生成了解读，也只展示答案，不出现审核表单。
 
 人工审核只面向“有 consultation 且已成功生成 interpretation”的记录。审核结论支持 `accepted`、`needs_work`、`rejected`、`edited`；只有 `accepted` 或 `edited` 才显示隐私确认。模型文本默认不是训练数据，只有确认隐私的 `accepted` / `edited` 版本才可能成为后续导出候选。
 
-模块能力由 `GET /api/consultation-modules` 返回。目前仅启用 `general_reading`；“选择决策（choice）”和“消息解读（message）”作为未来模块预留，当前未注册、未启用，也不会出现在前端选项中。
+模块能力由 `GET /api/consultation-modules` 返回，前端按接口下发的字段和牌阵动态渲染：
+
+| 模块 | 输入 | 专属牌阵 | 解读边界 |
+|---|---|---|---|
+| `general_reading` | 问题、可选背景 | 三张、五张、凯尔特十字、自由牌阵 | 非宿命、给出可行动反思 |
+| `choice_compare` | 选项 A、选项 B、可选判断标准 | `choice_six`（6 张） | 比较潜力与代价，不替用户决定 |
+| `symbolic_message` | 关系背景、可选关注点 | `symbolic_message_three`（3 张） | 仅作象征性反思，不读心或编造对方原话 |
 
 ## 界面示意
 
@@ -312,13 +320,15 @@ POST /api/consultations
 }
 ```
 
-- `GET /api/consultation-modules`：返回当前启用模块；目前只有普通咨询。
+- `GET /api/consultation-modules`：返回普通咨询、二选一、即时传讯三个模块及各自字段和允许牌阵；内部 Prompt 与安全规则不会下发。
 - `GET /api/consultations?limit=20`：列出最近咨询，可用 `module_type` 筛选。
 - `GET /api/consultations/<id>`：返回问题、牌阵、全部解读版本及人工审核。
 - `POST /api/interpret/<readingId>`：使用已保存的问题和背景进行 SSE 流式解读；不能用请求参数覆盖已保存问题。
 - `PUT /api/interpretations/<id>/review`：保存 `accepted`、`needs_work`、`rejected` 或 `edited` 审核。
 
 模型生成文本默认不是训练数据。只有人工结论为 `accepted` 或 `edited`、确认本地隐私状态且通过后续安全过滤的版本，才具备导出候选资格。
+
+二选一与即时传讯的 `userQuery` 由后端根据已验证的 `modulePayload` 生成，客户端不能伪造或覆盖。二选一固定六张牌：共同核心、A 潜力、A 代价、B 潜力、B 代价、选择原则。即时传讯固定三张牌：情感氛围、未表达主题、你的边界与行动。
 
 ### 范围限制
 

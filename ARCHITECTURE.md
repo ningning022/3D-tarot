@@ -4,7 +4,7 @@
 
 ## 0 · 统一咨询主链
 
-咨询模块负责“用户想解决什么”以及允许哪些牌阵；取牌方式只负责“卡牌从哪里来”。两者是正交维度：`general_reading × manual` 和 `general_reading × three_d` 会落入相同的数据图。
+咨询模块负责“用户想解决什么”以及允许哪些牌阵；取牌方式只负责“卡牌从哪里来”。两者是正交维度：三个模块都可以分别组合 `manual` 和 `three_d`，并落入相同的数据图。
 
 ```text
 Consultation module (intent + allowed spreads)
@@ -18,10 +18,12 @@ optional interpretation → optional review
 
 - `none`（无特定问题）直接保存 reading + cards，不创建 consultation 行；可以选择立即生成、稍后生成或仅保存。即使生成了解读，也不提供人工审核入口。
 - `general_reading`（普通咨询）要求中文问题，保存时原子写入 reading、cards 和 consultation。`GET /api/consultation-modules` 是前端模块能力的唯一来源。
+- `choice_compare`（二选一）要求 A/B 两个不同选项，可附决策关注点，只允许 `choice_six` 六张牌阵；输出比较双方潜力与代价，但不宣布确定赢家。
+- `symbolic_message`（即时传讯）要求关系背景，可附关注点，只允许 `symbolic_message_three` 三张牌阵；输出明确是象征性反思，不声称读取第三方真实内心。
 - `three_d` 与 `manual` 只改变卡牌采集方式，不改变后续保存、解读或审核语义。
 - `now` 立即生成，`later` 稍后生成，`none` 为 save-only。
 - review 只属于“有 consultation 且生成成功”的 interpretation；隐私确认只在 `accepted` / `edited` 时出现。未经隐私确认的生成文本不是数据集候选。
-- 未来的 choice / message 模块当前未注册、未启用；能力接口不会返回它们。
+- 前端状态机保留 11 个内部 phase，但展示层只映射为 7 个中文业务阶段；保存、生成和审核内部状态不会形成 Step 8/9。
 
 ---
 
@@ -75,10 +77,11 @@ and no `agent_steps` rows are written — fast path stays fast.
 | File | Responsibility |
 |---|---|
 | [`server.py`](server.py) | stdlib HTTP server, all routes, SSE streaming, lock guard. No business logic. |
-| [`js/consultation_flow.js`](js/consultation_flow.js) | Consultation-first browser state machine, acquisition hand-off, persistence routing, generation, review, focus management, and accessible form rendering. |
-| [`consultation_service.py`](consultation_service.py) | Chinese consultation validation, persistence, reproducible input snapshots, and human reviews. |
+| [`consultation_modules.py`](consultation_modules.py) | Authoritative module registry: public fields/spreads plus private prompt, output, and safety contracts. |
+| [`js/consultation_flow.js`](js/consultation_flow.js) | Consultation-first browser state machine, public-step projection, registry-driven fields, acquisition hand-off, persistence, generation, review, and accessibility. |
+| [`consultation_service.py`](consultation_service.py) | Independent backend field/spread/card validation, derived module queries, persistence, reproducible input snapshots, and human reviews. |
 | [`interpret_service.py`](interpret_service.py) | Strategy resolver, Ollama / OpenRouter clients, `interpret_reading_stream()` orchestrator, `interpretations` table. |
-| [`interpret_prompts.py`](interpret_prompts.py) | Pure prompt assembly — system + few-shot + retrieved block + question. No I/O. |
+| [`interpret_prompts.py`](interpret_prompts.py) | Pure prompt assembly — base role + private module rules + style + retrieved evidence + structured input + output contract. No I/O. |
 | [`interpret_rag.py`](interpret_rag.py) | Corpus loader, embedding cache, cosine retrieval, two-stage filter. |
 | [`interpret_agent.py`](interpret_agent.py) | `AgentStep`, classifier, critic, JSON-mode Ollama call, `agent_steps` persistence. |
 | [`data/tarot_corpus.json`](data/tarot_corpus.json) | 156 entries — 78 cards × upright/reversed, zh + en, themes, imagery, situations, keywords. |
@@ -181,6 +184,13 @@ consultation in one transaction. Each interpretation stores an immutable
 input snapshot plus prompt/RAG/trace metadata, while a review can be updated
 without overwriting any generated version. Only privacy-confirmed
 `accepted` or `edited` reviews are candidates for a later dataset exporter.
+
+The public module endpoint exposes only UI metadata. During generation,
+`server.py` resolves the private prompt overlay, output contract, safety rules,
+and prompt version from the saved consultation's trusted `module_type`; client
+prompt text is never accepted. Frontend validation is an interaction aid only:
+the backend repeats required-field, maximum-length, allowed-spread, and fixed
+card-count checks before opening the persistence transaction.
 
 ---
 
