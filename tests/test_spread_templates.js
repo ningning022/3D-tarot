@@ -3,7 +3,8 @@ const {
   getTemplate,
   setActiveTemplate,
   getActiveTemplate,
-  resolveSpreadPlan
+  resolveSpreadPlan,
+  filterTemplates
 } = require('../js/spread_templates.js');
 
 assert.deepStrictEqual(
@@ -42,5 +43,11 @@ assert.strictEqual(freePlan.slotLabels[0], 'Slot 1');
 const emptyFreePlan = resolveSpreadPlan(getTemplate('free'), [], () => 'r');
 assert.deepStrictEqual(emptyFreePlan.selectedCards, ['r', 'r', 'r']);
 assert.strictEqual(emptyFreePlan.totalCards, 3);
+
+assert.deepStrictEqual(
+  filterTemplates(['free', 'unknown', 'three_timeline']).map(item => item.key),
+  ['three_timeline', 'free']
+);
+assert.deepStrictEqual(filterTemplates(null), []);
 
 console.log('spread template tests passed');

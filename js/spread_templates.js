@@ -59,6 +59,11 @@
         return TEMPLATES.slice();
     }
 
+    function filterTemplates(allowedKeys) {
+        const allowed = new Set(Array.isArray(allowedKeys) ? allowedKeys : []);
+        return TEMPLATES.filter(template => allowed.has(template.key));
+    }
+
     function getTemplate(key) {
         return TEMPLATES.find(template => template.key === key) || TEMPLATES[0];
     }
@@ -128,6 +133,7 @@
 
     return {
         getTemplates,
+        filterTemplates,
         getTemplate,
         getActiveTemplate,
         setActiveTemplate,

@@ -22,6 +22,7 @@ const {
     reset,
     isOpen,
     hasActiveDraft,
+    saveAcquiredCards,
     getDraft,
     setDraftForTest
 } = require('../js/consultation_flow.js');
@@ -331,6 +332,7 @@ function testControllerExportsStateAndSafeRenderers() {
         reset,
         isOpen,
         hasActiveDraft,
+        saveAcquiredCards,
         getDraft,
         setDraftForTest
     ]) {
@@ -558,6 +560,163 @@ function loadControllerRuntime(overrides = {}) {
         browserFlow: runtime.ConsultationFlow,
         testFlow: commonJsModule.exports
     };
+}
+
+async function testSaveAcquiredCardsPersistsOnceAndCopiesCapture() {
+    const saveGate = deferred();
+    const saveStarted = deferred();
+    const readingCalls = [];
+    const controller = loadControllerRuntime({
+        api: {
+            async createReading(payload) {
+                readingCalls.push(JSON.parse(JSON.stringify(payload)));
+                saveStarted.resolve();
+                return saveGate.promise;
+            }
+        }
+    });
+    const { browserFlow, testFlow, nodes, runtime } = controller;
+    browserFlow.mount();
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'acquiring_cards',
+        inputMode: 'three_d'
+    });
+    const capturedCards = [{
+        slot: 1,
+        slotLabel: '主题 / Focus',
+        cardId: 0,
+        isReversed: false
+    }];
+    const meta = {
+        spreadNumber: 6,
+        templateKey: 'free',
+        templateName: '自由牌阵 / Free Spread',
+        readingDate: '2026-07-13'
+    };
+
+    const first = browserFlow.saveAcquiredCards(capturedCards, meta);
+    capturedCards[0].cardId = 2;
+    const second = browserFlow.saveAcquiredCards(capturedCards, meta);
+    await saveStarted.promise;
+
+    assert.strictEqual(readingCalls.length, 1);
+    assert.strictEqual(browserFlow.isOpen(), true);
+    assert.ok(findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'H3' && node.textContent === '正在保存'
+    ));
+    assert.deepStrictEqual(readingCalls[0], {
+        kind: 'spread',
+        spreadNumber: 6,
+        templateKey: 'free',
+        templateName: '自由牌阵 / Free Spread',
+        cards: [{
+            slot: 1,
+            slotLabel: '主题 / Focus',
+            cardId: 0,
+            zh: '愚人',
+            en: 'The Fool',
+            imageFile: 'RWS_Tarot_00_Fool.jpg',
+            isReversed: false
+        }]
+    });
+
+    saveGate.resolve({ id: 61 });
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    assert.strictEqual(firstResult.readingId, 61);
+    assert.strictEqual(secondResult.readingId, 61);
+    assert.strictEqual(runtime.lastSavedReadingId, 61);
+    assert.deepStrictEqual(
+        JSON.parse(JSON.stringify(testFlow.getDraft().cards)),
+        [{ slot: 1, slotLabel: '主题 / Focus', cardId: 0, isReversed: false }]
+    );
+    assert.strictEqual(testFlow.getDraft().readingDate, '2026-07-13');
+}
+
+async function testSaveAcquiredCardsThrowsThenAllowsRetry() {
+    let saveCalls = 0;
+    const controller = loadControllerRuntime({
+        api: {
+            async createReading() {
+                saveCalls += 1;
+                if (saveCalls === 1) throw new Error('capture save failed');
+                return { id: 71 };
+            }
+        }
+    });
+    const { browserFlow, testFlow, nodes, runtime } = controller;
+    browserFlow.mount();
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'acquiring_cards',
+        inputMode: 'three_d'
+    });
+    const cards = [{ slot: 1, slotLabel: 'Slot 1', cardId: 1, isReversed: true }];
+
+    await assert.rejects(
+        browserFlow.saveAcquiredCards(cards, { spreadNumber: 2 }),
+        /capture save failed/
+    );
+    assert.strictEqual(nodes['consultation-flow-status'].textContent, 'capture save failed');
+    assert.ok(findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'H3' && node.textContent === '确认并保存'
+    ));
+
+    const result = await browserFlow.saveAcquiredCards(cards, { spreadNumber: 2 });
+    assert.strictEqual(result.readingId, 71);
+    assert.strictEqual(saveCalls, 2);
+    assert.strictEqual(runtime.lastSavedReadingId, 71);
+}
+
+async function testSaveAcquiredCardsIgnoresStaleCloseAndReset() {
+    for (const invalidate of ['close', 'reset']) {
+        const saveGate = deferred();
+        const saveStarted = deferred();
+        let streamCalls = 0;
+        const controller = loadControllerRuntime({
+            api: {
+                async createReading() {
+                    saveStarted.resolve();
+                    return saveGate.promise;
+                }
+            },
+            interpret: {
+                async *streamInterpretation() {
+                    streamCalls += 1;
+                    yield { done: true };
+                }
+            }
+        });
+        const { browserFlow, testFlow, runtime } = controller;
+        browserFlow.mount();
+        testFlow.setDraftForTest({
+            ...createInitialDraft(),
+            phase: 'acquiring_cards',
+            inputMode: 'three_d',
+            interpretationAction: 'now'
+        });
+        const pending = browserFlow.saveAcquiredCards(
+            [{ slot: 1, slotLabel: 'Slot 1', cardId: 0, isReversed: false }],
+            { spreadNumber: 9 }
+        );
+        await saveStarted.promise;
+
+        if (invalidate === 'close') browserFlow.close();
+        else browserFlow.reset();
+        testFlow.setDraftForTest({
+            ...createInitialDraft(),
+            phase: 'choosing_type',
+            userQuery: `fresh-${invalidate}`
+        });
+        saveGate.resolve({ id: 81 });
+
+        assert.strictEqual(await pending, undefined);
+        assert.strictEqual(runtime.lastSavedReadingId, undefined);
+        assert.strictEqual(streamCalls, 0);
+        assert.strictEqual(testFlow.getDraft().userQuery, `fresh-${invalidate}`);
+    }
 }
 
 async function testBrowserControllerMountOpenCloseLifecycle() {
@@ -1296,6 +1455,279 @@ async function testSubmitReviewNormalizesSuccessfulPayloads() {
     ]);
 }
 
+async function testCapturedReadingUsesActiveConsultationFlow() {
+    const { persistCapturedReading } = require('../js/history.js');
+    const cards = [{ slot: 1, cardId: 0, isReversed: false }];
+    const calls = [];
+    const expected = { readingId: 41, consultationId: 12 };
+    const runtime = {
+        ConsultationFlow: {
+            hasActiveDraft: () => true,
+            async saveAcquiredCards(receivedCards, meta) {
+                calls.push({ receivedCards, meta });
+                return expected;
+            }
+        },
+        TarotAPI: {
+            async saveReading() {
+                throw new Error('legacy save must be bypassed');
+            }
+        }
+    };
+
+    const result = await persistCapturedReading(
+        3,
+        cards,
+        { templateKey: 'free', spreadNumber: 999 },
+        runtime
+    );
+
+    assert.strictEqual(result, expected);
+    assert.deepStrictEqual(calls, [{
+        receivedCards: cards,
+        meta: { templateKey: 'free', spreadNumber: 3 }
+    }]);
+}
+
+async function testCapturedReadingFallsBackToLegacyApi() {
+    const { persistCapturedReading } = require('../js/history.js');
+    const cards = [{ slot: 1, cardId: 2, isReversed: true }];
+    const calls = [];
+    const created = { id: 52 };
+    const runtime = {
+        ConsultationFlow: { hasActiveDraft: () => false },
+        TarotAPI: {
+            async saveReading(spreadNumber, payload) {
+                calls.push({ spreadNumber, payload });
+                return created;
+            }
+        }
+    };
+
+    const result = await persistCapturedReading(
+        4,
+        cards,
+        { templateName: 'Free', spreadNumber: 999 },
+        runtime
+    );
+
+    assert.deepStrictEqual(result, {
+        readingId: 52,
+        consultationId: null,
+        created
+    });
+    assert.deepStrictEqual(calls, [{
+        spreadNumber: 4,
+        payload: { templateName: 'Free', spreadNumber: 4, cards }
+    }]);
+}
+
+async function testCapturedReadingSkipsEmptyCardsAndMissingApi() {
+    const { persistCapturedReading } = require('../js/history.js');
+    let activeSaveCount = 0;
+    const activeRuntime = {
+        ConsultationFlow: {
+            hasActiveDraft: () => true,
+            async saveAcquiredCards() {
+                activeSaveCount += 1;
+            }
+        }
+    };
+
+    assert.strictEqual(await persistCapturedReading(1, [], {}, activeRuntime), null);
+    assert.strictEqual(await persistCapturedReading(1, [{ cardId: 0 }], {}, {}), null);
+    assert.strictEqual(await persistCapturedReading(1, [], {}), null);
+    assert.strictEqual(activeSaveCount, 0);
+}
+
+async function testSettleCapturedReadingConsumesRejectionAndSettlesOnce() {
+    const { settleCapturedReading } = require('../js/history.js');
+
+    const successGate = deferred();
+    let successSettled = 0;
+    const successErrors = [];
+    const successPending = settleCapturedReading(
+        successGate.promise,
+        () => { successSettled += 1; },
+        error => successErrors.push(error.message)
+    );
+    assert.strictEqual(successSettled, 0);
+    successGate.resolve({ readingId: 61 });
+    assert.deepStrictEqual(await successPending, { readingId: 61 });
+    assert.strictEqual(successSettled, 1);
+    assert.deepStrictEqual(successErrors, []);
+
+    const failureGate = deferred();
+    let failureSettled = 0;
+    const failureErrors = [];
+    const failurePending = settleCapturedReading(
+        failureGate.promise,
+        () => { failureSettled += 1; },
+        error => failureErrors.push(error.message)
+    );
+    failureGate.reject(new Error('captured save failed'));
+    assert.strictEqual(await failurePending, null);
+    assert.strictEqual(failureSettled, 1);
+    assert.deepStrictEqual(failureErrors, ['captured save failed']);
+}
+
+async function testCompleteReadingHistoryClearsStaleIdAndUpdatesOnSuccess() {
+    const saveGate = deferred();
+    const historyList = {
+        prepend() {},
+        appendChild() {}
+    };
+    const document = {
+        getElementById(id) {
+            return id === 'history-list' ? historyList : null;
+        },
+        createElement() {
+            return {
+                appendChild() {},
+                prepend() {}
+            };
+        }
+    };
+    const runtime = {
+        addEventListener() {},
+        TarotAPI: {
+            async saveReading() {
+                return saveGate.promise;
+            }
+        }
+    };
+    const commonJsModule = { exports: {} };
+    const sandbox = {
+        window: runtime,
+        document,
+        module: commonJsModule,
+        console,
+        zhWithRoman: value => value
+    };
+    const source = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'history.js'),
+        'utf8'
+    );
+    vm.runInNewContext(source, sandbox, { filename: 'history.js' });
+    sandbox.resetReadingCapture({ templateKey: 'three_timeline' });
+    sandbox.recordConfirmedCard({
+        userData: {
+            slot: 1,
+            slotLabel: '过去 / Past',
+            cardId: 0,
+            zh: '愚人',
+            en: 'The Fool',
+            imageFile: 'RWS_Tarot_00_Fool.jpg',
+            isReversed: false
+        }
+    });
+
+    runtime.lastSavedReadingId = 77;
+    const pending = sandbox.completeReadingHistory(5);
+    assert.strictEqual(runtime.lastSavedReadingId, null);
+    saveGate.resolve({ id: 91 });
+    const result = await pending;
+
+    assert.strictEqual(result.readingId, 91);
+    assert.strictEqual(runtime.lastSavedReadingId, 91);
+    assert.strictEqual(await sandbox.completeReadingHistory(6), null);
+    assert.strictEqual(runtime.lastSavedReadingId, 91);
+
+    runtime.TarotAPI.saveReading = async () => {
+        throw new Error('history save failed');
+    };
+    sandbox.recordConfirmedCard({
+        userData: {
+            slot: 1,
+            cardId: 1,
+            zh: '女祭司',
+            en: 'The High Priestess',
+            imageFile: 'RWS_Tarot_02_High_Priestess.jpg',
+            isReversed: true
+        }
+    });
+    const rejected = sandbox.completeReadingHistory(7);
+    assert.strictEqual(runtime.lastSavedReadingId, null);
+    await assert.rejects(rejected, /history save failed/);
+    assert.strictEqual(runtime.lastSavedReadingId, null);
+
+    runtime.TarotAPI.saveReading = async () => null;
+    runtime.lastSavedReadingId = 42;
+    sandbox.recordConfirmedCard({
+        userData: {
+            slot: 1,
+            cardId: 2,
+            zh: '太阳',
+            en: 'The Sun',
+            imageFile: 'RWS_Tarot_19_Sun.jpg',
+            isReversed: false
+        }
+    });
+    assert.strictEqual(await sandbox.completeReadingHistory(8), null);
+    assert.strictEqual(runtime.lastSavedReadingId, null);
+
+    runtime.ConsultationFlow = {
+        hasActiveDraft: () => true,
+        async saveAcquiredCards() { return undefined; }
+    };
+    runtime.lastSavedReadingId = 43;
+    sandbox.recordConfirmedCard({
+        userData: {
+            slot: 1,
+            cardId: 0,
+            zh: '愚人',
+            en: 'The Fool',
+            imageFile: 'RWS_Tarot_00_Fool.jpg',
+            isReversed: false
+        }
+    });
+    assert.strictEqual(await sandbox.completeReadingHistory(9), undefined);
+    assert.strictEqual(runtime.lastSavedReadingId, null);
+}
+
+function testMainAndSpreadConsultationWiring() {
+    const mainSource = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'main.js'),
+        'utf8'
+    );
+    const spreadSource = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'spread.js'),
+        'utf8'
+    );
+
+    assert.match(
+        mainSource,
+        /window\.startConsultationSpread\s*=\s*function startConsultationSpread\(\)\s*\{\s*startSpread\(idlePinchedCards\.slice\(\)\);\s*\}/
+    );
+    assert.match(
+        mainSource,
+        /if \(action === 'OPEN_CONSULTATION'\)\s*\{\s*if \(window\.ConsultationFlow\) ConsultationFlow\.open\(\);\s*\}/
+    );
+    const bindIndex = mainSource.indexOf('SpreadTemplates.bindTemplateSelector()');
+    const mountIndex = mainSource.indexOf('ConsultationFlow.mount()');
+    assert.ok(bindIndex >= 0 && mountIndex > bindIndex);
+
+    const idleHandler = spreadSource.slice(
+        spreadSource.indexOf('function handleIdleGestures'),
+        spreadSource.indexOf('function _returnHeldCardToRing')
+    );
+    assert.match(
+        idleHandler,
+        /if \(window\.ConsultationFlow\)\s*\{\s*ConsultationFlow\.open\(\);\s*return;\s*\}/
+    );
+    assert.ok(idleHandler.indexOf('ConsultationFlow.open()') < idleHandler.indexOf('startSpread('));
+
+    const confirmHandler = spreadSource.slice(
+        spreadSource.indexOf('function confirmCard'),
+        spreadSource.indexOf('function dealNextSpread')
+    );
+    assert.match(
+        confirmHandler,
+        /const savePromise = completeReadingHistory\(spreadCount\);\s*settleCapturedReading\(\s*savePromise,\s*\(\) => setTimeout\(\(\) => showSpreadPrompt\(\), 800\),\s*error => console\.error\('Failed to persist captured reading:', error\)\s*\);/
+    );
+    assert.strictEqual((confirmHandler.match(/showSpreadPrompt\(\)/g) || []).length, 1);
+}
+
 function testBrowserGlobalExport() {
     const source = fs.readFileSync(require.resolve('../js/consultation_flow.js'), 'utf8');
     const browserWindow = {};
@@ -1310,6 +1742,7 @@ function testBrowserGlobalExport() {
     assert.strictEqual(typeof browserWindow.ConsultationFlow.submitReview, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.mount, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.open, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.saveAcquiredCards, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.setDraftForTest, 'undefined');
     assert.strictEqual(browserWindow.ConsultationFlow.createInitialDraft().language, 'zh');
 }
@@ -1330,6 +1763,9 @@ const tests = [
     ['controller exports state and safe renderers', testControllerExportsStateAndSafeRenderers],
     ['consultation flow CSS contract', testConsultationFlowCssContract],
     ['browser controller mount open close lifecycle', testBrowserControllerMountOpenCloseLifecycle],
+    ['save acquired cards persists once and copies capture', testSaveAcquiredCardsPersistsOnceAndCopiesCapture],
+    ['save acquired cards throws then allows retry', testSaveAcquiredCardsThrowsThenAllowsRetry],
+    ['save acquired cards ignores stale close and reset', testSaveAcquiredCardsIgnoresStaleCloseAndReset],
     ['details uses only backend-supported styles', testDetailsUsesOnlyBackendSupportedStyles],
     ['spread changes reconcile cards', testSpreadChangesReconcileCards],
     ['stale save cannot generate after close or reset', testStaleSaveCannotStartGenerationAfterCloseOrReset],
@@ -1346,6 +1782,12 @@ const tests = [
     ['run saved interpretation rejects early end', testRunSavedInterpretationRejectsEarlyEnd],
     ['submit review rejects invalid inputs', testSubmitReviewRejectsInvalidInputs],
     ['submit review normalizes successful payloads', testSubmitReviewNormalizesSuccessfulPayloads],
+    ['captured reading uses active consultation flow', testCapturedReadingUsesActiveConsultationFlow],
+    ['captured reading falls back to legacy API', testCapturedReadingFallsBackToLegacyApi],
+    ['captured reading skips empty cards and missing API', testCapturedReadingSkipsEmptyCardsAndMissingApi],
+    ['settle captured reading consumes rejection and settles once', testSettleCapturedReadingConsumesRejectionAndSettlesOnce],
+    ['complete reading history clears stale id and updates on success', testCompleteReadingHistoryClearsStaleIdAndUpdatesOnSuccess],
+    ['main and spread consultation wiring', testMainAndSpreadConsultationWiring],
     ['browser global export', testBrowserGlobalExport]
 ];
 

@@ -68,6 +68,45 @@ function recordConfirmedCard(card) {
     return entry;
 }
 
+async function persistCapturedReading(
+    spreadNumber,
+    cards,
+    meta,
+    runtime = (typeof window !== 'undefined' ? window : null)
+) {
+    if (!Array.isArray(cards) || cards.length === 0) return null;
+    if (!runtime) return null;
+    if (
+        runtime.ConsultationFlow
+        && runtime.ConsultationFlow.hasActiveDraft()
+    ) {
+        return runtime.ConsultationFlow.saveAcquiredCards(cards, {
+            ...(meta || {}),
+            spreadNumber
+        });
+    }
+    if (!runtime.TarotAPI) return null;
+    const created = await runtime.TarotAPI.saveReading(spreadNumber, {
+        ...(meta || {}),
+        spreadNumber,
+        cards
+    });
+    return created
+        ? { readingId: created.id, consultationId: null, created }
+        : null;
+}
+
+async function settleCapturedReading(savePromise, onSettled, onError) {
+    try {
+        return await savePromise;
+    } catch (error) {
+        if (typeof onError === 'function') onError(error);
+        return null;
+    } finally {
+        if (typeof onSettled === 'function') onSettled();
+    }
+}
+
 async function completeReadingHistory(spreadNumber) {
     prependHistorySeparator(spreadNumber);
     const cards = currentReadingCards
@@ -75,18 +114,14 @@ async function completeReadingHistory(spreadNumber) {
         .sort((left, right) => left.slot - right.slot);
     const meta = { ...currentReadingMeta };
     resetReadingCapture();
-    if (window.TarotAPI && cards.length > 0) {
-        const saved = await window.TarotAPI.saveReading(spreadNumber, {
-            ...meta,
-            spreadNumber,
-            cards
-        });
-        // Expose the saved row's id so the spread-prompt modal's
-        // Interpret button knows which reading to ask the model about.
-        if (saved && saved.id) {
-            window.lastSavedReadingId = saved.id;
-        }
+    if (cards.length > 0) window.lastSavedReadingId = null;
+    const result = await persistCapturedReading(spreadNumber, cards, meta);
+    // Expose the saved row's id so the spread-prompt modal's
+    // Interpret button knows which reading to ask the model about.
+    if (result && result.readingId != null) {
+        window.lastSavedReadingId = result.readingId;
     }
+    return result;
 }
 
 function renderSavedReadingSummary(reading) {
@@ -112,15 +147,21 @@ async function loadSavedHistory(limit = 10) {
     readings.forEach(renderSavedReadingSummary);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    loadSavedHistory(10);
-    const toggle = document.getElementById('history-toggle');
-    const historyPanel = document.getElementById('history');
-    if (toggle && historyPanel) {
-        toggle.addEventListener('click', () => {
-            const collapsed = historyPanel.classList.toggle('collapsed');
-            toggle.setAttribute('aria-expanded', String(!collapsed));
-        });
-    }
-});
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', () => {
+        loadSavedHistory(10);
+        const toggle = document.getElementById('history-toggle');
+        const historyPanel = document.getElementById('history');
+        if (toggle && historyPanel) {
+            toggle.addEventListener('click', () => {
+                const collapsed = historyPanel.classList.toggle('collapsed');
+                toggle.setAttribute('aria-expanded', String(!collapsed));
+            });
+        }
+    });
+}
+
+if (typeof module === 'object' && module.exports) {
+    module.exports = { persistCapturedReading, settleCapturedReading };
+}
 

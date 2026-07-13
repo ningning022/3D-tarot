@@ -32,6 +32,7 @@
     let returnFocus = null;
     let abortController = null;
     let flowEpoch = 0;
+    let acquiredCardsSavePromise = null;
 
     function createInitialDraft() {
         return {
@@ -948,6 +949,7 @@
         flowEpoch += 1;
         if (abortController) abortController.abort();
         abortController = null;
+        acquiredCardsSavePromise = null;
         return flowEpoch;
     }
 
@@ -1058,6 +1060,55 @@
         }
     }
 
+    function saveAcquiredCards(cards, meta = {}) {
+        if (acquiredCardsSavePromise) return acquiredCardsSavePromise;
+
+        const capturedCards = (Array.isArray(cards) ? cards : [])
+            .map(card => ({ ...card }));
+        const capturedMeta = meta && typeof meta === 'object' ? { ...meta } : {};
+        let pending;
+        pending = (async () => {
+            const token = ++flowEpoch;
+            draft = {
+                ...draft,
+                ...capturedMeta,
+                cards: capturedCards,
+                spreadNumber: Number(capturedMeta.spreadNumber) || 0
+            };
+            phase = 'saving';
+            render();
+            await open();
+            if (token !== flowEpoch) return undefined;
+            render();
+
+            try {
+                const nextSaved = await persistDraftCards(
+                    draft,
+                    draft.cards,
+                    browserDeps()
+                );
+                if (token !== flowEpoch) return undefined;
+                saved = nextSaved;
+                root.lastSavedReadingId = saved.readingId;
+                await afterSave(token);
+                if (token !== flowEpoch) return undefined;
+                return saved;
+            } catch (error) {
+                if (token !== flowEpoch) return undefined;
+                phase = 'confirming';
+                setStatus(error.message, true);
+                render();
+                throw error;
+            } finally {
+                if (acquiredCardsSavePromise === pending) {
+                    acquiredCardsSavePromise = null;
+                }
+            }
+        })();
+        acquiredCardsSavePromise = pending;
+        return pending;
+    }
+
     function getDraft() {
         return {
             ...draft,
@@ -1122,6 +1173,7 @@
         reset,
         isOpen,
         hasActiveDraft,
+        saveAcquiredCards,
         getDraft
     };
     return { api, setDraftForTest };
