@@ -898,6 +898,32 @@ async function testBrowserControllerMountOpenCloseLifecycle() {
     assert.strictEqual(browserFlow.isOpen(), false);
 }
 
+async function testFinishClearsCompletedConsultationBeforeReopen() {
+    const { browserFlow, testFlow, nodes } = loadControllerRuntime();
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'saved',
+        saved: { consultationId: 17, readingId: 29 },
+        generated: { content: 'completed output', interpretation: { id: 10 } }
+    });
+
+    const finish = findFakeNode(
+        nodes['consultation-flow-actions'],
+        node => node.tagName === 'BUTTON' && node.textContent === '完成'
+    );
+    assert.ok(finish, 'saved step should expose a finish button');
+    await finish.dispatch('click');
+    assert.strictEqual(browserFlow.isOpen(), false);
+
+    await browserFlow.open();
+    assert.ok(findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'type-none'
+    ), 'reopening after finish should start a fresh consultation');
+}
+
 async function testDetailsUsesOnlyBackendSupportedStyles() {
     const { browserFlow, nodes } = loadControllerRuntime();
     browserFlow.mount();
@@ -1162,6 +1188,20 @@ async function testDynamicFormAccessibilityAndReviewErrors() {
         ...completeDraft(),
         phase: 'acquiring_cards'
     });
+    const firstCardEditor = collectFakeNodes(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'ARTICLE'
+    )[0];
+    const upright = findFakeNode(
+        firstCardEditor,
+        node => node.tagName === 'BUTTON' && node.textContent === '正位'
+    );
+    const reversed = findFakeNode(
+        firstCardEditor,
+        node => node.tagName === 'BUTTON' && node.textContent === '逆位'
+    );
+    assert.strictEqual(upright.getAttribute('aria-pressed'), 'true');
+    assert.strictEqual(reversed.getAttribute('aria-pressed'), 'false');
 
     testFlow.setDraftForTest({
         ...completeDraft(),
@@ -2131,6 +2171,7 @@ const tests = [
     ['controller exports state and safe renderers', testControllerExportsStateAndSafeRenderers],
     ['consultation flow CSS contract', testConsultationFlowCssContract],
     ['browser controller mount open close lifecycle', testBrowserControllerMountOpenCloseLifecycle],
+    ['finish clears completed consultation before reopen', testFinishClearsCompletedConsultationBeforeReopen],
     ['save acquired cards persists once and copies capture', testSaveAcquiredCardsPersistsOnceAndCopiesCapture],
     ['save acquired cards throws then allows retry', testSaveAcquiredCardsThrowsThenAllowsRetry],
     ['save acquired cards ignores stale close and reset', testSaveAcquiredCardsIgnoresStaleCloseAndReset],

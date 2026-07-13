@@ -431,6 +431,7 @@
             type: 'button',
             className: options.className || 'consultation-action',
             disabled: Boolean(options.disabled),
+            'aria-pressed': options.ariaPressed,
             dataset: options.action ? { flowAction: options.action } : {},
             textContent: label,
             onClick
@@ -654,11 +655,17 @@
                     actionButton('正位', () => {
                         selected.isReversed = false;
                         render();
-                    }, { className: selected.isReversed ? '' : 'is-selected' }),
+                    }, {
+                        className: selected.isReversed ? '' : 'is-selected',
+                        ariaPressed: !selected.isReversed
+                    }),
                     actionButton('逆位', () => {
                         selected.isReversed = true;
                         render();
-                    }, { className: selected.isReversed ? 'is-selected' : '' })
+                    }, {
+                        className: selected.isReversed ? 'is-selected' : '',
+                        ariaPressed: selected.isReversed
+                    })
                 ]));
             }
             const results = el('div', { className: 'consultation-search-results' });
@@ -753,7 +760,7 @@
             el('p', { textContent: saved ? `Reading #${saved.readingId}` : '记录已保存' }),
             streamContent ? el('article', { textContent: streamContent }) : null
         ]));
-        actionsNode.append(actionButton('完成', () => close(true), { className: 'consultation-primary' }));
+        actionsNode.append(actionButton('完成', finish, { className: 'consultation-primary' }));
     }
 
     function renderGenerationStep(mountNode, actionsNode) {
@@ -943,7 +950,7 @@
                 textContent: '感谢你的反馈，它将用于改进后续解读。'
             })
         ]));
-        actionsNode.append(actionButton('完成', () => close(true), { className: 'consultation-primary' }));
+        actionsNode.append(actionButton('完成', finish, { className: 'consultation-primary' }));
     }
 
     const renderers = {
@@ -1029,7 +1036,13 @@
         saved = null;
         generated = null;
         streamContent = '';
+        setStatus('', false);
         render();
+    }
+
+    function finish() {
+        close(true);
+        reset();
     }
 
     async function open() {
