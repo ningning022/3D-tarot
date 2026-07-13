@@ -1,10 +1,11 @@
 (function (root, factory) {
-    const api = factory();
+    const built = factory(root);
+    const api = built.api;
     if (typeof module === 'object' && module.exports) {
-        module.exports = api;
+        module.exports = { ...api, setDraftForTest: built.setDraftForTest };
     }
     root.ConsultationFlow = api;
-})(typeof globalThis !== 'undefined' ? globalThis : window, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : window, function (root) {
     'use strict';
 
     const PHASES = [
@@ -20,6 +21,17 @@
         'review_ready',
         'review_saved'
     ];
+
+    let draft = createInitialDraft();
+    let phase = 'choosing_type';
+    let modules = [];
+    let saved = null;
+    let generated = null;
+    let streamContent = '';
+    let mounted = false;
+    let returnFocus = null;
+    let abortController = null;
+    let flowEpoch = 0;
 
     function createInitialDraft() {
         return {
@@ -342,6 +354,749 @@
         return deps.api.reviewInterpretation(interpretationId, payload);
     }
 
+    function el(tag, attrs = {}, children = []) {
+        const node = root.document.createElement(tag);
+        Object.entries(attrs || {}).forEach(([key, value]) => {
+            if (value === undefined || value === null) return;
+            if (key === 'className') {
+                node.className = value;
+            } else if (key === 'textContent') {
+                node.textContent = String(value);
+            } else if (key === 'htmlFor') {
+                node.htmlFor = value;
+            } else if (key.startsWith('on') && typeof value === 'function') {
+                node.addEventListener(key.slice(2).toLowerCase(), value);
+            } else if (key === 'dataset') {
+                Object.entries(value).forEach(([name, entry]) => {
+                    node.dataset[name] = String(entry);
+                });
+            } else if (key in node) {
+                node[key] = value;
+            } else {
+                node.setAttribute(key, String(value));
+            }
+        });
+        const items = Array.isArray(children) ? children : [children];
+        items.flat(Infinity).forEach(child => {
+            if (child === undefined || child === null || child === false) return;
+            node.append(child && child.nodeType ? child : String(child));
+        });
+        return node;
+    }
+
+    function getTemplate(key) {
+        if (!root.SpreadTemplates) return null;
+        return root.SpreadTemplates.getTemplate(key);
+    }
+
+    function getTemplatesForDraft() {
+        if (!root.SpreadTemplates) return [];
+        const templates = root.SpreadTemplates.getTemplates();
+        if (draft.questionMode !== 'module') return templates;
+        const moduleSpec = modules.find(item => item.moduleType === draft.moduleType);
+        const allowed = new Set(
+            moduleSpec && Array.isArray(moduleSpec.allowedSpreads)
+                ? moduleSpec.allowedSpreads
+                : []
+        );
+        return templates.filter(template => allowed.has(template.key));
+    }
+
+    function setPhase(next) {
+        phase = nextPhase(phase, next);
+        render();
+    }
+
+    function actionButton(label, onClick, options = {}) {
+        return el('button', {
+            type: 'button',
+            className: options.className || 'consultation-action',
+            disabled: Boolean(options.disabled),
+            dataset: options.action ? { flowAction: options.action } : {},
+            textContent: label,
+            onClick
+        });
+    }
+
+    function field(labelText, control, className = 'consultation-field') {
+        return el('label', { className }, [
+            el('span', { className: 'consultation-field-label', textContent: labelText }),
+            control
+        ]);
+    }
+
+    function renderTypeStep(mountNode) {
+        const choices = el('div', { className: 'consultation-choice-grid' });
+        choices.append(actionButton('无特定问题 / Open Reading', () => {
+            draft = {
+                ...draft,
+                questionMode: 'none',
+                moduleType: null,
+                userQuery: '',
+                userContext: ''
+            };
+            setPhase('editing_details');
+        }, { action: 'type-none' }));
+        modules.forEach(moduleSpec => {
+            choices.append(actionButton(
+                moduleSpec.displayName || moduleSpec.moduleType,
+                () => {
+                    const defaultSpread = moduleSpec.defaultSpread || draft.templateKey;
+                    if (draft.templateKey !== defaultSpread) draft.cards = [];
+                    draft = {
+                        ...draft,
+                        questionMode: 'module',
+                        moduleType: moduleSpec.moduleType,
+                        templateKey: defaultSpread
+                    };
+                    const template = getTemplate(draft.templateKey);
+                    if (template) draft.templateName = template.name;
+                    setPhase('editing_details');
+                },
+                { action: `type-${moduleSpec.moduleType}` }
+            ));
+        });
+        mountNode.append(
+            el('section', { className: 'consultation-step' }, [
+                el('h3', { textContent: '选择咨询类型' }),
+                el('p', { textContent: '从无特定问题的牌面观察开始，或选择一个结构化咨询模块。' }),
+                choices
+            ])
+        );
+    }
+
+    function renderDetailsStep(mountNode, actionsNode) {
+        const section = el('section', { className: 'consultation-step consultation-details' });
+        section.append(el('h3', { textContent: '咨询细节' }));
+        if (draft.questionMode === 'module') {
+            section.append(field('你的问题', el('textarea', {
+                name: 'userQuery',
+                value: draft.userQuery,
+                maxLength: 500,
+                rows: 4,
+                onInput: event => { draft.userQuery = event.target.value; }
+            })));
+            section.append(field('补充背景', el('textarea', {
+                name: 'userContext',
+                value: draft.userContext,
+                maxLength: 1000,
+                rows: 4,
+                onInput: event => { draft.userContext = event.target.value; }
+            })));
+        } else {
+            section.append(el('p', {
+                className: 'consultation-muted',
+                textContent: '本次不记录特定问题，将只保存牌阵和你的选择。'
+            }));
+        }
+        const styleSelect = el('select', {
+            name: 'style',
+            value: draft.style,
+            onChange: event => { draft.style = event.target.value; }
+        }, [
+            el('option', { value: 'psychological', textContent: '心理反思' }),
+            el('option', { value: 'traditional', textContent: '传统牌义' }),
+            el('option', { value: 'intuitive', textContent: '直觉象征 / Intuitive' })
+        ]);
+        styleSelect.value = draft.style;
+        section.append(field('解读风格', styleSelect));
+        mountNode.append(section);
+        actionsNode.append(
+            actionButton('返回', () => setPhase('choosing_type')),
+            actionButton('选择牌阵', () => setPhase('choosing_spread_source'), { className: 'consultation-primary' })
+        );
+    }
+
+    function renderSpreadSourceStep(mountNode, actionsNode) {
+        const section = el('section', { className: 'consultation-step' });
+        section.append(el('h3', { textContent: '牌阵与取牌方式' }));
+        const templateGrid = el('div', { className: 'consultation-choice-grid' });
+        getTemplatesForDraft().forEach(template => {
+            templateGrid.append(actionButton(template.name, () => {
+                if (draft.templateKey !== template.key) draft.cards = [];
+                draft.templateKey = template.key;
+                draft.templateName = template.name;
+                render();
+            }, {
+                className: template.key === draft.templateKey
+                    ? 'consultation-choice is-selected'
+                    : 'consultation-choice',
+                action: `spread-${template.key}`
+            }));
+        });
+        section.append(templateGrid);
+        const modes = el('div', { className: 'consultation-segmented' }, [
+            actionButton('手动录入', () => {
+                if (draft.inputMode !== 'manual') draft.cards = [];
+                draft.inputMode = 'manual';
+                render();
+            }, { className: draft.inputMode === 'manual' ? 'is-selected' : '' }),
+            actionButton('3D 抽牌', () => {
+                if (draft.inputMode !== 'three_d') draft.cards = [];
+                draft.inputMode = 'three_d';
+                render();
+            }, { className: draft.inputMode === 'three_d' ? 'is-selected' : '' })
+        ]);
+        section.append(field('取牌方式', modes));
+        if (draft.templateKey === 'free') {
+            section.append(field('自由牌阵张数', el('input', {
+                type: 'number',
+                min: 1,
+                max: 10,
+                value: draft.freeCount,
+                onInput: event => {
+                    draft.freeCount = Math.min(10, Math.max(1, Number(event.target.value) || 1));
+                    draft.cards = draft.cards.filter(card => card.slot <= draft.freeCount);
+                }
+            })));
+        }
+        mountNode.append(section);
+        actionsNode.append(
+            actionButton('返回', () => setPhase('editing_details')),
+            actionButton('解读安排', () => setPhase('choosing_interpretation'), { className: 'consultation-primary' })
+        );
+    }
+
+    function renderInterpretationStep(mountNode, actionsNode) {
+        const section = el('section', { className: 'consultation-step' }, [
+            el('h3', { textContent: '何时解读' })
+        ]);
+        const choices = el('div', { className: 'consultation-choice-grid' });
+        [
+            ['now', '保存后立即生成'],
+            ['later', '稍后再生成'],
+            ['none', '只保存牌阵']
+        ].forEach(([value, label]) => {
+            choices.append(actionButton(label, () => {
+                draft.interpretationAction = value;
+                render();
+            }, {
+                className: draft.interpretationAction === value
+                    ? 'consultation-choice is-selected'
+                    : 'consultation-choice'
+            }));
+        });
+        section.append(choices);
+        mountNode.append(section);
+        actionsNode.append(
+            actionButton('返回', () => setPhase('choosing_spread_source')),
+            actionButton('开始取牌', () => {
+                if (draft.inputMode === 'manual') {
+                    setPhase('acquiring_cards');
+                } else {
+                    beginThreeD();
+                }
+            }, { className: 'consultation-primary' })
+        );
+    }
+
+    function replaceCardAtSlot(slotPlan, card) {
+        const remaining = draft.cards.filter(item => item.slot !== slotPlan.slot);
+        draft.cards = [...remaining, {
+            slot: slotPlan.slot,
+            slotLabel: slotPlan.slotLabel,
+            cardId: card.cardId,
+            isReversed: false
+        }].sort((left, right) => left.slot - right.slot);
+        render();
+    }
+
+    function renderManualCardsStep(mountNode, actionsNode) {
+        const template = getTemplate(draft.templateKey) || {};
+        const slots = getSlotPlan(template, draft.freeCount);
+        const grid = el('div', { className: 'consultation-card-grid' });
+        slots.forEach(slotPlan => {
+            const selected = draft.cards.find(card => card.slot === slotPlan.slot);
+            const cardNode = el('article', { className: 'consultation-card-editor' }, [
+                el('h4', { textContent: `${slotPlan.slot}. ${slotPlan.slotLabel}` })
+            ]);
+            if (selected) {
+                const deckCard = getBrowserDeck()[selected.cardId];
+                cardNode.append(el('p', {
+                    className: 'consultation-selected-card',
+                    textContent: deckCard
+                        ? `${deckCard.zh} / ${deckCard.en}`
+                        : `Card ${selected.cardId}`
+                }));
+                cardNode.append(el('div', { className: 'consultation-segmented' }, [
+                    actionButton('正位', () => {
+                        selected.isReversed = false;
+                        render();
+                    }, { className: selected.isReversed ? '' : 'is-selected' }),
+                    actionButton('逆位', () => {
+                        selected.isReversed = true;
+                        render();
+                    }, { className: selected.isReversed ? 'is-selected' : '' })
+                ]));
+            }
+            const results = el('div', { className: 'consultation-search-results' });
+            const search = el('input', {
+                type: 'search',
+                placeholder: '输入中文、英文或牌号',
+                ariaLabel: `搜索第 ${slotPlan.slot} 个位置的牌`,
+                onInput: event => {
+                    const used = new Set(
+                        draft.cards
+                            .filter(item => item.slot !== slotPlan.slot)
+                            .map(item => item.cardId)
+                    );
+                    results.replaceChildren();
+                    searchDeck(getBrowserDeck(), event.target.value).forEach(card => {
+                        results.append(actionButton(
+                            `${card.cardId} · ${card.zh} / ${card.en}`,
+                            () => replaceCardAtSlot(slotPlan, card),
+                            { disabled: used.has(card.cardId) }
+                        ));
+                    });
+                }
+            });
+            cardNode.append(search, results);
+            grid.append(cardNode);
+        });
+        mountNode.append(el('section', { className: 'consultation-step' }, [
+            el('h3', { textContent: '手动录入牌面' }),
+            el('p', { textContent: '逐槽搜索牌名，并明确选择正位或逆位。重复牌会被禁用。' }),
+            grid
+        ]));
+        actionsNode.append(
+            actionButton('返回', () => setPhase('choosing_interpretation')),
+            actionButton('确认牌面', () => setPhase('confirming'), {
+                className: 'consultation-primary',
+                disabled: draft.cards.length !== slots.length
+            })
+        );
+    }
+
+    function renderConfirmationStep(mountNode, actionsNode) {
+        const section = el('section', { className: 'consultation-step consultation-confirmation' }, [
+            el('h3', { textContent: '确认并保存' }),
+            el('p', { textContent: draft.templateName })
+        ]);
+        if (draft.questionMode === 'module') {
+            section.append(
+                el('p', { className: 'consultation-query', textContent: draft.userQuery }),
+                el('p', { className: 'consultation-context', textContent: draft.userContext })
+            );
+        }
+        const cardGrid = el('div', { className: 'consultation-card-grid' });
+        materializeCards(draft.cards, getBrowserDeck()).forEach(card => {
+            cardGrid.append(el('figure', { className: 'consultation-card-preview' }, [
+                el('img', {
+                    src: `image2/${encodeURIComponent(card.imageFile || '')}`,
+                    alt: `${card.zh} ${card.isReversed ? '逆位' : '正位'}`,
+                    className: card.isReversed ? 'is-reversed' : ''
+                }),
+                el('figcaption', {
+                    textContent: `${card.slotLabel} · ${card.zh} / ${card.en} · ${card.isReversed ? '逆位' : '正位'}`
+                })
+            ]));
+        });
+        section.append(cardGrid);
+        mountNode.append(section);
+        const saveButton = actionButton('保存并继续', async () => {
+            if (phase !== 'confirming') return;
+            saveButton.disabled = true;
+            await saveCurrentCards();
+        }, { className: 'consultation-primary', action: 'save' });
+        actionsNode.append(
+            actionButton('返回修改', () => setPhase('acquiring_cards')),
+            saveButton
+        );
+    }
+
+    function renderBusyStep(mountNode) {
+        mountNode.append(el('section', { className: 'consultation-busy' }, [
+            el('h3', { textContent: '正在保存' }),
+            el('p', { textContent: '正在写入牌阵和咨询记录，请稍候。' })
+        ]));
+    }
+
+    function renderSavedStep(mountNode, actionsNode) {
+        mountNode.append(el('section', { className: 'consultation-result-panel' }, [
+            el('h3', { textContent: '已保存' }),
+            el('p', { textContent: saved ? `Reading #${saved.readingId}` : '记录已保存' }),
+            streamContent ? el('article', { textContent: streamContent }) : null
+        ]));
+        actionsNode.append(actionButton('完成', () => close(true), { className: 'consultation-primary' }));
+    }
+
+    function renderGenerationStep(mountNode, actionsNode) {
+        mountNode.append(el('section', { className: 'consultation-result-panel' }, [
+            el('h3', { textContent: '正在生成解读' }),
+            el('article', {
+                className: 'consultation-stream-result',
+                ariaLive: 'polite',
+                textContent: streamContent
+            })
+        ]));
+        actionsNode.append(actionButton('停止生成', () => {
+            if (abortController) abortController.abort();
+        }));
+    }
+
+    function renderReviewStep(mountNode) {
+        const interpretation = generated && generated.interpretation;
+        const form = el('form', { className: 'consultation-review-panel' });
+        form.append(
+            el('h3', { textContent: '审核解读' }),
+            el('article', {
+                className: 'consultation-stream-result',
+                textContent: generated ? generated.content : streamContent
+            })
+        );
+        const verdict = el('select', { name: 'verdict' }, [
+            el('option', { value: 'accepted', textContent: '接受' }),
+            el('option', { value: 'needs_work', textContent: '需要改进' }),
+            el('option', { value: 'rejected', textContent: '拒绝' }),
+            el('option', { value: 'edited', textContent: '采用编辑版' })
+        ]);
+        verdict.value = 'accepted';
+        const rating = el('select', { name: 'rating' }, [
+            el('option', { value: '', textContent: '不评分' }),
+            ...[1, 2, 3, 4, 5].map(value => el('option', { value: String(value), textContent: `${value}` }))
+        ]);
+        form.append(field('结论', verdict), field('评分', rating));
+        const tagBox = el('fieldset', { className: 'consultation-review-tags' }, [
+            el('legend', { textContent: '问题标签' })
+        ]);
+        ['不回应问题', '牌义错误', '机械罗列', '空泛套话', '过度宿命', '建议不可执行', '其他']
+            .forEach(tag => {
+                const checkbox = el('input', { type: 'checkbox', value: tag });
+                tagBox.append(field(tag, checkbox, 'consultation-checkbox'));
+            });
+        form.append(tagBox);
+        const note = el('textarea', { name: 'reviewNote', rows: 3 });
+        const edited = el('textarea', { name: 'editedContent', rows: 6 });
+        const privacy = el('input', { type: 'checkbox', name: 'privacyConfirmed' });
+        const privacyField = field('我已确认编辑内容不含不应保存的隐私信息', privacy, 'consultation-checkbox');
+        const updatePrivacy = () => {
+            const isConsultation = Boolean(saved && saved.consultationId !== null);
+            privacyField.hidden = !(
+                isConsultation
+                && ['accepted', 'edited'].includes(verdict.value)
+            );
+        };
+        verdict.addEventListener('change', updatePrivacy);
+        updatePrivacy();
+        let reviewInFlight = false;
+        const submitButton = el('button', {
+            type: 'submit',
+            className: 'consultation-primary',
+            textContent: '保存审核'
+        });
+        form.append(
+            field('审核备注', note),
+            field('编辑后的理想答案', edited),
+            privacyField,
+            submitButton
+        );
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (reviewInFlight) return;
+            reviewInFlight = true;
+            submitButton.disabled = true;
+            const token = flowEpoch;
+            const issueTags = Array.from(tagBox.querySelectorAll('input:checked'))
+                .map(input => input.value);
+            try {
+                const review = await submitReview(interpretation.id, {
+                    verdict: verdict.value,
+                    rating: rating.value,
+                    issueTags,
+                    reviewNote: note.value,
+                    editedContent: edited.value,
+                    privacyConfirmed: privacy.checked
+                }, browserDeps());
+                if (token !== flowEpoch || phase !== 'review_ready') return;
+                generated = { ...generated, review };
+                setPhase('review_saved');
+            } catch (error) {
+                if (token !== flowEpoch || phase !== 'review_ready') return;
+                setStatus(error.message, true);
+            } finally {
+                if (token === flowEpoch && phase === 'review_ready') {
+                    reviewInFlight = false;
+                    submitButton.disabled = false;
+                }
+            }
+        });
+        mountNode.append(form);
+    }
+
+    function renderReviewSavedStep(mountNode, actionsNode) {
+        mountNode.append(el('section', { className: 'consultation-result-panel' }, [
+            el('h3', { textContent: '审核已保存' }),
+            el('p', { textContent: '感谢你的反馈，它将用于改进后续解读。' })
+        ]));
+        actionsNode.append(actionButton('完成', () => close(true), { className: 'consultation-primary' }));
+    }
+
+    const renderers = {
+        choosing_type: renderTypeStep,
+        editing_details: renderDetailsStep,
+        choosing_spread_source: renderSpreadSourceStep,
+        choosing_interpretation: renderInterpretationStep,
+        acquiring_cards: renderManualCardsStep,
+        confirming: renderConfirmationStep,
+        saving: renderBusyStep,
+        saved: renderSavedStep,
+        generating: renderGenerationStep,
+        review_ready: renderReviewStep,
+        review_saved: renderReviewSavedStep
+    };
+
+    function render() {
+        if (!root.document) return;
+        const mountNode = root.document.getElementById('consultation-flow-mount');
+        const actionsNode = root.document.getElementById('consultation-flow-actions');
+        const stepsNode = root.document.getElementById('consultation-flow-steps');
+        if (!mountNode || !actionsNode) return;
+        mountNode.replaceChildren();
+        actionsNode.replaceChildren();
+        if (stepsNode) {
+            stepsNode.textContent = `Step ${Math.max(1, PHASES.indexOf(phase) + 1)} · ${phase}`;
+        }
+        const renderer = renderers[phase];
+        if (renderer) renderer(mountNode, actionsNode);
+    }
+
+    function setStatus(message, isError = false) {
+        if (!root.document) return;
+        const node = root.document.getElementById('consultation-flow-status');
+        if (!node) return;
+        node.textContent = String(message || '');
+        node.classList.toggle('is-error', isError);
+    }
+
+    function getBrowserDeck() {
+        if (root.FULL_DECK) return root.FULL_DECK;
+        if (typeof FULL_DECK !== 'undefined') return FULL_DECK;
+        throw new Error('Tarot deck is unavailable');
+    }
+
+    function browserDeps() {
+        return {
+            deck: getBrowserDeck(),
+            api: root.TarotAPI,
+            streamInterpretation: root.AkashicInterpret.streamInterpretation
+        };
+    }
+
+    function isOpen() {
+        const dialog = root.document
+            && root.document.getElementById('consultation-flow');
+        return Boolean(dialog && !dialog.hidden);
+    }
+
+    function hasActiveDraft() {
+        return Boolean(
+            draft
+            && phase === 'acquiring_cards'
+            && draft.inputMode === 'three_d'
+        );
+    }
+
+    function reset() {
+        invalidateAsyncWork();
+        draft = createInitialDraft();
+        phase = 'choosing_type';
+        saved = null;
+        generated = null;
+        streamContent = '';
+        render();
+    }
+
+    async function open() {
+        if (!root.document) return false;
+        const dialog = root.document.getElementById('consultation-flow');
+        if (!dialog || !dialog.hidden) return false;
+        returnFocus = root.document.activeElement;
+        dialog.hidden = false;
+        root.document.body.classList.add('consultation-flow-open');
+        const title = root.document.getElementById('consultation-flow-title');
+        if (title && title.focus) title.focus();
+        if (!modules.length && root.TarotAPI) {
+            try {
+                modules = await root.TarotAPI.loadConsultationModules();
+            } catch (error) {
+                setStatus(error.message, true);
+            }
+        }
+        render();
+        return true;
+    }
+
+    function close(force = false) {
+        if (!root.document) return true;
+        if (
+            !force
+            && ['saving', 'generating'].includes(phase)
+            && typeof root.confirm === 'function'
+            && !root.confirm('当前操作尚未完成，确定关闭吗？')
+        ) {
+            return false;
+        }
+        invalidateAsyncWork();
+        const dialog = root.document.getElementById('consultation-flow');
+        if (dialog) dialog.hidden = true;
+        root.document.body.classList.remove('consultation-flow-open');
+        if (returnFocus && returnFocus.focus) returnFocus.focus();
+        return true;
+    }
+
+    function invalidateAsyncWork() {
+        flowEpoch += 1;
+        if (abortController) abortController.abort();
+        abortController = null;
+        return flowEpoch;
+    }
+
+    function mount() {
+        if (mounted || !root.document) return;
+        const closeButton = root.document.getElementById('consultation-flow-close');
+        if (!closeButton) return;
+        mounted = true;
+        closeButton.addEventListener('click', () => close());
+        root.document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && isOpen()) close();
+        });
+        render();
+    }
+
+    function updateActiveSummary() {
+        if (!root.document) return;
+        const node = root.document.getElementById('active-consultation-summary');
+        if (!node) return;
+        node.hidden = false;
+        node.textContent = draft.questionMode === 'module'
+            ? `普通咨询 · ${draft.templateName}`
+            : `无特定问题 · ${draft.templateName}`;
+    }
+
+    function beginThreeD() {
+        if (typeof root.startConsultationSpread !== 'function') {
+            setStatus('3D 抽牌尚未就绪', true);
+            return;
+        }
+        phase = 'acquiring_cards';
+        root.SpreadTemplates.setActiveTemplate(draft.templateKey);
+        updateActiveSummary();
+        close(true);
+        root.startConsultationSpread();
+    }
+
+    async function afterSave(token) {
+        if (token !== flowEpoch) return;
+        if (draft.interpretationAction !== 'now') {
+            phase = 'saved';
+            render();
+            return;
+        }
+        phase = 'generating';
+        streamContent = '';
+        const AbortControllerClass = root.AbortController
+            || (typeof AbortController !== 'undefined' ? AbortController : null);
+        const controller = AbortControllerClass ? new AbortControllerClass() : null;
+        abortController = controller;
+        render();
+        try {
+            const nextGenerated = await runSavedInterpretation(
+                saved,
+                draft,
+                browserDeps(),
+                event => {
+                    if (token !== flowEpoch) return;
+                    if (event.chunk) streamContent += event.chunk;
+                    render();
+                },
+                controller ? controller.signal : undefined
+            );
+            if (token !== flowEpoch) return;
+            generated = nextGenerated;
+            phase = saved.consultationId !== null && generated.interpretation
+                ? 'review_ready'
+                : 'saved';
+            setStatus('解读完成', false);
+        } catch (error) {
+            if (token !== flowEpoch) return;
+            phase = 'saved';
+            setStatus(error.message, true);
+        } finally {
+            if (token === flowEpoch) {
+                if (abortController === controller) abortController = null;
+                render();
+            }
+        }
+    }
+
+    async function saveCurrentCards() {
+        if (phase === 'saving') return;
+        const moduleSpec = modules.find(item => item.moduleType === draft.moduleType) || null;
+        const errors = validateDraft(draft, moduleSpec, { requireCards: true });
+        if (Object.keys(errors).length) {
+            setStatus(Object.values(errors)[0], true);
+            return;
+        }
+        const token = ++flowEpoch;
+        phase = 'saving';
+        render();
+        try {
+            const nextSaved = await persistDraftCards(
+                draft,
+                draft.cards,
+                browserDeps()
+            );
+            if (token !== flowEpoch) return;
+            saved = nextSaved;
+            root.lastSavedReadingId = saved.readingId;
+            await afterSave(token);
+        } catch (error) {
+            if (token !== flowEpoch) return;
+            phase = 'confirming';
+            setStatus(error.message, true);
+            render();
+        }
+    }
+
+    function getDraft() {
+        return {
+            ...draft,
+            modulePayload: { ...(draft.modulePayload || {}) },
+            cards: Array.isArray(draft.cards)
+                ? draft.cards.map(card => ({ ...card }))
+                : []
+        };
+    }
+
+    function setDraftForTest(value) {
+        const {
+            phase: testPhase,
+            saved: testSaved,
+            generated: testGenerated,
+            streamContent: testStreamContent,
+            ...draftValue
+        } = value || {};
+        draft = {
+            ...createInitialDraft(),
+            ...draftValue,
+            modulePayload: { ...(draftValue.modulePayload || {}) },
+            cards: Array.isArray(draftValue.cards)
+                ? draftValue.cards.map(card => ({ ...card }))
+                : []
+        };
+        if (PHASES.includes(testPhase)) phase = testPhase;
+        if (Object.prototype.hasOwnProperty.call(value || {}, 'saved')) {
+            saved = testSaved;
+        }
+        if (Object.prototype.hasOwnProperty.call(value || {}, 'generated')) {
+            generated = testGenerated;
+        }
+        if (Object.prototype.hasOwnProperty.call(value || {}, 'streamContent')) {
+            streamContent = String(testStreamContent || '');
+        }
+        render();
+    }
+
     function nextPhase(currentPhase, requestedPhase) {
         if (!PHASES.includes(currentPhase) || !PHASES.includes(requestedPhase)) {
             throw new Error('Unknown consultation phase');
@@ -349,7 +1104,7 @@
         return requestedPhase;
     }
 
-    return {
+    const api = {
         createInitialDraft,
         searchDeck,
         getSlotPlan,
@@ -360,6 +1115,14 @@
         persistDraftCards,
         runSavedInterpretation,
         submitReview,
-        nextPhase
+        nextPhase,
+        mount,
+        open,
+        close,
+        reset,
+        isOpen,
+        hasActiveDraft,
+        getDraft
     };
+    return { api, setDraftForTest };
 });

@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/tarot.css">
     <link rel="stylesheet" href="css/interpret.css">
+    <link rel="stylesheet" href="css/consultation_flow.css">
     <link rel="stylesheet" href="css/responsive.css">
 </head>
 
@@ -70,6 +71,7 @@
                 <div class="status-kicker">Current Spread</div>
                 <div id="current-spread-title" class="spread-panel-title">Three Card Insight</div>
                 <div id="current-spread-sub" class="spread-panel-sub">Past - Present - Future</div>
+                <div id="active-consultation-summary" class="active-consultation-summary" hidden></div>
                 <button id="change-spread-button" class="control-switch secondary-switch" type="button">牌阵 / Spread</button>
             </section>
 
@@ -146,6 +148,21 @@
         </div>
     </div>
 
+    <section id="consultation-flow" class="consultation-flow" role="dialog"
+        aria-modal="true" aria-labelledby="consultation-flow-title" hidden>
+        <header class="consultation-flow-head">
+            <div>
+                <span class="status-kicker">New Consultation</span>
+                <h2 id="consultation-flow-title" tabindex="-1">新咨询</h2>
+            </div>
+            <button id="consultation-flow-close" class="consultation-flow-close" type="button">关闭 / Close</button>
+        </header>
+        <nav id="consultation-flow-steps" class="consultation-flow-steps" aria-label="咨询步骤"></nav>
+        <div id="consultation-flow-status" class="consultation-flow-status" role="status" aria-live="polite"></div>
+        <main id="consultation-flow-mount" class="consultation-flow-mount"></main>
+        <footer id="consultation-flow-actions" class="consultation-flow-actions"></footer>
+    </section>
+
     <div id="interpret-overlay" hidden>
         <div class="interpret-overlay-head">
             <h3 class="interpret-overlay-title">AI 解读 / Interpretation</h3>
@@ -180,6 +197,7 @@
     <script src="js/gesture.js"></script>
     <script src="js/spread_layout.js"></script>
     <script src="js/spread_templates.js"></script>
+    <script src="js/consultation_flow.js"></script>
     <script src="js/spread_flow.js"></script>
     <script src="js/mouse_interaction.js"></script>
     <script src="js/main_ui_state.js"></script>

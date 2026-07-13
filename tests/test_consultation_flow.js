@@ -2,6 +2,7 @@
 
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
 const {
     createInitialDraft,
@@ -14,7 +15,15 @@ const {
     nextPhase,
     persistDraftCards,
     runSavedInterpretation,
-    submitReview
+    submitReview,
+    mount,
+    open,
+    close,
+    reset,
+    isOpen,
+    hasActiveDraft,
+    getDraft,
+    setDraftForTest
 } = require('../js/consultation_flow.js');
 
 const deck = [
@@ -283,6 +292,691 @@ function testPhaseTransitions() {
     });
     assert.throws(() => nextPhase('unknown', 'saved'), /Unknown consultation phase/);
     assert.throws(() => nextPhase('saved', 'unknown'), /Unknown consultation phase/);
+}
+
+function testThreePageConsultationFlowIntegration() {
+    const html = fs.readFileSync(
+        path.join(__dirname, '..', 'Three.html'),
+        'utf8'
+    );
+
+    assert.ok(html.includes('id="consultation-flow"'));
+    assert.ok(html.includes('role="dialog"'));
+    assert.ok(html.includes('aria-modal="true"'));
+    assert.ok(html.includes('aria-labelledby="consultation-flow-title"'));
+    assert.ok(html.includes('id="consultation-flow-close"'));
+    assert.ok(html.includes('id="consultation-flow-steps"'));
+    assert.ok(html.includes('id="consultation-flow-status"'));
+    assert.ok(html.includes('aria-live="polite"'));
+    assert.ok(html.includes('id="consultation-flow-mount"'));
+    assert.ok(html.includes('id="consultation-flow-actions"'));
+    assert.ok(html.includes('id="active-consultation-summary"'));
+
+    const featureCss = html.indexOf('css/consultation_flow.css');
+    const responsiveCss = html.indexOf('css/responsive.css');
+    assert.ok(featureCss >= 0 && featureCss < responsiveCss);
+
+    const templatesScript = html.indexOf('js/spread_templates.js');
+    const flowScript = html.indexOf('js/consultation_flow.js');
+    const mainScript = html.indexOf('js/main.js');
+    assert.ok(templatesScript >= 0 && templatesScript < flowScript);
+    assert.ok(flowScript < mainScript);
+}
+
+function testControllerExportsStateAndSafeRenderers() {
+    for (const controllerMethod of [
+        mount,
+        open,
+        close,
+        reset,
+        isOpen,
+        hasActiveDraft,
+        getDraft,
+        setDraftForTest
+    ]) {
+        assert.strictEqual(typeof controllerMethod, 'function');
+    }
+
+    const initial = createInitialDraft();
+    setDraftForTest({ ...initial, userQuery: '<img src=x onerror=alert(1)>' });
+    const copy = getDraft();
+    assert.strictEqual(copy.userQuery, '<img src=x onerror=alert(1)>');
+    copy.userQuery = 'changed outside';
+    assert.strictEqual(getDraft().userQuery, '<img src=x onerror=alert(1)>');
+    reset();
+
+    const source = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'consultation_flow.js'),
+        'utf8'
+    );
+    assert.strictEqual(source.includes('.innerHTML'), false);
+    for (const phase of [
+        'choosing_type',
+        'editing_details',
+        'choosing_spread_source',
+        'choosing_interpretation',
+        'acquiring_cards',
+        'confirming',
+        'saving',
+        'saved',
+        'generating',
+        'review_ready',
+        'review_saved'
+    ]) {
+        assert.ok(source.includes(`${phase}: render`), `missing renderer for ${phase}`);
+    }
+}
+
+function testConsultationFlowCssContract() {
+    const css = fs.readFileSync(
+        path.join(__dirname, '..', 'css', 'consultation_flow.css'),
+        'utf8'
+    );
+    assert.match(css, /z-index:\s*320/);
+    assert.match(css, /\.consultation-flow\[hidden\]/);
+    assert.match(css, /min-height:\s*44px/);
+    assert.match(css, /:focus-visible/);
+    assert.match(css, /\.consultation-card-grid/);
+    assert.match(css, /@media\s*\(max-width:/);
+}
+
+function makeFakeControllerDocument() {
+    const documentListeners = {};
+    const makeClassList = () => {
+        const values = new Set();
+        return {
+            add(...items) { items.forEach(item => values.add(item)); },
+            remove(...items) { items.forEach(item => values.delete(item)); },
+            toggle(item, force) {
+                const enabled = force === undefined ? !values.has(item) : force;
+                if (enabled) values.add(item); else values.delete(item);
+                return enabled;
+            },
+            contains(item) { return values.has(item); }
+        };
+    };
+    const document = {
+        activeElement: null,
+        createElement(tagName) {
+            const listeners = {};
+            const node = {
+                nodeType: 1,
+                tagName: tagName.toUpperCase(),
+                children: [],
+                dataset: {},
+                classList: makeClassList(),
+                hidden: false,
+                disabled: false,
+                value: '',
+                checked: false,
+                addEventListener(type, listener) {
+                    (listeners[type] = listeners[type] || []).push(listener);
+                },
+                listenerCount(type) {
+                    return (listeners[type] || []).length;
+                },
+                dispatch(type, event = {}) {
+                    const results = (listeners[type] || []).map(listener => listener({
+                        target: node,
+                        preventDefault() {},
+                        ...event
+                    }));
+                    return Promise.all(results);
+                },
+                append(...items) {
+                    items.forEach(item => {
+                        node.children.push(item);
+                        if (item && typeof item === 'object') item.parentNode = node;
+                    });
+                },
+                appendChild(item) {
+                    node.children.push(item);
+                    if (item && typeof item === 'object') item.parentNode = node;
+                    return item;
+                },
+                replaceChildren(...items) {
+                    node.children = [...items];
+                    items.forEach(item => {
+                        if (item && typeof item === 'object') item.parentNode = node;
+                    });
+                },
+                setAttribute(name, value) {
+                    node[name] = String(value);
+                },
+                focus() {
+                    document.activeElement = node;
+                    node.focusCount = (node.focusCount || 0) + 1;
+                },
+                querySelectorAll(selector) {
+                    const matches = [];
+                    const visit = current => {
+                        if (!current || typeof current !== 'object') return;
+                        const isCheckedInput = selector === 'input:checked'
+                            && current.tagName === 'INPUT'
+                            && current.checked;
+                        if (isCheckedInput) matches.push(current);
+                        (current.children || []).forEach(visit);
+                    };
+                    node.children.forEach(visit);
+                    return matches;
+                }
+            };
+            return node;
+        },
+        getElementById(id) {
+            return nodes[id] || null;
+        },
+        addEventListener(type, listener) {
+            (documentListeners[type] = documentListeners[type] || []).push(listener);
+        },
+        listenerCount(type) {
+            return (documentListeners[type] || []).length;
+        },
+        dispatch(type, event) {
+            (documentListeners[type] || []).forEach(listener => listener(event));
+        }
+    };
+    document.body = document.createElement('body');
+    const nodes = {};
+    [
+        ['consultation-flow', 'section'],
+        ['consultation-flow-title', 'h2'],
+        ['consultation-flow-close', 'button'],
+        ['consultation-flow-steps', 'nav'],
+        ['consultation-flow-status', 'div'],
+        ['consultation-flow-mount', 'main'],
+        ['consultation-flow-actions', 'footer'],
+        ['active-consultation-summary', 'div']
+    ].forEach(([id, tag]) => {
+        const node = document.createElement(tag);
+        node.id = id;
+        nodes[id] = node;
+        document.body.append(node);
+    });
+    nodes['consultation-flow'].hidden = true;
+    nodes['active-consultation-summary'].hidden = true;
+    return { document, nodes };
+}
+
+function findFakeNode(rootNode, predicate) {
+    if (!rootNode || typeof rootNode !== 'object') return null;
+    if (predicate(rootNode)) return rootNode;
+    for (const child of rootNode.children || []) {
+        const match = findFakeNode(child, predicate);
+        if (match) return match;
+    }
+    return null;
+}
+
+function deferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
+}
+
+function loadControllerRuntime(overrides = {}) {
+    const { document, nodes } = makeFakeControllerDocument();
+    const runtime = {
+        document,
+        confirm: () => true,
+        FULL_DECK: deck,
+        SpreadTemplates: require('../js/spread_templates.js'),
+        TarotAPI: {
+            async loadConsultationModules() { return [generalModule]; },
+            ...overrides.api
+        },
+        AkashicInterpret: {
+            async *streamInterpretation() { yield { done: true }; },
+            ...overrides.interpret
+        },
+        AbortController: class {
+            constructor() { this.signal = { aborted: false }; }
+            abort() { this.signal.aborted = true; }
+        },
+        ...overrides.runtime
+    };
+    const commonJsModule = { exports: {} };
+    const source = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'consultation_flow.js'),
+        'utf8'
+    );
+    vm.runInNewContext(source, {
+        globalThis: runtime,
+        window: runtime,
+        module: commonJsModule,
+        console,
+        encodeURIComponent
+    }, { filename: 'consultation_flow.js' });
+    return {
+        runtime,
+        document,
+        nodes,
+        browserFlow: runtime.ConsultationFlow,
+        testFlow: commonJsModule.exports
+    };
+}
+
+async function testBrowserControllerMountOpenCloseLifecycle() {
+    const { document, nodes } = makeFakeControllerDocument();
+    const opener = document.createElement('button');
+    opener.focus();
+    let moduleLoads = 0;
+    const runtime = {
+        document,
+        confirm: () => true,
+        TarotAPI: {
+            async loadConsultationModules() {
+                moduleLoads += 1;
+                return [generalModule];
+            }
+        }
+    };
+    const source = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'consultation_flow.js'),
+        'utf8'
+    );
+    vm.runInNewContext(source, {
+        globalThis: runtime,
+        window: runtime,
+        console,
+        encodeURIComponent
+    }, { filename: 'consultation_flow.js' });
+    const browserFlow = runtime.ConsultationFlow;
+
+    browserFlow.mount();
+    browserFlow.mount();
+    assert.strictEqual(nodes['consultation-flow-close'].listenerCount('click'), 1);
+    assert.strictEqual(document.listenerCount('keydown'), 1);
+    assert.strictEqual(await browserFlow.open(), true);
+    assert.strictEqual(browserFlow.isOpen(), true);
+    assert.strictEqual(nodes['consultation-flow'].hidden, false);
+    assert.strictEqual(document.body.classList.contains('consultation-flow-open'), true);
+    assert.strictEqual(document.activeElement, nodes['consultation-flow-title']);
+    assert.strictEqual(moduleLoads, 1);
+    assert.strictEqual(await browserFlow.open(), false);
+    assert.strictEqual(moduleLoads, 1);
+    assert.strictEqual(browserFlow.close(), true);
+    assert.strictEqual(document.activeElement, opener);
+
+    await browserFlow.open();
+    document.dispatch('keydown', { key: 'Escape' });
+    assert.strictEqual(browserFlow.isOpen(), false);
+}
+
+async function testDetailsUsesOnlyBackendSupportedStyles() {
+    const { browserFlow, nodes } = loadControllerRuntime();
+    browserFlow.mount();
+    await browserFlow.open();
+    const moduleButton = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'type-general_reading'
+    );
+    await moduleButton.dispatch('click');
+    const styleSelect = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'SELECT' && node.name === 'style'
+    );
+    assert.deepStrictEqual(
+        styleSelect.children.map(option => option.value),
+        ['psychological', 'traditional', 'intuitive']
+    );
+    assert.strictEqual(
+        styleSelect.children.some(option => option.value === 'concise'),
+        false
+    );
+}
+
+async function testSpreadChangesReconcileCards() {
+    const { browserFlow, testFlow, nodes } = loadControllerRuntime();
+    browserFlow.mount();
+    await browserFlow.open();
+    const fiveCards = Array.from({ length: 5 }, (_, index) => ({
+        slot: index + 1,
+        slotLabel: `Slot ${index + 1}`,
+        cardId: index,
+        isReversed: false
+    }));
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'choosing_spread_source',
+        questionMode: 'none',
+        templateKey: 'free',
+        templateName: 'Free Spread',
+        freeCount: 5,
+        inputMode: 'manual',
+        cards: fiveCards
+    });
+    const freeCount = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'INPUT' && node.type === 'number'
+    );
+    assert.ok(freeCount, 'free-count input should render');
+    freeCount.value = '3';
+    await freeCount.dispatch('input');
+    assert.deepStrictEqual(testFlow.getDraft().cards.map(card => card.slot), [1, 2, 3]);
+
+    const timeline = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'spread-three_timeline'
+    );
+    await timeline.dispatch('click');
+    assert.strictEqual(testFlow.getDraft().cards.length, 0);
+
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'choosing_spread_source',
+        questionMode: 'none',
+        inputMode: 'manual',
+        cards: fiveCards.slice(0, 3)
+    });
+    const threeD = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'BUTTON' && node.textContent === '3D 抽牌'
+    );
+    await threeD.dispatch('click');
+    assert.strictEqual(testFlow.getDraft().cards.length, 0);
+}
+
+async function testStaleSaveCannotStartGenerationAfterCloseOrReset() {
+    for (const invalidate of ['close', 'reset']) {
+        const saveGate = deferred();
+        let streamCalls = 0;
+        let confirmCalls = 0;
+        const controller = loadControllerRuntime({
+            api: {
+                async createConsultation() { return saveGate.promise; },
+                async createReading() { throw new Error('wrong save path'); }
+            },
+            interpret: {
+                async *streamInterpretation() {
+                    streamCalls += 1;
+                    yield { done: true };
+                }
+            },
+            runtime: {
+                confirm() { confirmCalls += 1; return true; }
+            }
+        });
+        const { browserFlow, testFlow, nodes, runtime } = controller;
+        browserFlow.mount();
+        await browserFlow.open();
+        testFlow.setDraftForTest({ ...completeDraft(), phase: 'confirming' });
+        const saveButton = findFakeNode(
+            nodes['consultation-flow-actions'],
+            node => node.dataset && node.dataset.flowAction === 'save'
+        );
+        const pendingClick = saveButton.dispatch('click');
+        if (invalidate === 'close') {
+            assert.strictEqual(browserFlow.close(), true);
+            assert.strictEqual(confirmCalls, 1);
+            testFlow.setDraftForTest({
+                ...createInitialDraft(),
+                phase: 'choosing_type',
+                userQuery: 'new draft'
+            });
+        } else {
+            browserFlow.reset();
+        }
+        saveGate.resolve({ id: 41, readingId: 51 });
+        await pendingClick;
+        assert.strictEqual(streamCalls, 0, `${invalidate} must suppress stale stream`);
+        assert.strictEqual(runtime.lastSavedReadingId, undefined);
+        assert.strictEqual(
+            testFlow.getDraft().userQuery,
+            invalidate === 'close' ? 'new draft' : ''
+        );
+    }
+}
+
+async function testCloseAbortsGenerationAndIgnoresLateEvents() {
+    const streamStarted = deferred();
+    const streamGate = deferred();
+    let observedSignal = null;
+    const controller = loadControllerRuntime({
+        api: {
+            async createConsultation() { return { id: 41, readingId: 51 }; },
+            async createReading() { throw new Error('wrong save path'); },
+            async loadConsultation() { return { interpretations: [] }; }
+        },
+        interpret: {
+            async *streamInterpretation(_readingId, options) {
+                observedSignal = options.signal;
+                streamStarted.resolve();
+                await streamGate.promise;
+                yield { chunk: 'late' };
+                yield { done: true };
+            }
+        }
+    });
+    const { browserFlow, testFlow, nodes } = controller;
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({ ...completeDraft(), phase: 'confirming' });
+    const saveButton = findFakeNode(
+        nodes['consultation-flow-actions'],
+        node => node.dataset && node.dataset.flowAction === 'save'
+    );
+    const pendingClick = saveButton.dispatch('click');
+    await streamStarted.promise;
+    assert.strictEqual(browserFlow.close(), true);
+    assert.strictEqual(observedSignal.aborted, true);
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'choosing_type',
+        streamContent: 'fresh'
+    });
+    streamGate.resolve();
+    await pendingClick;
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'saved',
+        saved: { consultationId: null, readingId: 77 }
+    });
+    const article = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'ARTICLE'
+    );
+    assert.strictEqual(article.textContent, 'fresh');
+}
+
+async function testReviewPrivacyFollowsConsultationAndVerdict() {
+    const controller = loadControllerRuntime();
+    const { browserFlow, testFlow, nodes } = controller;
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'review_ready',
+        saved: { consultationId: 17, readingId: 29 },
+        generated: {
+            content: 'safe output',
+            interpretation: { id: 9 }
+        }
+    });
+    const verdict = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'SELECT' && node.name === 'verdict'
+    );
+    const privacy = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'INPUT' && node.name === 'privacyConfirmed'
+    );
+    assert.strictEqual(verdict.value, 'accepted');
+    assert.strictEqual(privacy.parentNode.hidden, false);
+    verdict.value = 'needs_work';
+    await verdict.dispatch('change');
+    assert.strictEqual(privacy.parentNode.hidden, true);
+    verdict.value = 'edited';
+    await verdict.dispatch('change');
+    assert.strictEqual(privacy.parentNode.hidden, false);
+    verdict.value = 'rejected';
+    await verdict.dispatch('change');
+    assert.strictEqual(privacy.parentNode.hidden, true);
+
+    testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'review_ready',
+        saved: { consultationId: null, readingId: 29 },
+        generated: {
+            content: 'plain reading',
+            interpretation: { id: 10 }
+        }
+    });
+    const plainPrivacy = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.tagName === 'INPUT' && node.name === 'privacyConfirmed'
+    );
+    assert.strictEqual(plainPrivacy.parentNode.hidden, true);
+}
+
+async function testReviewSubmitGuardsDuplicateAndAllowsRetry() {
+    const reviewGate = deferred();
+    let reviewCalls = 0;
+    const controller = loadControllerRuntime({
+        api: {
+            async reviewInterpretation() {
+                reviewCalls += 1;
+                return reviewGate.promise;
+            }
+        }
+    });
+    const { browserFlow, testFlow, nodes } = controller;
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'review_ready',
+        saved: { consultationId: 17, readingId: 29 },
+        generated: { content: 'output', interpretation: { id: 9 } }
+    });
+    const form = findFakeNode(nodes['consultation-flow-mount'], node => node.tagName === 'FORM');
+    const submit = findFakeNode(form, node => node.tagName === 'BUTTON' && node.type === 'submit');
+    const first = form.dispatch('submit');
+    const second = form.dispatch('submit');
+    assert.strictEqual(reviewCalls, 1);
+    assert.strictEqual(submit.disabled, true);
+    reviewGate.resolve({ id: 1 });
+    await Promise.all([first, second]);
+
+    let retryCalls = 0;
+    const retryController = loadControllerRuntime({
+        api: {
+            async reviewInterpretation() {
+                retryCalls += 1;
+                if (retryCalls === 1) throw new Error('temporary failure');
+                return { id: 2 };
+            }
+        }
+    });
+    retryController.browserFlow.mount();
+    await retryController.browserFlow.open();
+    retryController.testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'review_ready',
+        saved: { consultationId: 17, readingId: 29 },
+        generated: { content: 'output', interpretation: { id: 10 } }
+    });
+    const retryForm = findFakeNode(
+        retryController.nodes['consultation-flow-mount'],
+        node => node.tagName === 'FORM'
+    );
+    const retrySubmit = findFakeNode(
+        retryForm,
+        node => node.tagName === 'BUTTON' && node.type === 'submit'
+    );
+    await retryForm.dispatch('submit');
+    assert.strictEqual(retrySubmit.disabled, false);
+    await retryForm.dispatch('submit');
+    assert.strictEqual(retryCalls, 2);
+}
+
+async function testStaleReviewCannotMutateAfterCloseOrReset() {
+    for (const invalidate of ['close', 'reset']) {
+        for (const outcome of ['resolve', 'reject']) {
+            const reviewGate = deferred();
+            let reviewCalls = 0;
+            const controller = loadControllerRuntime({
+                api: {
+                    async reviewInterpretation() {
+                        reviewCalls += 1;
+                        return reviewGate.promise;
+                    }
+                }
+            });
+            const { browserFlow, testFlow, nodes } = controller;
+            browserFlow.mount();
+            await browserFlow.open();
+            testFlow.setDraftForTest({
+                ...completeDraft(),
+                phase: 'review_ready',
+                saved: { consultationId: 17, readingId: 29 },
+                generated: { content: 'old output', interpretation: { id: 9 } }
+            });
+            const form = findFakeNode(
+                nodes['consultation-flow-mount'],
+                node => node.tagName === 'FORM'
+            );
+            const pendingSubmit = form.dispatch('submit');
+            assert.strictEqual(reviewCalls, 1);
+            if (invalidate === 'close') browserFlow.close();
+            else browserFlow.reset();
+            testFlow.setDraftForTest({
+                ...createInitialDraft(),
+                phase: 'choosing_type',
+                userQuery: `fresh-${invalidate}-${outcome}`
+            });
+            nodes['consultation-flow-status'].textContent = 'fresh status';
+            if (outcome === 'resolve') reviewGate.resolve({ id: 88 });
+            else reviewGate.reject(new Error('stale review failure'));
+            await pendingSubmit;
+
+            assert.strictEqual(
+                testFlow.getDraft().userQuery,
+                `fresh-${invalidate}-${outcome}`
+            );
+            assert.ok(findFakeNode(
+                nodes['consultation-flow-mount'],
+                node => node.dataset && node.dataset.flowAction === 'type-none'
+            ));
+            assert.strictEqual(
+                nodes['consultation-flow-status'].textContent,
+                'fresh status'
+            );
+        }
+    }
+}
+
+async function testModuleDefaultSpreadClearsOldCards() {
+    const { browserFlow, testFlow, nodes } = loadControllerRuntime();
+    browserFlow.mount();
+    await browserFlow.open();
+    const oldCards = Array.from({ length: 5 }, (_, index) => ({
+        slot: index + 1,
+        slotLabel: `Slot ${index + 1}`,
+        cardId: index,
+        isReversed: false
+    }));
+    testFlow.setDraftForTest({
+        ...createInitialDraft(),
+        phase: 'choosing_type',
+        questionMode: 'none',
+        templateKey: 'free',
+        templateName: 'Free Spread',
+        freeCount: 5,
+        cards: oldCards
+    });
+    const moduleButton = findFakeNode(
+        nodes['consultation-flow-mount'],
+        node => node.dataset && node.dataset.flowAction === 'type-general_reading'
+    );
+    await moduleButton.dispatch('click');
+    const nextDraft = testFlow.getDraft();
+    assert.strictEqual(nextDraft.templateKey, 'three_timeline');
+    assert.strictEqual(nextDraft.cards.length, 0);
 }
 
 async function testPersistDraftCardsRoutesConsultationOnce() {
@@ -614,6 +1308,9 @@ function testBrowserGlobalExport() {
     assert.strictEqual(typeof browserWindow.ConsultationFlow.persistDraftCards, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.runSavedInterpretation, 'function');
     assert.strictEqual(typeof browserWindow.ConsultationFlow.submitReview, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.mount, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.open, 'function');
+    assert.strictEqual(typeof browserWindow.ConsultationFlow.setDraftForTest, 'undefined');
     assert.strictEqual(browserWindow.ConsultationFlow.createInitialDraft().language, 'zh');
 }
 
@@ -629,6 +1326,18 @@ const tests = [
     ['reading payload', testReadingPayload],
     ['unknown card materialization', testUnknownCardMaterialization],
     ['phase transitions', testPhaseTransitions],
+    ['Three page consultation flow integration', testThreePageConsultationFlowIntegration],
+    ['controller exports state and safe renderers', testControllerExportsStateAndSafeRenderers],
+    ['consultation flow CSS contract', testConsultationFlowCssContract],
+    ['browser controller mount open close lifecycle', testBrowserControllerMountOpenCloseLifecycle],
+    ['details uses only backend-supported styles', testDetailsUsesOnlyBackendSupportedStyles],
+    ['spread changes reconcile cards', testSpreadChangesReconcileCards],
+    ['stale save cannot generate after close or reset', testStaleSaveCannotStartGenerationAfterCloseOrReset],
+    ['close aborts generation and ignores late events', testCloseAbortsGenerationAndIgnoresLateEvents],
+    ['review privacy follows consultation and verdict', testReviewPrivacyFollowsConsultationAndVerdict],
+    ['review submit guards duplicate and allows retry', testReviewSubmitGuardsDuplicateAndAllowsRetry],
+    ['stale review cannot mutate after close or reset', testStaleReviewCannotMutateAfterCloseOrReset],
+    ['module default spread clears old cards', testModuleDefaultSpreadClearsOldCards],
     ['persist draft cards routes consultation once', testPersistDraftCardsRoutesConsultationOnce],
     ['persist draft cards routes reading once', testPersistDraftCardsRoutesReadingOnce],
     ['run saved interpretation streams and selects latest complete', testRunSavedInterpretationStreamsAndSelectsLatestComplete],
