@@ -13,6 +13,7 @@ const {
     buildConsultationPayload,
     chooseSaveOperation,
     nextPhase,
+    getPublicStep,
     persistDraftCards,
     runSavedInterpretation,
     validateReview,
@@ -294,6 +295,44 @@ function testPhaseTransitions() {
     });
     assert.throws(() => nextPhase('unknown', 'saved'), /Unknown consultation phase/);
     assert.throws(() => nextPhase('saved', 'unknown'), /Unknown consultation phase/);
+}
+
+function testInternalPhasesMapToPublicSteps() {
+    const expected = {
+        choosing_type: [1, '选择咨询类型'],
+        editing_details: [2, '填写咨询信息'],
+        choosing_spread_source: [3, '选择牌阵与取牌方式'],
+        choosing_interpretation: [4, '选择解读方式'],
+        acquiring_cards: [5, '录入牌面'],
+        confirming: [6, '确认本次咨询'],
+        saving: [6, '确认本次咨询'],
+        saved: [7, '结果与审核'],
+        generating: [7, '结果与审核'],
+        review_ready: [7, '结果与审核'],
+        review_saved: [7, '结果与审核']
+    };
+
+    Object.entries(expected).forEach(([internalPhase, [index, label]]) => {
+        assert.deepStrictEqual(
+            getPublicStep(internalPhase, { inputMode: 'manual' }),
+            { index, total: 7, label }
+        );
+    });
+    assert.deepStrictEqual(
+        getPublicStep('acquiring_cards', { inputMode: 'three_d' }),
+        { index: 5, total: 7, label: '抽取牌面' }
+    );
+    assert.deepStrictEqual(
+        getPublicStep('unknown_internal_phase', {}),
+        { index: 1, total: 7, label: '选择咨询类型' }
+    );
+
+    const source = fs.readFileSync(
+        path.join(__dirname, '..', 'js', 'consultation_flow.js'),
+        'utf8'
+    );
+    assert.strictEqual(source.includes('PHASES.indexOf(phase)'), false);
+    assert.strictEqual(source.includes('· ${phase}'), false);
 }
 
 function testThreePageConsultationFlowIntegration() {
@@ -2226,6 +2265,7 @@ const tests = [
     ['reading payload', testReadingPayload],
     ['unknown card materialization', testUnknownCardMaterialization],
     ['phase transitions', testPhaseTransitions],
+    ['internal phases map to public steps', testInternalPhasesMapToPublicSteps],
     ['Three page consultation flow integration', testThreePageConsultationFlowIntegration],
     ['controller exports state and safe renderers', testControllerExportsStateAndSafeRenderers],
     ['consultation flow CSS contract', testConsultationFlowCssContract],

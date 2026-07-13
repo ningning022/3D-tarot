@@ -22,6 +22,29 @@
         'review_saved'
     ];
 
+    const PUBLIC_STEPS = Object.freeze({
+        choosing_type: Object.freeze({ index: 1, label: '选择咨询类型' }),
+        editing_details: Object.freeze({ index: 2, label: '填写咨询信息' }),
+        choosing_spread_source: Object.freeze({ index: 3, label: '选择牌阵与取牌方式' }),
+        choosing_interpretation: Object.freeze({ index: 4, label: '选择解读方式' }),
+        acquiring_cards: Object.freeze({ index: 5, label: '录入牌面' }),
+        confirming: Object.freeze({ index: 6, label: '确认本次咨询' }),
+        saving: Object.freeze({ index: 6, label: '确认本次咨询' }),
+        saved: Object.freeze({ index: 7, label: '结果与审核' }),
+        generating: Object.freeze({ index: 7, label: '结果与审核' }),
+        review_ready: Object.freeze({ index: 7, label: '结果与审核' }),
+        review_saved: Object.freeze({ index: 7, label: '结果与审核' })
+    });
+
+    function getPublicStep(internalPhase, currentDraft = {}) {
+        const fallback = PUBLIC_STEPS.choosing_type;
+        const current = PUBLIC_STEPS[internalPhase] || fallback;
+        const label = internalPhase === 'acquiring_cards' && currentDraft.inputMode === 'three_d'
+            ? '抽取牌面'
+            : current.label;
+        return { index: current.index, total: 7, label };
+    }
+
     let draft = createInitialDraft();
     let phase = 'choosing_type';
     let modules = [];
@@ -985,9 +1008,10 @@
         mountNode.replaceChildren();
         actionsNode.replaceChildren();
         if (stepsNode) {
+            const publicStep = getPublicStep(phase, draft);
             stepsNode.replaceChildren(el('span', {
                 'aria-current': 'step',
-                textContent: `Step ${Math.max(1, PHASES.indexOf(phase) + 1)} · ${phase}`
+                textContent: `步骤 ${publicStep.index} / ${publicStep.total} · ${publicStep.label}`
             }));
         }
         const renderer = renderers[phase];
@@ -1353,6 +1377,7 @@
         validateReview,
         submitReview,
         nextPhase,
+        getPublicStep,
         mount,
         open,
         close,
