@@ -550,7 +550,7 @@ function testConsultationFlowCssContract() {
     assert.match(css, /\.consultation-field-error\s*\{/);
     assert.match(
         responsive,
-        /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-rows:\s*repeat\(5, auto\);[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
+        /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-rows:\s*repeat\(5, max-content\);[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*static;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
     );
     assert.match(
         responsive,
