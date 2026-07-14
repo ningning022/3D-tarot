@@ -87,10 +87,14 @@ body.consultation-flow-open {
     border-top: 1px solid var(--panel-line);
 }
 
+.consultation-flow-actions:empty {
+    display: none;
+}
+
 .consultation-flow-layout {
     display: grid;
     grid-template-columns: minmax(180px, 0.75fr) minmax(0, 2fr) minmax(220px, 1fr);
-    grid-template-rows: auto auto auto;
+    grid-template-rows: repeat(3, max-content);
     gap: 16px;
     align-items: start;
     overflow-x: hidden;

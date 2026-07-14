@@ -977,11 +977,14 @@
             'aria-describedby': ratingError.id
         }, [
             el('option', { value: '', textContent: '不评分' }),
-            ...[1, 2, 3, 4, 5].map(value => el('option', { value: String(value), textContent: `${value}` }))
+            ...[1, 2, 3, 4, 5].map(value => el('option', {
+                value: String(value),
+                textContent: value === 5 ? '5 分（最高）' : `${value} 分`
+            }))
         ]);
         const verdictField = field('结论', verdict);
         verdictField.append(verdictError);
-        const ratingField = field('评分', rating);
+        const ratingField = field('评分（1–5 分，5 分最高）', rating);
         ratingField.append(ratingError);
         form.append(verdictField, ratingField);
         const tagBox = el('fieldset', { className: 'consultation-review-tags' }, [

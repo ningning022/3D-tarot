@@ -539,7 +539,7 @@ function testConsultationFlowCssContract() {
     );
     assert.match(
         css,
-        /\.consultation-flow-layout\s*\{[^}]*grid-template-rows:\s*auto auto auto;[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/s
+        /\.consultation-flow-layout\s*\{[^}]*grid-template-rows:\s*repeat\(3, max-content\);[^}]*overflow-x:\s*hidden;[^}]*overflow-y:\s*auto;/s
     );
     assert.match(
         css,
@@ -548,6 +548,10 @@ function testConsultationFlowCssContract() {
     assert.match(css, /\.consultation-flow-status\.is-success\s*\{/);
     assert.match(css, /\.consultation-flow-status\.is-warning\s*\{/);
     assert.match(css, /\.consultation-field-error\s*\{/);
+    assert.match(
+        css,
+        /\.consultation-flow-actions:empty\s*\{[^}]*display:\s*none;/s
+    );
     assert.match(
         responsive,
         /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-rows:\s*repeat\(5, max-content\);[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*static;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
@@ -1437,6 +1441,13 @@ async function testDynamicFormAccessibilityAndReviewErrors() {
     const verdict = controls.find(control => control.name === 'verdict');
     const rating = controls.find(control => control.name === 'rating');
     const edited = controls.find(control => control.name === 'editedContent');
+    const ratingLabel = labels.find(label => label.htmlFor === rating.id);
+    const ratingOptions = collectFakeNodes(rating, node => node.tagName === 'OPTION');
+    assert.strictEqual(ratingLabel.textContent, '评分（1–5 分，5 分最高）');
+    assert.deepStrictEqual(
+        ratingOptions.map(option => option.textContent),
+        ['不评分', '1 分', '2 分', '3 分', '4 分', '5 分（最高）']
+    );
     verdict.value = 'pending';
     rating.value = '0';
     await form.dispatch('submit');
