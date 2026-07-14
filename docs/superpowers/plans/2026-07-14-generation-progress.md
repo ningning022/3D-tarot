@@ -123,7 +123,7 @@ function renderGenerationStep(mountNode, actionsNode) {
 
 Run: `node tests/test_consultation_flow.js`
 
-Expected: `Consultation flow tests: 51/51 passed`。
+Expected: `Consultation flow tests: 52/52 passed`。
 
 - [ ] **Step 5: 提交 DOM 与测试**
 
@@ -220,7 +220,7 @@ Expected: `consultation flow CSS contract` 失败，因为进度条样式和动�
 
 Run: `node tests/test_consultation_flow.js`
 
-Expected: `Consultation flow tests: 51/51 passed`。
+Expected: `Consultation flow tests: 52/52 passed`。
 
 - [ ] **Step 5: 提交动画样式与测试**
 
@@ -254,7 +254,7 @@ foreach ($file in $files) {
 }
 ```
 
-Expected: 14 个 JavaScript 测试文件全部退出码为 `0`，其中咨询流程为 `51/51 passed`。
+Expected: 14 个 JavaScript 测试文件全部退出码为 `0`，其中咨询流程为 `52/52 passed`。
 
 - [ ] **Step 3: 检查工作区和差异**
 
