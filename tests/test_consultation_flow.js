@@ -1312,6 +1312,49 @@ async function testCloseAbortsGenerationAndIgnoresLateEvents() {
     assert.strictEqual(article.textContent, 'fresh');
 }
 
+async function testGenerationProgressFeedback() {
+    const { browserFlow, testFlow, nodes } = loadControllerRuntime();
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({
+        ...completeDraft(),
+        phase: 'generating',
+        saved: { consultationId: 17, readingId: 29 },
+        streamContent: '正在输出的解读'
+    });
+
+    const mount = nodes['consultation-flow-mount'];
+    const status = findFakeNode(
+        mount,
+        node => node.className === 'consultation-generation-status'
+    );
+    const progress = findFakeNode(
+        mount,
+        node => node.getAttribute && node.getAttribute('role') === 'progressbar'
+    );
+    const indicator = findFakeNode(
+        mount,
+        node => node.className === 'consultation-generation-progress-bar'
+    );
+    const stop = findFakeNode(
+        nodes['consultation-flow-actions'],
+        node => node.tagName === 'BUTTON' && node.textContent === '停止生成'
+    );
+
+    assert.ok(status);
+    assert.strictEqual(status.getAttribute('role'), 'status');
+    assert.strictEqual(status.getAttribute('aria-live'), 'polite');
+    assert.ok(findFakeNode(
+        status,
+        node => node.textContent === '正在分析牌面并组织回答，请稍候…'
+    ));
+    assert.ok(progress);
+    assert.strictEqual(progress.getAttribute('aria-label'), '解读生成中');
+    assert.strictEqual(progress.getAttribute('aria-valuenow'), null);
+    assert.strictEqual(indicator.getAttribute('aria-hidden'), 'true');
+    assert.ok(stop);
+}
+
 async function testReviewPrivacyFollowsConsultationAndVerdict() {
     const controller = loadControllerRuntime();
     const { browserFlow, testFlow, nodes } = controller;
@@ -2471,6 +2514,7 @@ const tests = [
     ['spread changes reconcile cards', testSpreadChangesReconcileCards],
     ['stale save cannot generate after close or reset', testStaleSaveCannotStartGenerationAfterCloseOrReset],
     ['close aborts generation and ignores late events', testCloseAbortsGenerationAndIgnoresLateEvents],
+    ['generation progress feedback', testGenerationProgressFeedback],
     ['review privacy follows consultation and verdict', testReviewPrivacyFollowsConsultationAndVerdict],
     ['dynamic form accessibility and review errors', testDynamicFormAccessibilityAndReviewErrors],
     ['focus trap excludes disabled and ancestor-hidden controls', testFocusTrapExcludesDisabledAndAncestorHiddenControls],

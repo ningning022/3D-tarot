@@ -921,8 +921,30 @@
     }
 
     function renderGenerationStep(mountNode, actionsNode) {
+        const progressStatus = el('div', {
+            className: 'consultation-generation-status',
+            role: 'status',
+            'aria-live': 'polite'
+        }, [
+            el('p', {
+                className: 'consultation-generation-message',
+                textContent: '正在分析牌面并组织回答，请稍候…'
+            }),
+            el('div', {
+                className: 'consultation-generation-progress',
+                role: 'progressbar',
+                'aria-label': '解读生成中'
+            }, [
+                el('span', {
+                    className: 'consultation-generation-progress-bar',
+                    'aria-hidden': 'true'
+                })
+            ])
+        ]);
+
         mountNode.append(el('section', { className: 'consultation-result-panel' }, [
             el('h3', { textContent: '正在生成解读' }),
+            progressStatus,
             el('article', {
                 className: 'consultation-stream-result',
                 ariaLive: 'polite',
