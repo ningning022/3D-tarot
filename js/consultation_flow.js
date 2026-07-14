@@ -946,6 +946,7 @@
             el('h3', { textContent: '正在生成解读' }),
             progressStatus,
             el('article', {
+                id: 'consultation-generation-stream-result',
                 className: 'consultation-stream-result',
                 ariaLive: 'polite',
                 textContent: streamContent
@@ -1368,8 +1369,13 @@
                 browserDeps(),
                 event => {
                     if (token !== flowEpoch) return;
-                    if (event.chunk) streamContent += event.chunk;
-                    render();
+                    if (!event || event.chunk == null) return;
+                    streamContent += String(event.chunk);
+                    const streamNode = phase === 'generating' && root.document
+                        ? root.document.getElementById('consultation-generation-stream-result')
+                        : null;
+                    if (streamNode) streamNode.textContent = streamContent;
+                    else render();
                 },
                 controller ? controller.signal : undefined
             );

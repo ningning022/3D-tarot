@@ -1355,6 +1355,98 @@ async function testGenerationProgressFeedback() {
     assert.ok(stop);
 }
 
+async function testGenerationProgressPersistsAcrossStreamEvents() {
+    const streamStarted = deferred();
+    const firstChunkGate = deferred();
+    const firstChunkHandled = deferred();
+    const heartbeatGate = deferred();
+    const heartbeatHandled = deferred();
+    const secondChunkGate = deferred();
+    const secondChunkHandled = deferred();
+    const doneGate = deferred();
+    const controller = loadControllerRuntime({
+        api: {
+            async createConsultation() { return { id: 17, readingId: 29 }; },
+            async createReading() { throw new Error('wrong save path'); },
+            async loadConsultation() { return { interpretations: [] }; }
+        },
+        interpret: {
+            async *streamInterpretation() {
+                streamStarted.resolve();
+                await firstChunkGate.promise;
+                yield { chunk: '第一段' };
+                firstChunkHandled.resolve();
+                await heartbeatGate.promise;
+                yield { heartbeat: true };
+                heartbeatHandled.resolve();
+                await secondChunkGate.promise;
+                yield { chunk: '第二段' };
+                secondChunkHandled.resolve();
+                await doneGate.promise;
+                yield { done: true };
+            }
+        }
+    });
+    const { browserFlow, testFlow, nodes } = controller;
+    browserFlow.mount();
+    await browserFlow.open();
+    testFlow.setDraftForTest({ ...completeDraft(), phase: 'confirming' });
+    const save = findFakeNode(
+        nodes['consultation-flow-actions'],
+        node => node.dataset && node.dataset.flowAction === 'save'
+    );
+    const pendingSave = save.dispatch('click');
+    await streamStarted.promise;
+
+    const mount = nodes['consultation-flow-mount'];
+    const status = findFakeNode(
+        mount,
+        node => node.className === 'consultation-generation-status'
+    );
+    const progress = findFakeNode(
+        mount,
+        node => node.getAttribute && node.getAttribute('role') === 'progressbar'
+    );
+    const stream = findFakeNode(
+        mount,
+        node => node.className === 'consultation-stream-result'
+    );
+    assert.ok(status);
+    assert.ok(progress);
+    assert.ok(stream);
+
+    const assertGenerationShellPreserved = expectedContent => {
+        assert.strictEqual(findFakeNode(
+            mount,
+            node => node.className === 'consultation-generation-status'
+        ), status);
+        assert.strictEqual(findFakeNode(
+            mount,
+            node => node.getAttribute && node.getAttribute('role') === 'progressbar'
+        ), progress);
+        assert.strictEqual(findFakeNode(
+            mount,
+            node => node.className === 'consultation-stream-result'
+        ), stream);
+        assert.strictEqual(stream.textContent, expectedContent);
+    };
+
+    firstChunkGate.resolve();
+    await firstChunkHandled.promise;
+    assertGenerationShellPreserved('第一段');
+
+    heartbeatGate.resolve();
+    await heartbeatHandled.promise;
+    assertGenerationShellPreserved('第一段');
+
+    secondChunkGate.resolve();
+    await secondChunkHandled.promise;
+    assertGenerationShellPreserved('第一段第二段');
+
+    doneGate.resolve();
+    await pendingSave;
+}
+
 async function testReviewPrivacyFollowsConsultationAndVerdict() {
     const controller = loadControllerRuntime();
     const { browserFlow, testFlow, nodes } = controller;
@@ -2515,6 +2607,7 @@ const tests = [
     ['stale save cannot generate after close or reset', testStaleSaveCannotStartGenerationAfterCloseOrReset],
     ['close aborts generation and ignores late events', testCloseAbortsGenerationAndIgnoresLateEvents],
     ['generation progress feedback', testGenerationProgressFeedback],
+    ['generation progress persists across stream events', testGenerationProgressPersistsAcrossStreamEvents],
     ['review privacy follows consultation and verdict', testReviewPrivacyFollowsConsultationAndVerdict],
     ['dynamic form accessibility and review errors', testDynamicFormAccessibilityAndReviewErrors],
     ['focus trap excludes disabled and ancestor-hidden controls', testFocusTrapExcludesDisabledAndAncestorHiddenControls],
