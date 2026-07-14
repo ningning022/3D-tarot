@@ -553,6 +553,19 @@ function testConsultationFlowCssContract() {
         /\.consultation-flow-actions:empty\s*\{[^}]*display:\s*none;/s
     );
     assert.match(
+        css,
+        /\.consultation-generation-progress\s*\{[^}]*overflow:\s*hidden;[^}]*background:\s*color-mix\([^}]+var\(--panel-line\)/s
+    );
+    assert.match(
+        css,
+        /\.consultation-generation-progress-bar\s*\{[^}]*animation:\s*consultation-progress-drift 1\.8s ease-in-out infinite;/s
+    );
+    assert.match(css, /@keyframes\s+consultation-progress-drift\s*\{/);
+    assert.match(
+        css,
+        /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.consultation-generation-progress-bar\s*\{[^}]*animation:\s*none;[^}]*transform:\s*none;/
+    );
+    assert.match(
         responsive,
         /@media\s*\(max-width:\s*820px\)\s*\{[\s\S]*?\.consultation-flow\s*\{[^}]*inset:\s*0;[^}]*border-radius:\s*0;[^}]*padding:\s*14px;[^}]*\}[\s\S]*?\.consultation-flow-layout\s*\{[^}]*grid-template-columns:\s*1fr;[^}]*grid-template-rows:\s*repeat\(5, max-content\);[^}]*\}[\s\S]*?\.consultation-flow-actions\s*\{[^}]*position:\s*static;[^}]*background:\s*var\(--panel-bg\);[^}]*\}/
     );

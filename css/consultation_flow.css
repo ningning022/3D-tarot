@@ -285,6 +285,50 @@ body.consultation-flow-open {
     transform: rotate(180deg);
 }
 
+.consultation-generation-status {
+    display: grid;
+    gap: 10px;
+}
+
+.consultation-generation-message {
+    margin: 0;
+    color: color-mix(in oklch, var(--ink-text) 68%, transparent);
+}
+
+.consultation-generation-progress {
+    position: relative;
+    height: 6px;
+    overflow: hidden;
+    background: color-mix(in oklch, var(--panel-line) 55%, transparent);
+    border: 1px solid color-mix(in oklch, var(--panel-line) 76%, transparent);
+    border-radius: 999px;
+}
+
+.consultation-generation-progress-bar {
+    position: absolute;
+    inset-block: 0;
+    width: 42%;
+    background: color-mix(in oklch, var(--accent) 58%, transparent);
+    border-radius: inherit;
+    animation: consultation-progress-drift 1.8s ease-in-out infinite;
+}
+
+@keyframes consultation-progress-drift {
+    0% { transform: translateX(-115%); }
+    50% { transform: translateX(75%); }
+    100% { transform: translateX(245%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .consultation-generation-progress-bar {
+        inset-inline: 10%;
+        width: 80%;
+        animation: none;
+        transform: none;
+        opacity: 0.65;
+    }
+}
+
 .consultation-stream-result {
     min-height: 180px;
     padding: 18px;
