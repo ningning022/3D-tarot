@@ -554,16 +554,19 @@ function testConsultationFlowCssContract() {
     );
     assert.match(
         css,
-        /\.consultation-generation-progress\s*\{[^}]*overflow:\s*hidden;[^}]*background:\s*color-mix\([^}]+var\(--panel-line\)/s
+        /\.consultation-generation-progress\s*\{[^}]*height:\s*6px;[^}]*overflow:\s*hidden;[^}]*background:\s*color-mix\([^}]+var\(--panel-line\)/s
     );
     assert.match(
         css,
-        /\.consultation-generation-progress-bar\s*\{[^}]*animation:\s*consultation-progress-drift 1\.8s ease-in-out infinite;/s
+        /\.consultation-generation-progress-bar\s*\{[^}]*width:\s*42%;[^}]*background:\s*color-mix\([^}]+var\(--accent\)[^}]*animation:\s*consultation-progress-drift 1\.8s ease-in-out infinite;/s
     );
-    assert.match(css, /@keyframes\s+consultation-progress-drift\s*\{/);
     assert.match(
         css,
-        /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.consultation-generation-progress-bar\s*\{[^}]*animation:\s*none;[^}]*transform:\s*none;/
+        /@keyframes\s+consultation-progress-drift\s*\{\s*0%\s*\{\s*transform:\s*translateX\(-115%\);\s*\}\s*50%\s*\{\s*transform:\s*translateX\(75%\);\s*\}\s*100%\s*\{\s*transform:\s*translateX\(245%\);\s*\}\s*\}/
+    );
+    assert.match(
+        css,
+        /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.consultation-generation-progress-bar\s*\{[^}]*inset-inline:\s*10%;[^}]*width:\s*80%;[^}]*animation:\s*none;[^}]*transform:\s*none;/
     );
     assert.match(
         responsive,
