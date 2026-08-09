@@ -1,0 +1,56 @@
+<h2>作品集案例页 · 内容结构</h2>
+<p class="subtitle">案例页不再以“塔罗功能清单”为主，而是按 Agent 工程岗的阅读顺序组织证据。</p>
+
+<div class="mockup">
+  <div class="mockup-header">Akashic Agent · Engineering Case Study</div>
+  <div class="mockup-body" style="background:#f5f1e8;color:#27231f;padding:22px">
+    <div style="display:grid;grid-template-columns:1.05fr .95fr;gap:20px;align-items:center;padding-bottom:20px;border-bottom:1px solid #d8cebc">
+      <div>
+        <div style="font-size:10px;color:#876d44;letter-spacing:.12em">LOCAL-FIRST · MULTIMODAL · OBSERVABLE</div>
+        <h3 style="font-size:27px;margin:8px 0">Akashic Agent</h3>
+        <p style="font-size:12px;line-height:1.65;color:#645b50">把 3D 交互、结构化咨询、领域 RAG、四阶段 Agent 编排和人工反馈闭环整合为一个可复现的本地应用。</p>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;font-size:10px"><span style="padding:5px 8px;border:1px solid #c7b99f;border-radius:999px">Python</span><span style="padding:5px 8px;border:1px solid #c7b99f;border-radius:999px">Qwen2.5 7B</span><span style="padding:5px 8px;border:1px solid #c7b99f;border-radius:999px">SQLite RAG</span><span style="padding:5px 8px;border:1px solid #c7b99f;border-radius:999px">Three.js</span></div>
+      </div>
+      <div style="height:165px;border-radius:9px;background:linear-gradient(135deg,#160d0d,#3c291d 50%,#0b0808);display:grid;place-items:center;color:#d9bb7d;border:1px solid #6c5132">
+        <div style="text-align:center"><div style="font-size:28px">▶</div><div style="font-size:11px;margin-top:8px">3 分钟产品 Demo + 40 秒 Agent Trace</div></div>
+      </div>
+    </div>
+
+    <div style="margin:20px 0">
+      <div style="font-size:10px;color:#876d44;letter-spacing:.1em">SYSTEM FLOW</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:5px;margin-top:10px;font-size:10px">
+        <span style="padding:9px;border:1px solid #c7b99f;border-radius:6px">结构化咨询</span><span>→</span>
+        <span style="padding:9px;border:1px solid #c7b99f;border-radius:6px">Intent Router</span><span>→</span>
+        <span style="padding:9px;border:1px solid #c7b99f;border-radius:6px">RAG</span><span>→</span>
+        <span style="padding:9px;border:1px solid #c7b99f;border-radius:6px">Generate</span><span>→</span>
+        <span style="padding:9px;border:1px solid #c7b99f;border-radius:6px">Critique</span><span>→</span>
+        <span style="padding:9px;border:1px solid #c7b99f;border-radius:6px">Human Review</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:18px 0">
+      <div style="padding:13px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong style="font-size:20px">156</strong><div style="font-size:10px;color:#756b5f">正逆位领域语料</div></div>
+      <div style="padding:13px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong style="font-size:20px">90%</strong><div style="font-size:10px;color:#756b5f">30 题意图分类准确率</div></div>
+      <div style="padding:13px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong style="font-size:20px">8.17</strong><div style="font-size:10px;color:#756b5f">平均 Critic 分数 / 10</div></div>
+      <div style="padding:13px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong style="font-size:20px">26.8s</strong><div style="font-size:10px;color:#756b5f">固定评测平均总延迟</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:11px">
+      <section style="padding:14px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong>01 · RAG 与可控生成</strong><p style="color:#685f55;line-height:1.55">card_id 确定性过滤，再按问题向量重排；模块级 Prompt、输出契约和安全规则限制回答边界。</p></section>
+      <section style="padding:14px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong>02 · 可观测与评估</strong><p style="color:#685f55;line-height:1.55">每一步保存输入摘要、结构化输出、模型、耗时和错误；30 题 golden set 跟踪准确率、延迟与 Critic 质量。</p></section>
+      <section style="padding:14px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong>03 · 可靠性与数据闭环</strong><p style="color:#685f55;line-height:1.55">SSE 流式输出、降级路径、版本化解读、人工接受/编辑/拒绝与隐私确认，形成可复现数据链路。</p></section>
+      <section style="padding:14px;background:#fff;border:1px solid #ddd2c0;border-radius:7px"><strong>04 · 下一阶段工程化</strong><p style="color:#685f55;line-height:1.55">预热与缓存、Critic 异步化、队列和并发控制、显式记忆策略，以及通过 MCP/Function Calling 接入受控工具。</p></section>
+    </div>
+
+    <div style="margin-top:14px;padding:12px;border-left:3px solid #9e7641;background:#eee6d8;font-size:10px;color:#63594c">
+      诚信边界：当前实现的是 workflow Agent，不宣称拥有自主规划器、多智能体或分布式高并发；这些被列为有明确演进路径的下一阶段工作。
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="approve-case-study" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content"><h3>批准案例页结构</h3><p>下一节确认测试范围与 30–45 秒补录分镜。</p></div>
+  </div>
+</div>

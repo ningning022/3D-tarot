@@ -1,0 +1,73 @@
+<h2>如何让面试官一眼看出：这是 Agent，不是普通 LLM 调用？</h2>
+<p class="subtitle">目标岗位强调 Agent 架构、RAG、可观测性与性能。请选择最能代表你的呈现方向。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#0b0a0b;color:#e9d8ae;min-height:280px">
+      <div style="font-size:12px;color:#b79b64;margin-bottom:10px">RECOMMENDED · 产品与工程证据同屏</div>
+      <div style="display:grid;grid-template-columns:1.15fr .85fr;gap:10px">
+        <div style="border:1px solid #5a4631;border-radius:8px;padding:12px;min-height:215px">
+          <div style="font-size:11px;color:#aaa">PRODUCT DEMO</div>
+          <div style="font-size:18px;margin:35px 0 8px">二选一咨询</div>
+          <div style="font-size:12px;color:#c5bba9">六张牌阵 · 本地生成结果</div>
+          <div style="height:48px;margin-top:22px;border-radius:6px;background:linear-gradient(90deg,#9f7a3c,#d7bd7c,#6e4e28)"></div>
+        </div>
+        <div style="border:1px solid #6c5a41;border-radius:8px;padding:12px;background:#151217">
+          <div style="font-size:11px;color:#aaa">AGENT RUN · TRACE 7258</div>
+          <div style="margin-top:14px;font-size:12px;line-height:2.05">
+            <div>✓ Intent Router <span style="float:right;color:#8fd3a7">done</span></div>
+            <div>✓ RAG Retrieve <span style="float:right;color:#8fd3a7">3 hits</span></div>
+            <div>✓ Generate <span style="float:right;color:#8fd3a7">local 7B</span></div>
+            <div>✓ Critique <span style="float:right;color:#8fd3a7">passed</span></div>
+            <div>✓ Human Review <span style="float:right;color:#8fd3a7">accepted</span></div>
+          </div>
+          <div style="margin-top:12px;font-size:10px;color:#b9ad9a">Latency · model · prompt/RAG snapshot · trace</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Agent Run Inspector</h3>
+      <p>结果页增加“查看 Agent 轨迹”，展示每一步真实状态、耗时、RAG 命中、模型和人工审核。补录 30–45 秒即可。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#101217;color:#dbe3ee;min-height:280px">
+      <div style="font-size:12px;color:#7894b8;margin-bottom:18px">LIVE ORCHESTRATION</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:50px;font-size:11px">
+        <div style="padding:12px;border:1px solid #526987;border-radius:8px">Intent</div><span>→</span>
+        <div style="padding:12px;border:1px solid #526987;border-radius:8px">RAG</div><span>→</span>
+        <div style="padding:12px;border:1px solid #526987;border-radius:8px">Generate</div><span>→</span>
+        <div style="padding:12px;border:1px solid #526987;border-radius:8px">Critic</div>
+      </div>
+      <div style="margin:42px auto 0;max-width:330px;border:1px solid #323c4c;border-radius:8px;padding:12px;font-size:11px;color:#aeb8c6">节点在生成过程中逐一高亮，并显示实时耗时。</div>
+    </div>
+    <div class="card-body">
+      <h3>B · 实时流程图</h3>
+      <p>视觉冲击最强，但容易像演示动画；开发量较大，还会抢走 3D 产品本身的注意力。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#f5f2eb;color:#2a2723;min-height:280px">
+      <div style="font-size:12px;color:#806d50">ENGINEERING CASE STUDY</div>
+      <div style="font-size:22px;margin:24px 0 8px">Akashic Agent</div>
+      <div style="font-size:12px;color:#726b61">Local-first multimodal agent workflow</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:24px;font-size:11px">
+        <div style="padding:12px;background:white;border:1px solid #ddd4c5;border-radius:6px">Architecture</div>
+        <div style="padding:12px;background:white;border:1px solid #ddd4c5;border-radius:6px">RAG & Prompts</div>
+        <div style="padding:12px;background:white;border:1px solid #ddd4c5;border-radius:6px">Evaluation</div>
+        <div style="padding:12px;background:white;border:1px solid #ddd4c5;border-radius:6px">Latency</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 独立技术案例页</h3>
+      <p>解释最完整，也适合作品集正文；但如果只有这张页面，没有真实运行轨迹，可信度弱于 A。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:22px">
+  <div class="label">我的建议</div>
+  <p><strong>A 作为补录核心，C 作为作品集正文。</strong>视频证明系统确实在运行，案例页解释架构与指标；两者组合最贴合这份 Agent 工程岗 JD。</p>
+</div>

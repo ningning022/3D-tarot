@@ -1,0 +1,77 @@
+<h2>最终设计 · 实现、验证与 40 秒补录</h2>
+<p class="subtitle">范围只包含能直接提高 Agent 岗作品集说服力的内容。</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">实现边界</div>
+    <div class="mockup-body" style="min-height:330px">
+      <div class="section">
+        <div class="label">Product</div>
+        <h3>Agent Run Inspector</h3>
+        <ul>
+          <li>结果页右栏新增“查看 Agent 轨迹”</li>
+          <li>按需读取现有 <code>agent-trace</code> API</li>
+          <li>展示四阶段、总耗时、模型、RAG 命中和 Critic 分数</li>
+          <li>保存人工审核后显示反馈状态</li>
+          <li>默认隐藏完整问题、Prompt 与答案预览</li>
+        </ul>
+      </div>
+      <div class="section">
+        <div class="label">Portfolio</div>
+        <h3>Agent Engineering Case Study</h3>
+        <ul>
+          <li>新增独立案例页，复用现有视觉资产</li>
+          <li>展示架构、真实评测指标与演进路线</li>
+          <li>README 增加醒目的案例页入口</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">验证标准</div>
+    <div class="mockup-body" style="min-height:330px">
+      <div class="section">
+        <div class="label">Automated</div>
+        <ul>
+          <li>Trace 正常、空数据、接口失败三类状态</li>
+          <li>乱序/缺失步骤仍能稳定渲染</li>
+          <li>耗时汇总、RAG count、Critic score 映射正确</li>
+          <li>隐私字段不会进入 DOM</li>
+          <li>审核保存后状态同步更新</li>
+          <li>现有 Python 与 JavaScript 全量测试不回归</li>
+        </ul>
+      </div>
+      <div class="section">
+        <div class="label">Manual</div>
+        <ul>
+          <li>2560×1440 桌面布局不遮挡解读正文</li>
+          <li>窄屏自动堆叠</li>
+          <li>真实 reading #15 的指标与数据库一致</li>
+          <li>8080 保持关闭，演示继续使用 8082</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:20px">
+  <div class="mockup-header">补录分镜 · 约 40 秒</div>
+  <div class="mockup-body">
+    <div style="display:grid;grid-template-columns:75px 1fr;gap:9px 14px;align-items:start">
+      <strong>00–05s</strong><div><strong>承接原 Demo 的解读结果</strong><br><span style="color:#777">旁白：用户看到的是最终答案，系统同时保留了完整的 Agent 执行轨迹。</span></div>
+      <strong>05–12s</strong><div><strong>点击“查看 Agent 轨迹”</strong><br><span style="color:#777">四阶段一次出现：Intent Router → RAG → Generate → Critique。</span></div>
+      <strong>12–23s</strong><div><strong>停留在真实指标</strong><br><span style="color:#777">指出本地 Qwen2.5-7B、6 条知识命中、总耗时以及每阶段延迟。</span></div>
+      <strong>23–31s</strong><div><strong>展开 Critic 与隐私边界</strong><br><span style="color:#777">展示 8/10、问题标签、无需重试；Prompt 只留哈希，不暴露完整输入。</span></div>
+      <strong>31–37s</strong><div><strong>保存人工审核</strong><br><span style="color:#777">反馈状态更新为 Accepted，证明不是一次性生成，而是可评估的数据闭环。</span></div>
+      <strong>37–42s</strong><div><strong>切到案例页收尾</strong><br><span style="color:#777">画面停在 30 题评测、90% 分类准确率与下一阶段工程化路线。</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="approve-final-design" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content"><h3>批准最终设计并进入实现</h3><p>我会先固化设计文档并请你复核，然后写实施计划和代码。</p></div>
+  </div>
+</div>

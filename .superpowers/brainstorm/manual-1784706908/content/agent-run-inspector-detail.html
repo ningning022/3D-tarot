@@ -1,0 +1,72 @@
+<h2>Agent Run Inspector · 建议展示内容</h2>
+<p class="subtitle">以下全部来自你刚才录制的真实运行 Trace，而不是演示假数据。重点是 30–45 秒内让面试官读懂架构、可观测性和安全边界。</p>
+
+<div class="mockup">
+  <div class="mockup-header">结果页右侧抽屉 · Agent 运行轨迹</div>
+  <div class="mockup-body" style="background:#0a0709;color:#e7d7b5;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #423529;padding-bottom:14px">
+      <div>
+        <div style="font-size:11px;color:#aa9060;letter-spacing:.08em">AGENT RUN / 本地智能体</div>
+        <div style="font-size:20px;margin-top:5px">Trace 725886e6</div>
+      </div>
+      <div style="padding:5px 9px;border:1px solid #397455;color:#91d2aa;border-radius:999px;font-size:11px">✓ COMPLETED</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0">
+      <div style="padding:10px;background:#151014;border-radius:7px"><div style="font-size:10px;color:#968b82">总耗时</div><strong>56.5 s</strong></div>
+      <div style="padding:10px;background:#151014;border-radius:7px"><div style="font-size:10px;color:#968b82">运行模型</div><strong>Qwen2.5 7B</strong></div>
+      <div style="padding:10px;background:#151014;border-radius:7px"><div style="font-size:10px;color:#968b82">RAG 命中</div><strong>6 条</strong></div>
+      <div style="padding:10px;background:#151014;border-radius:7px"><div style="font-size:10px;color:#968b82">Critic 评分</div><strong>8 / 10</strong></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:35px 1fr auto;gap:8px 12px;align-items:center;font-size:12px">
+      <div style="width:26px;height:26px;border-radius:50%;background:#263e2e;color:#91d2aa;display:grid;place-items:center">✓</div>
+      <div><strong>01 · 意图识别 / Classify</strong><div style="color:#a9a09a;margin-top:3px">topic: growth · intent: clarity · tone: neutral</div></div>
+      <div style="color:#c5ae80">27.95 s</div>
+
+      <div style="width:26px;height:26px;border-radius:50%;background:#263e2e;color:#91d2aa;display:grid;place-items:center">✓</div>
+      <div><strong>02 · 知识检索 / Retrieve</strong><div style="color:#a9a09a;margin-top:3px">6 张牌义 · 正逆位约束 · topic bias: growth</div></div>
+      <div style="color:#c5ae80">&lt; 1 ms</div>
+
+      <div style="width:26px;height:26px;border-radius:50%;background:#263e2e;color:#91d2aa;display:grid;place-items:center">✓</div>
+      <div><strong>03 · 答案生成 / Generate</strong><div style="color:#a9a09a;margin-top:3px">ollama:qwen2.5:7b · 308 字 · prompt 96405ccd…</div></div>
+      <div style="color:#c5ae80">21.20 s</div>
+
+      <div style="width:26px;height:26px;border-radius:50%;background:#263e2e;color:#91d2aa;display:grid;place-items:center">✓</div>
+      <div><strong>04 · 安全审查 / Critique</strong><div style="color:#a9a09a;margin-top:3px">8/10 · 无需重试 · 发现：冗余、列表化</div></div>
+      <div style="color:#c5ae80">7.33 s</div>
+    </div>
+
+    <div style="margin-top:16px;padding:11px;border:1px solid #4d3e2e;border-radius:7px;font-size:11px;color:#bcb0a1">
+      隐私设计：默认不展示完整问题、Prompt 和解读正文；仅显示分类标签、哈希、计数和经过裁剪的错误信息。
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top:18px">
+  <div class="pros">
+    <h4>这版能证明</h4>
+    <ul>
+      <li>不是单次 LLM 调用，而是四阶段编排</li>
+      <li>有 RAG、Critic、Trace 与真实延迟数据</li>
+      <li>按需读取 Trace，不增加生成链路延迟</li>
+      <li>能解释一次冷启动为何达到 56.5 秒</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>刻意不声称</h4>
+    <ul>
+      <li>当前没有真正的自主任务规划器</li>
+      <li>当前没有 MCP / Function Calling 工具执行</li>
+      <li>SQLite 历史不等同于完整长期记忆</li>
+      <li>单机 Demo 不包装成高并发分布式系统</li>
+    </ul>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="approve-inspector" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content"><h3>批准这套信息结构</h3><p>下一步确定交互入口、案例页内容和补录脚本。</p></div>
+  </div>
+</div>

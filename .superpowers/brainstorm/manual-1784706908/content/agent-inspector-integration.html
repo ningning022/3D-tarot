@@ -1,0 +1,58 @@
+<h2>交互与数据流设计</h2>
+<p class="subtitle">轨迹面板复用现有咨询弹窗的右侧栏，不遮挡解读正文，也不改变生成链路。</p>
+
+<div class="mockup">
+  <div class="mockup-header">桌面端 · 结果与审核（现有三栏布局）</div>
+  <div class="mockup-body" style="background:#090607;color:#eadbbb;padding:16px">
+    <div style="display:grid;grid-template-columns:150px 1fr 290px;gap:12px;min-height:340px">
+      <div style="border:1px solid #403329;border-radius:8px;padding:12px;font-size:11px;color:#a99474">
+        <strong style="color:#ddc491">步骤 7 / 7</strong>
+        <div style="margin-top:18px;line-height:2.2">选择咨询类型<br>填写信息<br>选择牌阵<br>获取牌面<br>确认咨询<br><span style="color:#ddc491">结果与审核</span></div>
+      </div>
+      <div style="border:1px solid #403329;border-radius:8px;padding:15px">
+        <div style="font-size:17px;margin-bottom:10px">审核解读</div>
+        <div style="padding:13px;background:#120e10;border:1px solid #342a24;border-radius:7px;font-size:11px;line-height:1.7;color:#c9beb0">
+          共同的前提是内心的不确定……继续改进的潜力在于快速行动；开启新项目则需要接受更高的不确定性……
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+          <div style="height:36px;border:1px solid #44382f;border-radius:6px;padding:8px;font-size:11px">结论：接受</div>
+          <div style="height:36px;border:1px solid #44382f;border-radius:6px;padding:8px;font-size:11px">评分：5</div>
+        </div>
+      </div>
+      <aside style="border:1px solid #665034;border-radius:8px;padding:13px;background:#110d10">
+        <div style="display:flex;justify-content:space-between;font-size:11px"><strong>Agent Run</strong><span style="color:#88c99e">● 完成</span></div>
+        <div style="font-size:10px;color:#93877c;margin-top:4px">Trace 725886e6 · Local-first</div>
+        <div style="margin:14px 0;font-size:11px;line-height:2">
+          <div>✓ Classify <span style="float:right">27.95s</span></div>
+          <div>✓ Retrieve <span style="float:right">6 hits</span></div>
+          <div>✓ Generate <span style="float:right">21.20s</span></div>
+          <div>✓ Critique <span style="float:right">8/10</span></div>
+        </div>
+        <button style="width:100%;padding:8px;background:#d0ae6d;border:0;border-radius:6px;color:#17100a">展开技术细节</button>
+        <div style="margin-top:10px;font-size:9px;color:#82776e">完整问题与 Prompt 默认隐藏</div>
+      </aside>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:20px">
+  <div class="label">数据流</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;margin-top:10px">
+    <span style="padding:9px 12px;border:1px solid #aaa;border-radius:7px">结果已生成</span><span>→</span>
+    <span style="padding:9px 12px;border:1px solid #aaa;border-radius:7px">按需 GET agent-trace</span><span>→</span>
+    <span style="padding:9px 12px;border:1px solid #aaa;border-radius:7px">校验并映射 4 个步骤</span><span>→</span>
+    <span style="padding:9px 12px;border:1px solid #aaa;border-radius:7px">右栏渲染真实指标</span>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top:18px">
+  <div class="pros"><h4>正常与移动端</h4><ul><li>桌面端固定在右栏，录屏一眼可见</li><li>窄屏自动堆叠到解读正文下方</li><li>只读取本地 SQLite，不调用模型</li></ul></div>
+  <div class="cons"><h4>降级行为</h4><ul><li>无问题的快速路径：显示“本次无 Agent Trace”</li><li>接口失败：只隐藏技术详情，不影响结果</li><li>某一步失败：红色标记并显示裁剪后的错误</li></ul></div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="approve-integration" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content"><h3>批准右栏集成方案</h3><p>下一节确认作品集案例页和 30–45 秒补录脚本。</p></div>
+  </div>
+</div>
